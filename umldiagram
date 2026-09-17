@@ -1,0 +1,54 @@
+User Abstract CLass
+userid
+name
+email
+passwordhash
+data created
+Status
+
+(OWN) Client EXTENDS User
+isBlacklisted: bool
+List<Accounts>
+
+(OWN) Admin EXTENDS User
+
+(OWN) Accounts class to client
+- List<AccPositions>
+- List<Orders>
+List<Transactions>
+List<Disputes>
+Cash Ledger
+
+(OWN) AccountPositions to account
+PositionID
+AccountID
+SecurityID
+Total s   hares
+Average Price
+Date Accounted
+
+**IGNORE FOR NOW**
+(OWN) Security - Static data
+Security ID
+Ticker
+nameAsset Type
+Exchange
+Currency 
+Status
+
+(OWN) Orders
+
+(OWN) Executions
+
+(OWN) Trades
+
+(OWN) Transactions
+
+(OWN) Disputes
+
+
+
+
+
+
+
