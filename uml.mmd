@@ -1,0 +1,243 @@
+classDiagram
+    %% REASONING: User is abstract base class encapsulating common properties
+    %% All fields private to enforce access control through methods
+    %% Methods: login/logout for auth, updateProfile for user data, changePassword for security
+    %% Protected isPasswordValid() allows subclasses to validate credentials
+    class User {
+        <<abstract>>
+        -UUID userId
+        -String name
+        -String email
+        -String passwordHash
+        -DateTime dateCreated
+        +login(String email, String password) 
+        +logout() bool
+        +getUserId() UUID
+        
+       
+    }
+
+    %% REASONING: Client extends User and manages trading accounts
+    %% Private blacklist flag prevents external manipulation
+    %% isEligibleToTrade() enforces KYC and compliance rules before allowing trades
+    %% getTotalPortfolioValue() is critical for risk management and margin calculations
+    class Client {
+        -bool isBlacklisted
+        -List~Account~ accounts
+        -String clientType
+        +isEligibleToTrade() bool
+        +addAccount(Account account) bool
+        +removeAccount(UUID accountId) bool
+        +getAccounts() List~Account~
+        +getAccountById(UUID accountId) Account
+        +getTotalPortfolioValue() double
+        +getStatus() String
+        +setBlacklisted(bool flag) void
+    }
+
+    %% REASONING: Admin extends User with enforcement capabilities
+    %% adminRole determines access levels (COMPLIANCE, RISK_MANAGER, etc.)
+    %% Methods enforce business rules and provide audit logging
+    %% getAuditLog() required for regulatory compliance and dispute resolution
+    class Admin {
+        -String adminRole
+        -DateTime lastActionDate
+        +assignRole(UUID userId, String role) bool
+        +reviewDispute(UUID disputeId, String resolution) bool
+        +getAuditLog(DateTime from, DateTime to) List~Log~
+        +getAdminRole() String
+    }
+
+    %% REASONING: Account aggregates positions, orders, transactions
+    %% All private fields ensure consistent state through methods
+    %% CashLedger is core (tracks available cash for margin calculations)
+    %% freezeAccount() and calculateMargin() are critical for risk management
+    class Account {
+        -UUID accountId
+        -UUID clientId
+        -List~AccountPosition~ positions
+        -List~Order~ orders
+        -List~Transaction~ transactions
+        -List~Dispute~ disputes
+        -double cashLedger
+        -String accountStatus
+        -DateTime dateOpened
+        +getBalance() double
+        +depositCash(double amount) bool
+        +withdrawCash(double amount) bool
+        +getPortfolioValue() double
+        +getPositions() List~AccountPosition~
+        +placeOrder(Order order) bool
+        +getOrderHistory(int limit) List~Order~
+        +getTransactionHistory(DateTime from, DateTime to) List~Transaction~
+        
+    }
+
+    %% REASONING: AccountPosition represents single holding
+    %% Tracks both quantity and cost basis (averagePrice) for profit/loss calculation
+    %% Private fields prevent stale data; atomic updates maintain consistency
+    %% calculateUnrealizedPnL() needed for real-time portfolio valuation
+    class AccountPosition {
+        -UUID positionId
+        -UUID accountId
+        -UUID securityId
+        -double totalShares
+        -double averagePrice
+        -double marketValue
+        -DateTime dateAccounted
+        -DateTime lastUpdated
+        +updatePosition(double newShares, double newPrice) bool
+        +calculateUnrealizedPnL(double currentPrice) double
+        +getAverageCostBasis() double
+        +getTotalShares() double
+        +getSecurityId() UUID
+    }
+
+    %% REASONING: Security is reference data (mostly immutable)
+    %% Ticker+Exchange uniquely identifies instrument
+    %% Status tracks trading availability (ACTIVE/SUSPENDED/DELISTED)
+    %% minLotSize prevents fractional share trading errors
+    class Security {
+        -UUID securityId
+        -String ticker
+        -String nameAssetType
+        -String exchange
+        -String currency
+        -String status
+        -double minLotSize
+        -DateTime lastPriceUpdate
+        +getDetails() String
+        +updateStatus(String newStatus) bool
+        +isAvailableToTrade() bool
+        +getTicker() String
+        +getAssetType() String
+        +getExchange() String
+        +getMinLotSize() double
+    }
+
+    %% REASONING: Order represents client intent (BUY/SELL)
+    %% Lifecycle: PENDING → PARTIAL/FILLED/CANCELLED
+    %% Immutable core fields (orderId, securityId) prevent after-the-fact changes
+    %% updateFill() called by Execution to track partial fills
+    class Order {
+        -UUID orderId
+        -UUID accountId
+        -UUID securityId
+        -String side
+        -String orderType
+        -double quantity
+        -double limitPrice
+        -String orderStatus
+        -DateTime dateCreated
+        -DateTime dateUpdated
+        -double filledQuantity
+        -double averageFilledPrice
+        +cancelOrder() bool
+        +updateStatus(String newStatus) bool
+        +getFilledQuantity() double
+        +getAveragePrice() double
+        +isFullyFilled() bool
+        +getOrderDetails() String
+    }
+
+    %% REASONING: Execution records actual trade on exchange
+    %% Represents lowest-level transaction (one execution = one trade match)
+    %% exchangeTradeId links to exchange's transaction ID (audit trail)
+    %% Settlement happens T+2 (two business days after trade)
+    class Execution {
+        -UUID executionId
+        -UUID orderId
+        -double quantityFilled
+        -double executionPrice
+        -DateTime executionDate
+        -DateTime settlementDate
+        -String executionStatus
+        -String exchangeTradeId
+        -double executionFee
+        +processExecution() bool
+        +settleExecution() bool
+        +getExecutionCost() double
+        +getExchangeTradeId() String
+        +calculateSettlementAmount() double
+    }
+
+    %% REASONING: Trade aggregates executions into single logical trade
+    %% May have multiple executions if partially filled
+    %% Represents consolidated view for client/reporting
+    %% settleTrade() finalizes after settlement period (T+2)
+    class Trade {
+        -UUID tradeId
+        -UUID orderId
+        -String exchangeId
+        -double tradePrice
+        -double shares
+        -String tradeStatus
+        -DateTime tradeDate
+        -DateTime settlementDate
+        -List~Execution~ executions
+        +settleTrade() bool
+        +getExecutionCount() int
+        +getTotalTradeValue() double
+        +getSettlementDate() DateTime
+        +isSettled() bool
+    }
+
+    %% REASONING: Transaction records all cash movements to/from account
+    %% Every trade and deposit/withdrawal creates transaction for audit
+    %% postToLedger() atomically updates account.cashLedger
+    %% reverseTransaction() needed for dispute resolution and corrections
+    class Transaction {
+        -UUID transactionId
+        -UUID accountId
+        -UUID tradeId
+        -double transactionAmount
+        -String transactionType
+        -DateTime transactionDate
+        -String transactionStatus
+        -String description
+        -UUID referenceId
+        +postToLedger() bool
+        +reverseTransaction() bool
+        +getAmount() double
+        +getType() String
+        +getTransactionDetails() String
+    }
+
+    %% REASONING: Dispute tracks client complaints and conflicts
+    %% Needs accountId + transactionId/tradeId to identify disputed item
+    %% Admin assignment ensures proper routing and accountability
+    %% resolutionAmount tracks compensation if approved
+    class Dispute {
+        -UUID disputeId
+        -UUID accountId
+        -UUID adminId
+        -UUID transactionId
+        -UUID tradeId
+        -String disputeType
+        -String description
+        -String status
+        -DateTime dateCreated
+        -DateTime dateResolved
+        -String resolutionDetails
+        -double resolutionAmount
+        +assignAdmin(UUID adminId) bool
+        +resolveDispute(String finalStatus, String details) bool
+        +getDisputeStatus() String
+        +getResolutionAmount() double
+        +addNoteToDispute(String note) void
+        +getDisputeTimeline() List~Event~
+    }
+
+    User <|-- Client : Extends
+    User <|-- Admin : Extends
+    Client "1" *-- "many" Account : Contains
+    Account "1" *-- "many" AccountPosition : Tracks
+    Account "1" o-- "many" Order : Places
+    Account "1" o-- "many" Transaction : Records
+    Account "1" o-- "many" Dispute : Files
+    Order "1" o-- "many" Execution : Generates
+    Execution "1" -- "1" Trade : Matches
+    Trade "1" -- "1" Transaction : Triggers
+    Dispute "many" -- "1" Admin : Reviewed By
+    AccountPosition "many" -- "1" Security : References
+    Order "many" -- "1" Security : Targets
