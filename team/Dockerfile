@@ -1,6 +1,6 @@
 #Stage 1
 #use lightweight image for building
-FROM eclipse-temurin:21-jdk-alpine as build
+FROM eclipse-temurin:17-jdk-alpine as build
 
 RUN apk add --no-cache maven
 
@@ -19,7 +19,7 @@ COPY src ./src
 RUN mvn -B clean package -DskipTests
 
 #Stage 2
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
