@@ -179,21 +179,22 @@ CREATE TABLE Cash_Ledger (
     Transaction_ID BIGINT,
     Trade_ID BIGINT,
     Entry_Type VARCHAR(16) NOT NULL,
-    Debit_Amount NUMERIC(18,4) NOT NULL,
-    -- positive values (sell or deposit transactions)
-    Credit_Amount NUMERIC(18,4) NOT NULL,
-    -- negative values (buy or withdrawal transactions)
-    Running_Balance NUMERIC(18,4) NOT NULL,
-    -- running balance = previous balance - Credit_Amount + Debit_Amount
-    Holdings NUMERIC(18,4),
-    -- any amount being held for pending trades or other obligations
+    Amount NUMERIC(18,4) NOT NULL,
     Entry_Date TIMESTAMP NOT NULL,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Transaction_ID) REFERENCES Transactions(Transaction_ID),
     FOREIGN KEY (Trade_ID) REFERENCES Trades(Trade_ID),
-    CHECK (Debit_Amount >= 0),
-    CHECK (Credit_Amount >= 0),
-    CHECK (Running_Balance >= 0),
-    CHECK (Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE','TRADE_SETTLEMENT')),
-    CHECK (((Debit_Amount > 0 AND Credit_Amount = 0) OR (Credit_Amount > 0 AND Debit_Amount = 0)))
+    CHECK (abs(Amount) > 0),
+    CHECK (Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE','TRADE_SETTLEMENT'))
+);
+
+CREATE TABLE Account_Balance (
+    Balance_ID BIGINT NOT NULL PRIMARY KEY,
+    Account_ID BIGINT NOT NULL FOREIGN KEY REFERENCES Accounts(Account_ID),
+    Available_Funds NUMERIC(18,4) NOT NULL,
+    Held_Funds NUMERIC(18,4) NOT NULL,
+    Last_Updated TIMESTAMP NOT NULL,
+    FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
+    CHECK (Available_Funds >= 0),
+    CHECK (Held_Funds >= 0)
 );
