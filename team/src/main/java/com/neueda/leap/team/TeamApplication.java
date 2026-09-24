@@ -11,10 +11,9 @@ import java.sql.SQLException;
 @SpringBootApplication()
 public class TeamApplication {
 
-	private static String url = "jdbc:postgresql://10.18.65.245:5432/app";
-	private static String username = "postgres";
-	private static String password = "postgres";
-
+	static String url = System.getenv("SPRING_DATASOURCE_URL");
+	static String username = System.getenv("SPRING_DATASOURCE_USERNAME");
+	static String password = System.getenv("SPRING_DATASOURCE_PASSWORD");
 
 	public static void main(String[] args) {
 		try {
