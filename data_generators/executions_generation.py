@@ -36,29 +36,20 @@ def parse_orders_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern to extract order data from INSERT statement
-        # VALUES (order_id, account_id, security_id, 'side', 'order_type', quantity, limit_price, 'status', 'created_date', 'updated_date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern to extract order data from INSERT statement (new format)
+        # VALUES (order_id, account_id, security_id, 'side', quantity, 'status', 'created_date', 'updated_date')
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([^']*)',\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            order_id, account_id, security_id, side, order_type, quantity, limit_price_str, status, created_date, updated_date = match
-            
-            limit_price = None
-            if limit_price_str != 'NULL':
-                try:
-                    limit_price = float(limit_price_str)
-                except ValueError:
-                    limit_price = None
+            order_id, account_id, security_id, side, quantity, status, created_date, updated_date = match
             
             orders.append({
                 'order_id': int(order_id),
                 'account_id': int(account_id),
                 'security_id': int(security_id),
                 'side': side,
-                'order_type': order_type,
                 'quantity': int(quantity),
-                'limit_price': limit_price,
                 'status': status,
                 'created_date': created_date,
                 'updated_date': updated_date,
@@ -81,48 +72,20 @@ def generate_exchange_trade_id(exchange, counter):
     return f"{exchange}-{counter:08d}"
 
 def determine_execution_status(order_status):
-    """Determine settlement status based on order status"""
-    if order_status in ['FILLED', 'PARTIALLY_FILLED']:
-        return 'SETTLED'
-    elif order_status in ['NEW', 'WORKING']:
+    """Determine execution status based on order status"""
+    if order_status == 'IN_EXECUTION':
+        return 'FILLED'
+    elif order_status == 'PENDING':
         return 'PENDING'
-    elif order_status in ['CANCELLED', 'REJECTED', 'EXPIRED']:
+    elif order_status == 'CANCELLED':
         return 'FAILED'
     else:
         return 'PENDING'  # Default
 
-def generate_execution_price(order, order_type, side, limit_price, base_price=None):
-    """Generate execution price based on order type and constraints"""
-    
-    if base_price is None:
-        base_price = random.uniform(10, 500)
-    
-    if order_type == 'MARKET':
-        # Market order: use base price with small randomness
-        return round(base_price * random.uniform(0.98, 1.02), 2)
-    
-    elif order_type == 'STOP':
-        # Stop order: use base price with randomness
-        return round(base_price * random.uniform(0.98, 1.02), 2)
-    
-    elif order_type == 'LIMIT':
-        if side == 'B':
-            # Buy limit: execution price should be at or below limit price
-            return round(limit_price * random.uniform(0.95, 1.0), 2)
-        else:  # side == 'S'
-            # Sell limit: execution price should be at or above limit price
-            return round(limit_price * random.uniform(1.0, 1.05), 2)
-    
-    elif order_type == 'STOP_LIMIT':
-        if side == 'B':
-            # Buy stop limit: execution price at or below limit price
-            return round(limit_price * random.uniform(0.95, 1.0), 2)
-        else:  # side == 'S'
-            # Sell stop limit: execution price at or above limit price
-            return round(limit_price * random.uniform(1.0, 1.05), 2)
-    
-    else:
-        return round(base_price, 2)
+def generate_execution_price(base_price):
+    """Generate execution price based on base price"""
+    # Add some randomness to the base price (0.98 to 1.02 factor)
+    return round(base_price * random.uniform(0.98, 1.02), 2)
 
 def generate_executions(orders, security_exchanges):
     """Generate execution records for all orders"""
@@ -159,13 +122,7 @@ def generate_executions(orders, security_exchanges):
             quantity_filled = random.randint(int(order['quantity'] * 0.5), order['quantity'])
         
         # Generate execution price
-        execution_price = generate_execution_price(
-            order,
-            order['order_type'],
-            order['side'],
-            order['limit_price'],
-            base_price
-        )
+        execution_price = generate_execution_price(base_price)
         
         # Record this price in history
         security_price_history[sec_id].append(execution_price)
@@ -196,9 +153,9 @@ def generate_executions(orders, security_exchanges):
             'order_id': order['order_id'],
             'quantity_filled': quantity_filled,
             'price_of_execution': execution_price,
-            'time_of_execution': execution_time.strftime('%Y-%m-%d %H:%M:%S'),
-            'date_of_settlement': settlement_date.strftime('%Y-%m-%d'),
-            'status_of_settlement': settlement_status,
+            'date_of_execution': execution_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'settlement_date': settlement_date.strftime('%Y-%m-%d %H:%M:%S'),
+            'status_of_execution': settlement_status,
             'exchange_trade_id': exchange_trade_id,
         }
         
@@ -215,12 +172,13 @@ def format_executions_sql(executions):
         "-- Execute this file in PostgreSQL to populate the Executions table",
         f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"-- Total records: {len(executions)}",
-        "-- Table: Executions (Execution_ID, Order_ID, Quantity_Filled, Price_Of_Execution, Time_Of_Execution, Date_Of_Settlement, Status_Of_Settlement, Exchange_Trade_ID)",
+        "-- Table: Executions (Execution_ID, Order_ID, Quantity_Filled, Price_Of_Execution, Date_Of_Execution, Settlement_Date, Status_Of_Execution, Exchange_Trade_ID)",
+        "-- Status values: PENDING, FILLED, PARTIALLY_FILLED, FAILED",
         ""
     ]
     
     for execution in executions:
-        sql = f"INSERT INTO Executions (Execution_ID, Order_ID, Quantity_Filled, Price_Of_Execution, Time_Of_Execution, Date_Of_Settlement, Status_Of_Settlement, Exchange_Trade_ID) VALUES ({execution['execution_id']}, {execution['order_id']}, {execution['quantity_filled']}, {execution['price_of_execution']}, '{execution['time_of_execution']}', '{execution['date_of_settlement']}', '{execution['status_of_settlement']}', '{execution['exchange_trade_id']}');"
+        sql = f"INSERT INTO Executions (Execution_ID, Order_ID, Quantity_Filled, Price_Of_Execution, Date_Of_Execution, Settlement_Date, Status_Of_Execution, Exchange_Trade_ID) VALUES ({execution['execution_id']}, {execution['order_id']}, {execution['quantity_filled']}, {execution['price_of_execution']}, '{execution['date_of_execution']}', '{execution['settlement_date']}', '{execution['status_of_execution']}', '{execution['exchange_trade_id']}');"
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)

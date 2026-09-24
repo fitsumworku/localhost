@@ -44,21 +44,21 @@ def parse_trades_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (trade_id, execution_id, trade_price, shares, 'trade_status', 'trade_date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*(\d+),\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: VALUES (trade_id, execution_id, security_id, trade_price, shares, 'trade_status', 'trade_date')
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)'\s*\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            trade_id, execution_id, trade_price_str, shares, trade_status, trade_date = match
+            trade_id, execution_id, security_id, trade_price, shares, trade_status, trade_date = match
             
-            # Only get DISPUTED trades
-            if trade_status == 'DISPUTED':
-                trades.append({
-                    'trade_id': int(trade_id),
-                    'trade_date': trade_date,
-                })
+            # Get all trades
+            trades.append({
+                'trade_id': int(trade_id),
+                'trade_date': trade_date,
+                'trade_status': trade_status,
+            })
         
-        print(f"Parsed {len(trades)} DISPUTED trades from {filepath}")
+        print(f"Parsed {len(trades)} trades from {filepath}")
         
     except FileNotFoundError:
         print(f"Warning: {filepath} not found.")
@@ -69,33 +69,31 @@ def parse_trades_file(filepath):
     
     return trades if trades else None
 
-def parse_transactions_file(filepath, trade_ids):
-    """Parse transactions_insert.sql to find disputed transactions"""
+def parse_transactions_file(filepath):
+    """Parse transactions_insert.sql to find disputed or failed transactions"""
     transactions = []
     
     try:
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (transaction_id, account_id, trade_id, 'transaction_type', amount, 'status', 'date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*([^,]*),\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: VALUES (transaction_id, account_id, transaction_amount, 'transaction_type', 'transaction_date', 'transaction_status')
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            transaction_id, account_id, trade_id_str, transaction_type, amount, status, trans_date = match
+            transaction_id, account_id, amount, transaction_type, transaction_date, status = match
             
-            # Only get TRADE_SETTLEMENT transactions that are for disputed trades
-            if transaction_type == 'TRADE_SETTLEMENT' and trade_id_str != 'NULL':
-                trade_id = int(trade_id_str)
-                if trade_id in trade_ids:
-                    transactions.append({
-                        'transaction_id': int(transaction_id),
-                        'account_id': int(account_id),
-                        'trade_id': trade_id,
-                        'transaction_date': trans_date,
-                    })
+            # Only get DISPUTED or FAILED transactions
+            if status in ['DISPUTED', 'FAILED']:
+                transactions.append({
+                    'transaction_id': int(transaction_id),
+                    'account_id': int(account_id),
+                    'transaction_date': transaction_date,
+                    'status': status,
+                })
         
-        print(f"Parsed {len(transactions)} disputed transactions from {filepath}")
+        print(f"Parsed {len(transactions)} DISPUTED/FAILED transactions from {filepath}")
         
     except FileNotFoundError:
         print(f"Warning: {filepath} not found.")
@@ -127,10 +125,11 @@ def parse_admin_users(user_roles_filepath, users_filepath):
         with open(users_filepath, 'r') as f:
             content = f.read()
         
-        pattern = r"VALUES\s*\((\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # New pattern without is_blacklisted: VALUES (user_id, 'name', 'email', 'password', 'created_date', 'status')
+        pattern = r"VALUES\s*\((\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
         matches = re.findall(pattern, content)
         
-        for user_id, name, email, password, created_date, status, is_blacklisted in matches:
+        for user_id, name, email, password, created_date, status in matches:
             user_id = int(user_id)
             if user_id in admin_user_ids:
                 user_details[user_id] = {
@@ -162,11 +161,12 @@ def get_dispute_status():
     else:
         return 'RESOLVED'
 
-def generate_disputes(transactions, admin_user_ids, trades_by_id):
-    """Generate dispute records from disputed transactions"""
+def generate_disputes(transactions, trades, admin_user_ids):
+    """Generate dispute records from disputed transactions and trades"""
     disputes = []
     dispute_id = 1
     
+    # Create disputes for disputed transactions
     for transaction in transactions:
         # Select random admin user
         admin_id = random.choice(admin_user_ids)
@@ -193,6 +193,7 @@ def generate_disputes(transactions, admin_user_ids, trades_by_id):
             'account_id': transaction['account_id'],
             'admin_id': admin_id,
             'transaction_id': transaction['transaction_id'],
+            'trade_id': None,  # No trade_id for transaction disputes
             'dispute_type': dispute_type,
             'description': description,
             'status': status,
@@ -202,6 +203,49 @@ def generate_disputes(transactions, admin_user_ids, trades_by_id):
         
         disputes.append(dispute)
         dispute_id += 1
+    
+    # Also create disputes for disputed trades
+    # Map disputed trades to accounts (we'll use random accounts from existing ones)
+    if len(transactions) > 0:
+        sample_account = transactions[0]['account_id']
+        
+        for trade in trades:
+            if trade['trade_status'] == 'DISPUTED':
+                # Select random admin user
+                admin_id = random.choice(admin_user_ids)
+                
+                # Select dispute type
+                dispute_type = random.choice(list(DISPUTE_TYPES.keys()))
+                description = random.choice(DISPUTE_TYPES[dispute_type])
+                
+                # Generate status
+                status = get_dispute_status()
+                
+                # Generate dates
+                trade_date = datetime.strptime(trade['trade_date'], '%Y-%m-%d')
+                # Date created: 1-30 days after trade
+                date_created = trade_date + timedelta(days=random.randint(1, 30))
+                
+                # Date resolved: only for resolved disputes, 7-60 days after creation
+                date_resolved = None
+                if status == 'RESOLVED':
+                    date_resolved = date_created + timedelta(days=random.randint(7, 60))
+                
+                dispute = {
+                    'dispute_id': dispute_id,
+                    'account_id': sample_account,  # Use sample account since we don't have account info from trades
+                    'admin_id': admin_id,
+                    'transaction_id': None,  # No transaction_id for trade disputes
+                    'trade_id': trade['trade_id'],
+                    'dispute_type': dispute_type,
+                    'description': description,
+                    'status': status,
+                    'date_created': date_created.strftime('%Y-%m-%d'),
+                    'date_resolved': date_resolved.strftime('%Y-%m-%d') if date_resolved else None,
+                }
+                
+                disputes.append(dispute)
+                dispute_id += 1
     
     return disputes
 
@@ -213,13 +257,16 @@ def format_disputes_sql(disputes):
         "-- Execute this file in PostgreSQL to populate the Disputes table",
         f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"-- Total records: {len(disputes)}",
-        "-- Table: Disputes (Dispute_ID, Account_ID, Admin_ID, Transaction_ID, Dispute_Type, Description, Status, Date_Created, Date_Resolved)",
+        "-- Table: Disputes (Dispute_ID, Account_ID, Admin_ID, Transaction_ID, Trade_ID, Dispute_Type, Description, Status, Date_Created, Date_Resolved)",
+        "-- Status values: OPEN, UNDER_REVIEW, ESCALATED, RESOLVED, REJECTED",
         ""
     ]
     
     for dispute in disputes:
         date_resolved_str = f"'{dispute['date_resolved']}'" if dispute['date_resolved'] else 'NULL'
-        sql = f"INSERT INTO Disputes (Dispute_ID, Account_ID, Admin_ID, Transaction_ID, Dispute_Type, Description, Status, Date_Created, Date_Resolved) VALUES ({dispute['dispute_id']}, {dispute['account_id']}, {dispute['admin_id']}, {dispute['transaction_id']}, '{dispute['dispute_type']}', '{dispute['description']}', '{dispute['status']}', '{dispute['date_created']}', {date_resolved_str});"
+        transaction_id_str = str(dispute['transaction_id']) if dispute['transaction_id'] else 'NULL'
+        trade_id_str = str(dispute['trade_id']) if dispute['trade_id'] else 'NULL'
+        sql = f"INSERT INTO Disputes (Dispute_ID, Account_ID, Admin_ID, Transaction_ID, Trade_ID, Dispute_Type, Description, Status, Date_Created, Date_Resolved) VALUES ({dispute['dispute_id']}, {dispute['account_id']}, {dispute['admin_id']}, {transaction_id_str}, {trade_id_str}, '{dispute['dispute_type']}', '{dispute['description']}', '{dispute['status']}', '{dispute['date_created']}', {date_resolved_str});"
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)
@@ -234,19 +281,16 @@ if __name__ == "__main__":
     print("Parsing trades file...")
     trades = parse_trades_file(trades_file)
     
-    if trades is None or len(trades) == 0:
-        print("Error: No disputed trades found")
+    if trades is None:
+        print("Error: Failed to parse trades file")
         exit(1)
-    
-    # Create a set of disputed trade IDs for quick lookup
-    disputed_trade_ids = {t['trade_id'] for t in trades}
     
     print("Parsing transactions file...")
-    transactions = parse_transactions_file(transactions_file, disputed_trade_ids)
+    transactions = parse_transactions_file(transactions_file)
     
     if transactions is None or len(transactions) == 0:
-        print("Error: No disputed transactions found")
-        exit(1)
+        print("Warning: No disputed/failed transactions found")
+        transactions = []
     
     print("Parsing admin users...")
     admin_user_ids = parse_admin_users(user_roles_file, users_file)
@@ -255,16 +299,17 @@ if __name__ == "__main__":
         print("Error: No admin users found")
         exit(1)
     
-    # Create dictionary of trades by ID for reference
-    trades_by_id = {t['trade_id']: t for t in trades}
-    
     print(f"\nStarting dispute generation...")
-    print(f"Disputed Trades: {len(trades)}")
-    print(f"Disputed Transactions: {len(transactions)}")
+    print(f"Total Trades: {len(trades)}")
+    print(f"Disputed/Failed Transactions: {len(transactions)}")
     print(f"Admin Users Available: {len(admin_user_ids)}")
     
     # Generate disputes
-    disputes = generate_disputes(transactions, admin_user_ids, trades_by_id)
+    disputes = generate_disputes(transactions, trades, admin_user_ids)
+    
+    if len(disputes) == 0:
+        print("Warning: No disputes generated")
+        exit(0)
     
     # Format as SQL
     sql_output = format_disputes_sql(disputes)
@@ -279,6 +324,7 @@ if __name__ == "__main__":
     under_review = sum(1 for d in disputes if d['status'] == 'UNDER_REVIEW')
     escalated = sum(1 for d in disputes if d['status'] == 'ESCALATED')
     resolved = sum(1 for d in disputes if d['status'] == 'RESOLVED')
+    rejected = sum(1 for d in disputes if d['status'] == 'REJECTED')
     
     print(f"\nGenerated {len(disputes)} disputes")
     print(f"\nDispute Status Distribution:")
@@ -286,6 +332,7 @@ if __name__ == "__main__":
     print(f"  UNDER_REVIEW: {under_review} ({under_review/len(disputes)*100:.1f}%)")
     print(f"  ESCALATED: {escalated} ({escalated/len(disputes)*100:.1f}%)")
     print(f"  RESOLVED: {resolved} ({resolved/len(disputes)*100:.1f}%)")
+    print(f"  REJECTED: {rejected} ({rejected/len(disputes)*100:.1f}%)")
     
     dispute_types = {}
     for d in disputes:

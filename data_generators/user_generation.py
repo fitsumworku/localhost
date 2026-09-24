@@ -14,10 +14,7 @@ for user_id in range(1, num_users + 1):
     if status_rand < 0.95:
         status = "ACTIVE"
     else:
-        status = random.choice(["INACTIVE", "SUSPENDED", "LOCKED"])
-    
-    # Blacklisted: 3% chance of Y, 97% chance of N
-    is_blacklisted = "Y" if random.random() < 0.03 else "N"
+        status = random.choice(["SUSPENDED"])
     
     user = {
         "user_id": user_id,
@@ -25,8 +22,7 @@ for user_id in range(1, num_users + 1):
         "email": fake.unique.email(),
         "password": fake.password(length=12, special_chars=True, digits=True, upper_case=True, lower_case=True),
         "created_date": fake.date_between(start_date="-2y", end_date="today"),
-        "status": status,
-        "is_blacklisted": is_blacklisted
+        "status": status
     }
     users.append(user)
 
@@ -41,7 +37,7 @@ with open(output_path, "w") as f:
         email = user["email"].replace("'", "''")
         password = user["password"].replace("'", "''")
         
-        sql = f"INSERT INTO Users (user_id, name, email, password, created_date, status, is_blacklisted) VALUES ({user['user_id']}, '{name}', '{email}', '{password}', '{user['created_date']}', '{user['status']}', '{user['is_blacklisted']}');\n"
+        sql = f"INSERT INTO Users (User_ID, Name, Email, Password, Created_Date, Status) VALUES ({user['user_id']}, '{name}', '{email}', '{password}', '{user['created_date']}', '{user['status']}');\n"
         f.write(sql)
 
 print(f"Generated {num_users} user records and saved to {output_path}")

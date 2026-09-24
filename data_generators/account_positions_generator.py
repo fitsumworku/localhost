@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 
 def parse_orders_file(filename):
-    """Parse orders to get order_id -> (side, security_id) mapping"""
+    """Parse orders to get order details"""
     orders = {}
     try:
         with open(filename, 'r') as f:
@@ -12,15 +12,29 @@ def parse_orders_file(filename):
         print(f"Error reading {filename}: {e}")
         return None
     
-    # Pattern: VALUES (order_id, account_id, security_id, side ('B' or 'S'), ...)
-    pattern = r"VALUES \((\d+),\s*\d+,\s*(\d+),\s*'([BS])',"
+    # Pattern: VALUES (order_id, account_id, security_id, 'side', quantity, 'status', 'created_date', 'updated_date')
+    pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([BS])',\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
     
     matches = re.findall(pattern, content)
     for match in matches:
         order_id = int(match[0])
-        security_id = int(match[1])
-        side = match[2]
-        orders[order_id] = {'security_id': security_id, 'side': side}
+        account_id = int(match[1])
+        security_id = int(match[2])
+        side = match[3]
+        quantity = int(match[4])
+        status = match[5]
+        created_date = match[6]
+        updated_date = match[7]
+        
+        orders[order_id] = {
+            'account_id': account_id,
+            'security_id': security_id,
+            'side': side,
+            'quantity': quantity,
+            'status': status,
+            'created_date': created_date,
+            'updated_date': updated_date,
+        }
     
     return orders if orders else None
 
@@ -34,19 +48,26 @@ def parse_executions_file(filename):
         print(f"Error reading {filename}: {e}")
         return None
     
-    # Pattern: VALUES (execution_id, order_id, ...)
-    pattern = r"VALUES \((\d+),\s*(\d+),"
+    # Pattern: VALUES (execution_id, order_id, quantity_filled, price, 'date_of_execution', 'settlement_date', 'status', 'exchange_id')
+    pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
     
     matches = re.findall(pattern, content)
     for match in matches:
         execution_id = int(match[0])
         order_id = int(match[1])
-        executions[execution_id] = order_id
+        quantity_filled = float(match[2])
+        price = float(match[3])
+        
+        executions[execution_id] = {
+            'order_id': order_id,
+            'quantity_filled': quantity_filled,
+            'price': price,
+        }
     
     return executions if executions else None
 
 def parse_trades_file(filename):
-    """Parse trades to get trade_id -> (execution_id, shares, price, date) mapping"""
+    """Parse trades to get trade details"""
     trades = {}
     try:
         with open(filename, 'r') as f:
@@ -55,98 +76,77 @@ def parse_trades_file(filename):
         print(f"Error reading {filename}: {e}")
         return None
     
-    # Pattern: VALUES (trade_id, execution_id, price, shares, status, date)
-    pattern = r"VALUES \((\d+),\s*(\d+),\s*([\d.]+),\s*(\d+),\s*'[^']*',\s*'([^']*)'\)"
+    # Pattern: VALUES (trade_id, execution_id, security_id, trade_price, shares, 'status', 'trade_date')
+    pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)'\s*\)"
     
     matches = re.findall(pattern, content)
     for match in matches:
         trade_id = int(match[0])
         execution_id = int(match[1])
-        price = float(match[2])
-        shares = int(match[3])
-        date = match[4]
+        security_id = int(match[2])
+        price = float(match[3])
+        shares = float(match[4])
+        status = match[5]
+        date = match[6]
+        
         trades[trade_id] = {
             'execution_id': execution_id,
+            'security_id': security_id,
             'shares': shares,
             'price': price,
+            'status': status,
             'date': date
         }
     
     return trades if trades else None
 
-def parse_transactions_file(filename):
-    """Parse transactions to get account_id -> list of trade_id for TRADE_SETTLEMENT"""
-    transactions = defaultdict(list)
-    try:
-        with open(filename, 'r') as f:
-            content = f.read()
-    except Exception as e:
-        print(f"Error reading {filename}: {e}")
-        return None
-    
-    # Pattern: VALUES (transaction_id, account_id, trade_id, 'TRADE_SETTLEMENT', ...)
-    pattern = r"VALUES \((\d+),\s*(\d+),\s*(\d+),\s*'TRADE_SETTLEMENT',"
-    
-    matches = re.findall(pattern, content)
-    for match in matches:
-        account_id = int(match[1])
-        trade_id = int(match[2])
-        transactions[account_id].append(trade_id)
-    
-    return transactions if dict(transactions) else None
-
-def get_trade_info(trade_id, trades, executions, orders):
-    """Get security_id and side by following the chain: trade -> execution -> order"""
-    if trade_id not in trades:
-        return None, None
-    
-    execution_id = trades[trade_id]['execution_id']
-    if execution_id not in executions:
-        return None, None
-    
-    order_id = executions[execution_id]
-    if order_id not in orders:
-        return None, None
-    
-    order_info = orders[order_id]
-    return order_info['security_id'], order_info['side']
-
-def generate_positions(transactions, trades, executions, orders):
-    """Generate position records from transactions"""
+def generate_positions(orders, executions, trades):
+    """Generate position records from orders and trades"""
     positions = {}  # (account_id, security_id) -> position data
     
-    for account_id, trade_ids in transactions.items():
-        for trade_id in trade_ids:
-            security_id, side = get_trade_info(trade_id, trades, executions, orders)
-            if security_id is None or side is None or trade_id not in trades:
-                continue
-            
-            trade = trades[trade_id]
-            shares = trade['shares']
-            price = trade['price']
-            date = trade['date']
-            
-            key = (account_id, security_id)
-            if key not in positions:
-                positions[key] = {
-                    'account_id': account_id,
-                    'security_id': security_id,
-                    'net_shares': 0,          # Total after buys and sells
-                    'total_shares_bought': 0, # Total from buy orders only (for average price)
-                    'buy_value': 0.0,         # Sum of (price * shares) for all buys
-                    'updated_date': date
-                }
-            
-            if side == 'B':  # Buy
-                positions[key]['net_shares'] += shares
-                positions[key]['total_shares_bought'] += shares
-                positions[key]['buy_value'] += price * shares
-            else:  # Sell
-                positions[key]['net_shares'] -= shares
-            
-            # Update date to most recent
-            if date > positions[key]['updated_date']:
-                positions[key]['updated_date'] = date
+    # Process each trade to build positions
+    for trade_id, trade in trades.items():
+        execution_id = trade['execution_id']
+        security_id = trade['security_id']
+        shares = trade['shares']
+        price = trade['price']
+        date = trade['date']
+        
+        # Get the order for this execution
+        if execution_id not in executions:
+            continue
+        
+        execution = executions[execution_id]
+        order_id = execution['order_id']
+        
+        if order_id not in orders:
+            continue
+        
+        order = orders[order_id]
+        account_id = order['account_id']
+        side = order['side']
+        
+        key = (account_id, security_id)
+        if key not in positions:
+            positions[key] = {
+                'account_id': account_id,
+                'security_id': security_id,
+                'net_shares': 0,          # Total after buys and sells
+                'total_shares_bought': 0, # Total from buy orders only (for average price)
+                'buy_value': 0.0,         # Sum of (price * shares) for all buys
+                'updated_date': date
+            }
+        
+        if side == 'B':  # Buy
+            positions[key]['net_shares'] += shares
+            positions[key]['total_shares_bought'] += shares
+            positions[key]['buy_value'] += price * shares
+        else:  # Sell
+            positions[key]['net_shares'] -= shares
+        
+        # Update date to most recent
+        if date > positions[key]['updated_date']:
+            positions[key]['updated_date'] = date
     
     return positions
 
@@ -185,14 +185,14 @@ def main():
     if not orders:
         print("Failed to parse orders")
         return
-    print(f"Parsed {len(orders)} orders with side information")
+    print(f"Parsed {len(orders)} orders")
     
     print("Parsing executions file...")
     executions = parse_executions_file('executions_insert.sql')
     if not executions:
         print("Failed to parse executions")
         return
-    print(f"Parsed {len(executions)} executions with order mappings")
+    print(f"Parsed {len(executions)} executions")
     
     print("Parsing trades file...")
     trades = parse_trades_file('trades_insert.sql')
@@ -201,15 +201,8 @@ def main():
         return
     print(f"Parsed {len(trades)} trades")
     
-    print("Parsing transactions file...")
-    transactions = parse_transactions_file('transactions_insert.sql')
-    if not transactions:
-        print("Failed to parse transactions")
-        return
-    print(f"Parsed transactions for {len(transactions)} accounts")
-    
     print("\nStarting position generation...")
-    positions = generate_positions(transactions, trades, executions, orders)
+    positions = generate_positions(orders, executions, trades)
     active_positions = [p for p in positions.values() if p['net_shares'] > 0]
     print(f"Generated {len(active_positions)} active positions")
     

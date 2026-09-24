@@ -79,66 +79,23 @@ def parse_accounts_file(filepath):
     return accounts if accounts else None
 
 def get_transaction_status_for_deposit_withdrawal():
-    """Generate transaction status for deposits/withdrawals: 90% COMPLETED, 2% PENDING, 5% FAILED, 3% CANCELLED"""
+    """Generate transaction status for deposits/withdrawals: 90% COMPLETED, 5% PENDING, 3% FAILED, 2% REVERSED"""
     rand = random.random()
     if rand < 0.90:
         return 'COMPLETED'
-    elif rand < 0.92:
+    elif rand < 0.95:
         return 'PENDING'
-    elif rand < 0.97:
+    elif rand < 0.98:
         return 'FAILED'
     else:
-        return 'CANCELLED'
+        return 'REVERSED'
 
-def get_transaction_status_for_trade(trade_status):
-    """Generate transaction status based on trade status"""
-    if trade_status == 'PENDING_SETTLEMENT':
-        return 'PENDING'
-    else:  # SETTLED or DISPUTED
-        return 'COMPLETED'
-
-def generate_transactions(trades, accounts):
-    """Generate transaction records for trades and account deposits/withdrawals"""
+def generate_transactions(accounts):
+    """Generate transaction records for account deposits/withdrawals and other transactions"""
     transactions = []
     transaction_id = 1
     
-    # First, add all trade transactions
-    # Map trades to accounts (distribute trades across accounts)
-    account_trades = {acc_id: [] for acc_id in accounts.keys()}
-    for trade in trades:
-        random_account = random.choice(list(accounts.keys()))
-        account_trades[random_account].append(trade)
-    
-    # Create transactions for each trade
-    for trade in trades:
-        # Find which account has this trade
-        account_id = None
-        for acc_id, acc_trades in account_trades.items():
-            if trade in acc_trades:
-                account_id = acc_id
-                break
-        
-        if account_id is None:
-            # Assign to random account if not found
-            account_id = random.choice(list(accounts.keys()))
-        
-        transaction_amount = trade['trade_price'] * trade['shares']
-        transaction_status = get_transaction_status_for_trade(trade['trade_status'])
-        
-        transaction = {
-            'transaction_id': transaction_id,
-            'account_id': account_id,
-            'trade_id': trade['trade_id'],
-            'transaction_type': 'TRADE_SETTLEMENT',
-            'transaction_amount': transaction_amount,
-            'transaction_status': transaction_status,
-            'transaction_date': trade['trade_date'],
-        }
-        
-        transactions.append(transaction)
-        transaction_id += 1
-    
-    # Now generate deposits and withdrawals for each account
+    # Generate deposits and withdrawals for each account
     # Ensure initial deposit comes shortly after account creation
     for account_id in sorted(accounts.keys()):
         account_created = datetime.strptime(accounts[account_id], '%Y-%m-%d')
@@ -150,7 +107,6 @@ def generate_transactions(trades, accounts):
         deposit_transaction = {
             'transaction_id': transaction_id,
             'account_id': account_id,
-            'trade_id': None,
             'transaction_type': 'DEPOSIT',
             'transaction_amount': deposit_amount,
             'transaction_status': 'COMPLETED',  # Initial deposits always complete
@@ -176,7 +132,6 @@ def generate_transactions(trades, accounts):
             deposit_transaction = {
                 'transaction_id': transaction_id,
                 'account_id': account_id,
-                'trade_id': None,
                 'transaction_type': 'DEPOSIT',
                 'transaction_amount': deposit_amount,
                 'transaction_status': deposit_status,
@@ -195,7 +150,6 @@ def generate_transactions(trades, accounts):
             withdrawal_transaction = {
                 'transaction_id': transaction_id,
                 'account_id': account_id,
-                'trade_id': None,
                 'transaction_type': 'WITHDRAWAL',
                 'transaction_amount': withdrawal_amount,
                 'transaction_status': withdrawal_status,
@@ -204,6 +158,42 @@ def generate_transactions(trades, accounts):
             transactions.append(withdrawal_transaction)
             transaction_id += 1
             current_date += timedelta(days=random.randint(3, 15))
+        
+        # Generate occasional dividends, interest, and fees
+        for _ in range(random.randint(0, 2)):
+            # Dividends or interest
+            dividend_amount = round(random.uniform(10, 500), 2)
+            dividend_date = current_date
+            transaction_type = random.choice(['DIVIDEND', 'INTEREST'])
+            
+            dividend_transaction = {
+                'transaction_id': transaction_id,
+                'account_id': account_id,
+                'transaction_type': transaction_type,
+                'transaction_amount': dividend_amount,
+                'transaction_status': 'COMPLETED',  # Dividends and interest are always completed
+                'transaction_date': dividend_date.strftime('%Y-%m-%d'),
+            }
+            transactions.append(dividend_transaction)
+            transaction_id += 1
+            current_date += timedelta(days=random.randint(5, 30))
+        
+        # Generate occasional fees
+        for _ in range(random.randint(0, 2)):
+            fee_amount = round(random.uniform(5, 50), 2)
+            fee_date = current_date
+            
+            fee_transaction = {
+                'transaction_id': transaction_id,
+                'account_id': account_id,
+                'transaction_type': 'FEE',
+                'transaction_amount': fee_amount,
+                'transaction_status': 'COMPLETED',  # Fees are always charged
+                'transaction_date': fee_date.strftime('%Y-%m-%d'),
+            }
+            transactions.append(fee_transaction)
+            transaction_id += 1
+            current_date += timedelta(days=random.randint(5, 30))
     
     return transactions
 
@@ -215,28 +205,21 @@ def format_transactions_sql(transactions):
         "-- Execute this file in PostgreSQL to populate the Transactions table",
         f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"-- Total records: {len(transactions)}",
-        "-- Table: Transactions (Transaction_ID, Account_ID, Trade_ID, Transaction_Type, Transaction_Amount, Transaction_Status, Transaction_Date)",
+        "-- Table: Transactions (Transaction_ID, Account_ID, Transaction_Amount, Transaction_Type, Transaction_Date, Transaction_Status)",
+        "-- Transaction_Type options: DEPOSIT, WITHDRAWAL, DIVIDEND, INTEREST, FEE",
+        "-- Transaction_Status options: PENDING, COMPLETED, FAILED, DISPUTED, REVERSED",
         ""
     ]
     
     for transaction in transactions:
-        trade_id_str = str(transaction['trade_id']) if transaction['trade_id'] else 'NULL'
-        sql = f"INSERT INTO Transactions (Transaction_ID, Account_ID, Trade_ID, Transaction_Type, Transaction_Amount, Transaction_Status, Transaction_Date) VALUES ({transaction['transaction_id']}, {transaction['account_id']}, {trade_id_str}, '{transaction['transaction_type']}', {transaction['transaction_amount']}, '{transaction['transaction_status']}', '{transaction['transaction_date']}');"
+        sql = f"INSERT INTO Transactions (Transaction_ID, Account_ID, Transaction_Amount, Transaction_Type, Transaction_Date, Transaction_Status) VALUES ({transaction['transaction_id']}, {transaction['account_id']}, {transaction['transaction_amount']}, '{transaction['transaction_type']}', '{transaction['transaction_date']}', '{transaction['transaction_status']}');"
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)
 
 if __name__ == "__main__":
-    # Parse input files
-    trades_file = "trades_insert.sql"
+    # Parse input file
     accounts_file = "accounts_insert.sql"
-    
-    print("Parsing trades file...")
-    trades = parse_trades_file(trades_file)
-    
-    if trades is None:
-        print("Error: Failed to parse trades file")
-        exit(1)
     
     print("Parsing accounts file...")
     accounts = parse_accounts_file(accounts_file)
@@ -246,17 +229,34 @@ if __name__ == "__main__":
         exit(1)
     
     print(f"\nStarting transaction generation...")
-    print(f"SETTLED/DISPUTED Trades: {len(trades)}")
     print(f"Accounts: {len(accounts)}")
     
     # Generate transactions
-    transactions = generate_transactions(trades, accounts)
+    transactions = generate_transactions(accounts)
     
     # Format as SQL
     sql_output = format_transactions_sql(transactions)
     
     # Write to file
     output_path = "transactions_insert.sql"
+    with open(output_path, 'w') as f:
+        f.write(sql_output)
+    
+    # Calculate and display transaction type distribution
+    deposit_count = sum(1 for t in transactions if t['transaction_type'] == 'DEPOSIT')
+    withdrawal_count = sum(1 for t in transactions if t['transaction_type'] == 'WITHDRAWAL')
+    dividend_count = sum(1 for t in transactions if t['transaction_type'] == 'DIVIDEND')
+    interest_count = sum(1 for t in transactions if t['transaction_type'] == 'INTEREST')
+    fee_count = sum(1 for t in transactions if t['transaction_type'] == 'FEE')
+    
+    print(f"\nGenerated {len(transactions)} transactions")
+    print(f"Transaction Type Distribution:")
+    print(f"  DEPOSIT: {deposit_count} ({deposit_count/len(transactions)*100:.1f}%)")
+    print(f"  WITHDRAWAL: {withdrawal_count} ({withdrawal_count/len(transactions)*100:.1f}%)")
+    print(f"  DIVIDEND: {dividend_count} ({dividend_count/len(transactions)*100:.1f}%)")
+    print(f"  INTEREST: {interest_count} ({interest_count/len(transactions)*100:.1f}%)")
+    print(f"  FEE: {fee_count} ({fee_count/len(transactions)*100:.1f}%)")
+    print(f"Output written to {output_path}")
     with open(output_path, 'w') as f:
         f.write(sql_output)
     

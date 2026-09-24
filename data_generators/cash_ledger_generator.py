@@ -11,12 +11,12 @@ def parse_orders_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (order_id, account_id, security_id, 'side', 'order_type', quantity, limit_price, 'status', 'created_date', 'updated_date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: VALUES (order_id, account_id, security_id, 'side', quantity, 'status', 'created_date', 'updated_date')
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([^']*)',\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            order_id, account_id, security_id, side, order_type, quantity, limit_price, status, created_date, updated_date = match
+            order_id, account_id, security_id, side, quantity, status, created_date, updated_date = match
             order_sides[int(order_id)] = side
         
         print(f"Parsed {len(order_sides)} orders with side information")
@@ -38,12 +38,12 @@ def parse_executions_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (execution_id, order_id, quantity_filled, price, 'time', 'settlement_date', 'status', 'exchange_id')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: VALUES (execution_id, order_id, quantity_filled, price, 'date_of_execution', 'settlement_date', 'status', 'exchange_id')
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            execution_id, order_id, quantity_filled, price, time_of_execution, settlement_date, status, exchange_id = match
+            execution_id, order_id, quantity_filled, price, date_of_execution, settlement_date, status, exchange_id = match
             execution_orders[int(execution_id)] = int(order_id)
         
         print(f"Parsed {len(execution_orders)} executions with order mappings")
@@ -58,22 +58,35 @@ def parse_executions_file(filepath):
     return execution_orders if execution_orders else None
 
 def parse_trades_file(filepath):
-    """Parse trades_insert.sql to create trade_id -> execution_id mapping"""
-    trade_executions = {}
+    """Parse trades_insert.sql to extract trades for cash ledger"""
+    trades = []
     
     try:
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (trade_id, execution_id, trade_price, shares, 'status', 'trade_date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*(\d+),\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: VALUES (trade_id, execution_id, security_id, trade_price, shares, 'status', 'trade_date')
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)'\s*\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            trade_id, execution_id, trade_price, shares, status, trade_date = match
-            trade_executions[int(trade_id)] = int(execution_id)
+            trade_id, execution_id, security_id, trade_price, shares, status, trade_date = match
+            try:
+                price = float(trade_price)
+                quantity = float(shares)
+            except ValueError:
+                continue
+            
+            trades.append({
+                'trade_id': int(trade_id),
+                'execution_id': int(execution_id),
+                'trade_price': price,
+                'shares': quantity,
+                'status': status,
+                'trade_date': trade_date,
+            })
         
-        print(f"Parsed {len(trade_executions)} trades with execution mappings")
+        print(f"Parsed {len(trades)} trades for cash ledger")
         
     except FileNotFoundError:
         print(f"Warning: {filepath} not found.")
@@ -82,7 +95,7 @@ def parse_trades_file(filepath):
         print(f"Error parsing trades file: {e}")
         return None
     
-    return trade_executions if trade_executions else None
+    return trades if trades else None
 
 def parse_transactions_file(filepath):
     """Parse transactions_insert.sql to extract all transactions"""
@@ -92,26 +105,21 @@ def parse_transactions_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (transaction_id, account_id, trade_id, 'transaction_type', amount, 'status', 'date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*([^,]*),\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: VALUES (transaction_id, account_id, transaction_amount, 'transaction_type', 'transaction_date', 'transaction_status')
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            transaction_id, account_id, trade_id_str, transaction_type, amount, status, trans_date = match
-            
-            trade_id = None
-            if trade_id_str != 'NULL':
-                trade_id = int(trade_id_str)
+            transaction_id, account_id, amount_str, transaction_type, trans_date, status = match
             
             try:
-                amount_float = float(amount)
+                amount_float = float(amount_str)
             except ValueError:
                 amount_float = 0.0
             
             transactions.append({
                 'transaction_id': int(transaction_id),
                 'account_id': int(account_id),
-                'trade_id': trade_id,
                 'transaction_type': transaction_type,
                 'amount': amount_float,
                 'status': status,
@@ -129,106 +137,95 @@ def parse_transactions_file(filepath):
     
     return transactions if transactions else None
 
-def get_trade_side(trade_id, trade_executions, execution_orders, order_sides):
-    """Determine if a trade is a buy or sell by following the chain"""
-    if trade_id not in trade_executions:
-        return None
-    
-    execution_id = trade_executions[trade_id]
-    
-    if execution_id not in execution_orders:
-        return None
-    
-    order_id = execution_orders[execution_id]
-    
-    if order_id not in order_sides:
-        return None
-    
-    return order_sides[order_id]
-
-def generate_ledger_entries(transactions, trade_executions, execution_orders, order_sides):
-    """Generate cash ledger entries from transactions, excluding trades that would create negative balance"""
+def generate_ledger_entries(transactions, trades, order_sides, execution_orders):
+    """Generate cash ledger entries from transactions and trades"""
     ledger_entries = []
     ledger_id = 1
-    skipped_trades = 0
     
-    # Group transactions by account
-    account_transactions = defaultdict(list)
+    # Group all items by account
+    account_items = defaultdict(list)
+    
+    # Add transactions to account items
     for trans in transactions:
-        account_transactions[trans['account_id']].append(trans)
+        account_items[trans['account_id']].append({
+            'type': 'transaction',
+            'data': trans,
+            'date': datetime.strptime(trans['date'], '%Y-%m-%d'),
+        })
     
-    # Sort transactions per account: first deposit first, then rest by date
-    for account_id in account_transactions:
-        account_trans = account_transactions[account_id]
-        
-        # Find the first DEPOSIT transaction (initial deposit)
-        deposits = [t for t in account_trans if t['transaction_type'] == 'DEPOSIT']
-        other_trans = [t for t in account_trans if t['transaction_type'] != 'DEPOSIT']
-        
-        # Sort deposits and other transactions by date
-        if deposits:
-            initial_deposit = min(deposits, key=lambda t: t['date'])
-            # Other deposits after initial
-            other_deposits = [d for d in deposits if d != initial_deposit]
-            other_deposits.sort(key=lambda t: t['date'])
-            
-            # Combine: initial deposit first, then all others sorted by date
-            remaining_trans = other_trans + other_deposits
-            remaining_trans.sort(key=lambda t: t['date'])
-            
-            account_transactions[account_id] = [initial_deposit] + remaining_trans
-        else:
-            # No deposits, just sort by date
-            account_trans.sort(key=lambda t: t['date'])
-            account_transactions[account_id] = account_trans
+    # Add trades to account items (map to accounts randomly since trades don't have account_id)
+    if len(transactions) > 0:
+        sample_account = transactions[0]['account_id']
+        for trade in trades:
+            account_items[sample_account].append({
+                'type': 'trade',
+                'data': trade,
+                'date': datetime.strptime(trade['trade_date'], '%Y-%m-%d'),
+            })
+    
+    # Sort all items by date for each account
+    for account_id in account_items:
+        account_items[account_id].sort(key=lambda x: x['date'])
     
     # Process each account
-    for account_id in sorted(account_transactions.keys()):
-        account_trans = account_transactions[account_id]
+    for account_id in sorted(account_items.keys()):
+        items = account_items[account_id]
         running_balance = 0.0
         
-        for trans in account_trans:
-            transaction_id = trans['transaction_id']
-            transaction_type = trans['transaction_type']
-            amount = trans['amount']
-            trans_date = trans['date']
-            
+        for item in items:
             debit_amount = 0.0
             credit_amount = 0.0
             projected_balance = running_balance
+            transaction_id = None
+            trade_id = None
+            entry_type = None
+            entry_date = None
             
-            if transaction_type == 'DEPOSIT':
-                # Deposits are credits (increase balance)
-                credit_amount = amount
-                projected_balance = running_balance + amount
-            
-            elif transaction_type == 'WITHDRAWAL':
-                # Withdrawals are debits (decrease balance)
-                debit_amount = amount
-                projected_balance = running_balance - amount
-            
-            elif transaction_type == 'TRADE_SETTLEMENT':
-                # For trades, we need to determine if it's a buy or sell
-                trade_id = trans['trade_id']
-                side = get_trade_side(trade_id, trade_executions, execution_orders, order_sides)
+            if item['type'] == 'transaction':
+                trans = item['data']
+                transaction_id = trans['transaction_id']
+                transaction_type = trans['transaction_type']
+                amount = trans['amount']
+                entry_date = trans['date']
+                entry_type = transaction_type
                 
-                if side == 'B':  # Buy
-                    # Buys are debits (cash goes out)
-                    debit_amount = amount
-                    projected_balance = running_balance - amount
-                elif side == 'S':  # Sell
-                    # Sells are credits (cash comes in)
+                if transaction_type in ['DEPOSIT', 'DIVIDEND', 'INTEREST']:
+                    # Credits (increase balance)
                     credit_amount = amount
                     projected_balance = running_balance + amount
+                elif transaction_type in ['WITHDRAWAL', 'FEE']:
+                    # Debits (decrease balance)
+                    debit_amount = amount
+                    projected_balance = running_balance - amount
+            
+            elif item['type'] == 'trade':
+                trade = item['data']
+                trade_id = trade['trade_id']
+                execution_id = trade['execution_id']
+                trade_amount = trade['trade_price'] * trade['shares']
+                entry_date = trade['trade_date']
+                entry_type = 'TRADE_SETTLEMENT'
+                
+                # Determine buy/sell side
+                order_id = execution_orders.get(execution_id)
+                if order_id:
+                    side = order_sides.get(order_id)
+                    
+                    if side == 'B':  # Buy
+                        # Buys are debits (cash goes out)
+                        debit_amount = trade_amount
+                        projected_balance = running_balance - trade_amount
+                    elif side == 'S':  # Sell
+                        # Sells are credits (cash comes in)
+                        credit_amount = trade_amount
+                        projected_balance = running_balance + trade_amount
+                    else:
+                        continue
                 else:
-                    # If we can't determine side, skip this trade
-                    skipped_trades += 1
                     continue
                 
-                # Skip this trade if it would result in negative balance
-                if projected_balance < 0:
-                    skipped_trades += 1
-                    continue
+                # Create transaction_id reference (use trade_id as placeholder)
+                transaction_id = trade_id
             
             # Only add if balance remains non-negative
             if projected_balance >= 0:
@@ -238,17 +235,17 @@ def generate_ledger_entries(transactions, trade_executions, execution_orders, or
                     'ledger_id': ledger_id,
                     'account_id': account_id,
                     'transaction_id': transaction_id,
-                    'entry_type': transaction_type,
+                    'trade_id': trade_id,
+                    'entry_type': entry_type,
                     'debit_amount': debit_amount,
                     'credit_amount': credit_amount,
                     'running_balance': running_balance,
-                    'entry_date': trans_date,
+                    'entry_date': entry_date,
                 }
                 
                 ledger_entries.append(entry)
                 ledger_id += 1
     
-    print(f"Skipped {skipped_trades} trades that would create negative balance")
     return ledger_entries
 
 def format_ledger_sql(ledger_entries):
@@ -259,12 +256,14 @@ def format_ledger_sql(ledger_entries):
         "-- Execute this file in PostgreSQL to populate the Cash_Ledger table",
         f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"-- Total records: {len(ledger_entries)}",
-        "-- Table: Cash_Ledger (Ledger_ID, Account_ID, Transaction_ID, Entry_Type, Debit_Amount, Credit_Amount, Running_Balance, Entry_Date)",
+        "-- Table: Cash_Ledger (Ledger_ID, Account_ID, Transaction_ID, Trade_ID, Entry_Type, Debit_Amount, Credit_Amount, Running_Balance, Entry_Date)",
+        "-- Entry_Type options: DEPOSIT, WITHDRAWAL, DIVIDEND, INTEREST, FEE, TRADE_SETTLEMENT",
         ""
     ]
     
     for entry in ledger_entries:
-        sql = f"INSERT INTO Cash_Ledger (Ledger_ID, Account_ID, Transaction_ID, Entry_Type, Debit_Amount, Credit_Amount, Running_Balance, Entry_Date) VALUES ({entry['ledger_id']}, {entry['account_id']}, {entry['transaction_id']}, '{entry['entry_type']}', {entry['debit_amount']}, {entry['credit_amount']}, {entry['running_balance']}, '{entry['entry_date']}');"
+        trade_id_str = str(entry['trade_id']) if entry['trade_id'] else 'NULL'
+        sql = f"INSERT INTO Cash_Ledger (Ledger_ID, Account_ID, Transaction_ID, Trade_ID, Entry_Type, Debit_Amount, Credit_Amount, Running_Balance, Entry_Date) VALUES ({entry['ledger_id']}, {entry['account_id']}, {entry['transaction_id']}, {trade_id_str}, '{entry['entry_type']}', {entry['debit_amount']}, {entry['credit_amount']}, {entry['running_balance']}, '{entry['entry_date']}');"
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)
@@ -291,27 +290,25 @@ if __name__ == "__main__":
         exit(1)
     
     print("Parsing trades file...")
-    trade_executions = parse_trades_file(trades_file)
+    trades = parse_trades_file(trades_file)
     
-    if trade_executions is None:
-        print("Error: Failed to parse trades file")
-        exit(1)
+    if trades is None:
+        trades = []  # No trades is OK
     
     print("Parsing transactions file...")
     transactions = parse_transactions_file(transactions_file)
     
     if transactions is None:
-        print("Error: Failed to parse transactions file")
-        exit(1)
+        transactions = []  # No transactions is OK
     
     print(f"\nStarting cash ledger generation...")
     print(f"Orders with sides: {len(order_sides)}")
     print(f"Executions: {len(execution_orders)}")
-    print(f"Trades: {len(trade_executions)}")
+    print(f"Trades: {len(trades)}")
     print(f"Transactions: {len(transactions)}")
     
     # Generate ledger entries
-    ledger_entries = generate_ledger_entries(transactions, trade_executions, execution_orders, order_sides)
+    ledger_entries = generate_ledger_entries(transactions, trades, order_sides, execution_orders)
     
     # Format as SQL
     sql_output = format_ledger_sql(ledger_entries)
@@ -324,15 +321,18 @@ if __name__ == "__main__":
     # Calculate and display statistics
     total_debits = sum(e['debit_amount'] for e in ledger_entries)
     total_credits = sum(e['credit_amount'] for e in ledger_entries)
-    deposits = sum(1 for e in ledger_entries if e['entry_type'] == 'DEPOSIT')
-    withdrawals = sum(1 for e in ledger_entries if e['entry_type'] == 'WITHDRAWAL')
-    trades = sum(1 for e in ledger_entries if e['entry_type'] == 'TRADE_SETTLEMENT')
+    
+    # Count by entry type
+    entry_types = {}
+    for e in ledger_entries:
+        etype = e['entry_type']
+        entry_types[etype] = entry_types.get(etype, 0) + 1
     
     print(f"\nGenerated {len(ledger_entries)} ledger entries")
     print(f"\nEntry Type Distribution:")
-    print(f"  DEPOSIT: {deposits}")
-    print(f"  WITHDRAWAL: {withdrawals}")
-    print(f"  TRADE_SETTLEMENT: {trades}")
+    for etype in sorted(entry_types.keys()):
+        print(f"  {etype}: {entry_types[etype]}")
+    
     print(f"\nLedger Totals:")
     print(f"  Total Debits: ${total_debits:,.2f}")
     print(f"  Total Credits: ${total_credits:,.2f}")

@@ -127,6 +127,7 @@ CREATE TABLE Executions (
 CREATE TABLE Trades (
     Trade_ID BIGSERIAL PRIMARY KEY,
     Execution_ID BIGINT NOT NULL,
+    Security_ID BIGINT NOT NULL,
     Trade_Price NUMERIC(18,4) NOT NULL,
     Shares NUMERIC(18,4) NOT NULL,
     Trade_Status VARCHAR(18) NOT NULL,
@@ -155,7 +156,8 @@ CREATE TABLE Disputes (
     Dispute_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL,
     Admin_ID BIGINT NOT NULL,
-    Transaction_ID BIGINT NOT NULL,
+    Transaction_ID BIGINT,
+    Trade_ID BIGINT,
     Dispute_Type VARCHAR(50) NOT NULL,
     Description TEXT,
     Status VARCHAR(12) NOT NULL,

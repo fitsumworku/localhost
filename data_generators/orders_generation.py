@@ -53,12 +53,11 @@ def parse_accounts_file(filepath):
     
     return account_ids if account_ids else None
 
-# Order types and statuses
-order_types = ['MARKET', 'LIMIT', 'STOP', 'STOP_LIMIT']
+# Order sides and statuses
 order_sides = ['B', 'S']
 
-# Status distribution: 5% NEW, 2% WORKING, 17% PARTIALLY_FILLED, 66% FILLED, 10% CANCELLED
-status_distribution = ['NEW'] * 5 + ['WORKING'] * 2 + ['PARTIALLY_FILLED'] * 17 + ['FILLED'] * 66 + ['CANCELLED'] * 10
+# Status distribution: 40% PENDING, 40% IN_EXECUTION, 20% CANCELLED (per schema)
+status_distribution = ['PENDING'] * 40 + ['IN_EXECUTION'] * 40 + ['CANCELLED'] * 20
 
 def generate_orders(active_securities, account_ids, num_orders_per_account=15):
     """Generate orders ensuring sells have corresponding prior buys"""
@@ -72,7 +71,6 @@ def generate_orders(active_securities, account_ids, num_orders_per_account=15):
         
         for _ in range(num_orders):
             security_id = random.choice(active_securities)
-            order_type = random.choice(order_types)
             quantity = random.randint(10, 1000)
             
             # Pre-assign as buy or sell (70/30 ratio)
@@ -84,18 +82,13 @@ def generate_orders(active_securities, account_ids, num_orders_per_account=15):
             created_date = base_date
             updated_date = created_date + timedelta(days=random.randint(0, 30))
             
-            # Generate prices
-            base_price = random.uniform(10, 500)
-            
             # Select status based on distribution
             status = random.choice(status_distribution)
             
             order_templates.append({
                 'account_id': account_id,
                 'security_id': security_id,
-                'order_type': order_type,
                 'quantity': quantity,
-                'base_price': base_price,
                 'status': status,
                 'created_date': created_date,
                 'updated_date': updated_date,
@@ -134,9 +127,7 @@ def generate_orders(active_securities, account_ids, num_orders_per_account=15):
                     orders_to_add.append({
                         'account_id': account_id,
                         'security_id': sec_id,
-                        'order_type': random.choice(order_types),
                         'quantity': template['quantity'],
-                        'base_price': random.uniform(10, 500),
                         'status': random.choice(status_distribution),
                         'created_date': synthetic_date,
                         'updated_date': synthetic_date + timedelta(days=random.randint(0, 30)),
@@ -165,21 +156,12 @@ def generate_orders(active_securities, account_ids, num_orders_per_account=15):
                 side = 'B'
                 security_balances[sec_id] += template['quantity']
             
-            limit_price = None
-            if template['order_type'] in ['LIMIT', 'STOP_LIMIT']:
-                if side == 'B':
-                    limit_price = round(template['base_price'] * random.uniform(0.95, 0.99), 2)
-                else:
-                    limit_price = round(template['base_price'] * random.uniform(1.01, 1.05), 2)
-            
             order = {
                 'order_id': order_id,
                 'account_id': template['account_id'],
                 'security_id': template['security_id'],
                 'side': side,
-                'order_type': template['order_type'],
                 'quantity': template['quantity'],
-                'limit_price': limit_price,
                 'status': template['status'],
                 'created_date': template['created_date'].strftime('%Y-%m-%d %H:%M:%S'),
                 'updated_date': template['updated_date'].strftime('%Y-%m-%d %H:%M:%S')
@@ -198,13 +180,13 @@ def format_orders_sql(orders):
         "-- Execute this file in PostgreSQL to populate the Orders table",
         f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"-- Total records: {len(orders)}",
-        "-- Table: Orders (Order_ID, Account_ID, Security_ID, Side, Order_Type, Quantity_Ordered, Limit_Price, Order_Status, Created_Date, Updated_Date)",
+        "-- Table: Orders (Order_ID, Account_ID, Security_ID, Side, Quantity_Ordered, Order_Status, Created_Date, Updated_Date)",
+        "-- Status options: PENDING, IN_EXECUTION, CANCELLED",
         ""
     ]
     
     for order in orders:
-        limit_price_str = f"{order['limit_price']}" if order['limit_price'] else "NULL"
-        sql = f"INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Side, Order_Type, Quantity_Ordered, Limit_Price, Order_Status, Created_Date, Updated_Date) VALUES ({order['order_id']}, {order['account_id']}, {order['security_id']}, '{order['side']}', '{order['order_type']}', {order['quantity']}, {limit_price_str}, '{order['status']}', '{order['created_date']}', '{order['updated_date']}');"
+        sql = f"INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Side, Quantity_Ordered, Order_Status, Created_Date, Updated_Date) VALUES ({order['order_id']}, {order['account_id']}, {order['security_id']}, '{order['side']}', {order['quantity']}, '{order['status']}', '{order['created_date']}', '{order['updated_date']}');"
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)
