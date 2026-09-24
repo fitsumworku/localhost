@@ -96,9 +96,7 @@ CREATE TABLE Orders (
     Account_ID BIGINT NOT NULL,
     Security_ID BIGINT NOT NULL,
     Side CHAR(1) NOT NULL,
-    Order_Type VARCHAR(10) NOT NULL,
     Quantity_Ordered NUMERIC(18,4) NOT NULL,
-    Limit_Price NUMERIC(18,4),
     Order_Status VARCHAR(16) NOT NULL,
     Created_Date TIMESTAMP NOT NULL,
     Updated_Date TIMESTAMP NOT NULL,
@@ -106,9 +104,7 @@ CREATE TABLE Orders (
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
     CHECK (Side IN ('B','S')),
     CHECK (Quantity_Ordered > 0),
-    CHECK (Order_Type IN ('MARKET','LIMIT','STOP','STOP_LIMIT')),
     CHECK (Order_Status IN ('PENDING','IN_EXECUTION','CANCELLED')),
-    CHECK (Limit_Price IS NULL AND Order_Type<>'LIMIT' OR Limit_Price > 0),
     CHECK (Updated_Date >= Created_Date)
 );
 
@@ -185,14 +181,12 @@ CREATE TABLE Cash_Ledger (
     -- negative values (buy or withdrawal transactions)
     Running_Balance NUMERIC(18,4) NOT NULL,
     -- running balance = previous balance - Credit_Amount + Debit_Amount
-    Holdings NUMERIC(18,4),
-    -- any amount being held for pending trades or other obligations
     Entry_Date TIMESTAMP NOT NULL,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Transaction_ID) REFERENCES Transactions(Transaction_ID),
     FOREIGN KEY (Trade_ID) REFERENCES Trades(Trade_ID),
-    CHECK (Debit_Amount >= 0),
-    CHECK (Credit_Amount >= 0),
+    CHECK (Debit_Amount > 0),
+    CHECK (Credit_Amount > 0),
     CHECK (Running_Balance >= 0),
     CHECK (Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE','TRADE_SETTLEMENT')),
     CHECK (((Debit_Amount > 0 AND Credit_Amount = 0) OR (Credit_Amount > 0 AND Debit_Amount = 0)))
