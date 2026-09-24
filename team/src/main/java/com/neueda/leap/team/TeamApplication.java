@@ -18,7 +18,7 @@ public class TeamApplication {
 	public static void main(String[] args) {
 		try {
 			Connection conn = DriverManager.getConnection(url, username, password);
-            System.out.println("Connected to database successfully");
+            System.out.println("Connected to database successfully ITS WORKING");
 			conn.close();
 		} catch (SQLException e) {
 			throw new RuntimeException(e.getMessage());
