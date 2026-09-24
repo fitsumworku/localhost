@@ -7,33 +7,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
-import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "Users")
 public class UserEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID userId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "User_ID")
+    private Long userId;
 
-    @Column(nullable = false)
+    @Column(name = "Name", nullable = false)
     private String name;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "Email", nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
-    private String passwordHash;
+    @Column(name ="Password", nullable = false)
+    private String password;
 
-    @Column(nullable = false, updatable = false)
+    @Column(name = "Created_Date", nullable = false, updatable = false)
     private LocalDateTime dateCreated;
 
-    @Column(nullable = false)
+    @Column(name = "Status", nullable = false)
     private String status;  // ACTIVE, SUSPENDED
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<AccountEntity> accounts = new ArrayList<>();
+    // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    // private List<AccountEntity> accounts = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -47,16 +47,16 @@ public class UserEntity {
 
     public UserEntity() {}
 
-    public UserEntity(String name, String email, String passwordHash) {
+    public UserEntity(String name, String email, String password) {
         this.name = name;
         this.email = email;
-        this.passwordHash = passwordHash;
+        this.password = password;
         this.dateCreated = LocalDateTime.now();
         this.status = "ACTIVE";
     }
 
     // Getters and Setters
-    public UUID getUserId() {
+    public Long getUserId() {
         return userId;
     }
 
@@ -76,12 +76,21 @@ public class UserEntity {
         this.email = email;
     }
 
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    // Backward-compatible aliases used by older service/controller code.
     public String getPasswordHash() {
-        return passwordHash;
+        return password;
     }
 
     public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
+        this.password = passwordHash;
     }
 
     public LocalDateTime getDateCreated() {
