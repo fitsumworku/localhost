@@ -16,7 +16,7 @@ public class AccountEntity {
     private UUID accountId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "userId", nullable = false)
     private UserEntity user;
 
     @Column(nullable = false, updatable = false)
@@ -33,9 +33,6 @@ public class AccountEntity {
 
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AccountPositionEntity> positions = new ArrayList<>();
-
-    @OneToMany(mappedBy = "order",  cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderEntity> orders = new ArrayList<>();
 
     // Constructors
     public AccountEntity() {}
