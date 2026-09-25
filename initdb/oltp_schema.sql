@@ -119,36 +119,35 @@ CREATE TABLE Executions (
     FOREIGN KEY (Order_ID) REFERENCES Orders(Order_ID),
     CHECK (Quantity_Filled > 0),
     CHECK (Price_Of_Execution > 0),
-    CHECK (Status_Of_Execution IN ('PENDING','FILLED','PARTIALLY_FILLED','FAILED')),
-    CHECK (Settlement_Date >= Date_Of_Execution)
+    CHECK (Status_Of_Execution IN ('PENDING','FILLED','PARTIALLY_FILLED','FAILED'))
 );
 
 CREATE TABLE Trades (
     Trade_ID BIGSERIAL PRIMARY KEY,
     Execution_ID BIGINT NOT NULL,
     Security_ID BIGINT NOT NULL,
-    Trade_Price NUMERIC(18,4) NOT NULL,
+    Price_Of_Trade NUMERIC(18,4) NOT NULL,
     Shares NUMERIC(18,4) NOT NULL,
-    Trade_Status VARCHAR(18) NOT NULL,
-    Trade_Date TIMESTAMP NOT NULL,
+    Status_Of_Trade VARCHAR(18) NOT NULL,
+    Date_Of_Trade TIMESTAMP NOT NULL,
     FOREIGN KEY (Execution_ID) REFERENCES Executions(Execution_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
-    CHECK (Trade_Price > 0),
+    CHECK (Price_Of_Trade > 0),
     CHECK (Shares > 0),
-    CHECK (Trade_Status IN ('PENDING','SETTLED','DISPUTED','REVERSED'))
+    CHECK (Status_Of_Trade IN ('PENDING','SETTLED','DISPUTED','REVERSED'))
 );
 
 CREATE TABLE Transactions (
     Transaction_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL,
-    Transaction_Amount NUMERIC(18,4) NOT NULL,
-    Transaction_Type VARCHAR(16) NOT NULL,
-    Transaction_Date TIMESTAMP NOT NULL,
-    Transaction_Status VARCHAR(9) NOT NULL,
+    Amount_Of_Transaction NUMERIC(18,4) NOT NULL,
+    Type_Of_Transaction VARCHAR(16) NOT NULL,
+    Date_Of_Transaction TIMESTAMP NOT NULL,
+    Status_Of_Transaction VARCHAR(9) NOT NULL,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
-    CHECK (Transaction_Amount > 0),
-    CHECK (Transaction_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE')),
-    CHECK (Transaction_Status IN ('PENDING','COMPLETED','FAILED','DISPUTED','REVERSED'))
+    CHECK (Amount_Of_Transaction > 0),
+    CHECK (Type_Of_Transaction IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE')),
+    CHECK (Status_Of_Transaction IN ('PENDING','COMPLETED','FAILED','DISPUTED','REVERSED'))
 );
 
 CREATE TABLE Disputes (
@@ -160,14 +159,14 @@ CREATE TABLE Disputes (
     Dispute_Type VARCHAR(50) NOT NULL,
     Description TEXT,
     Status VARCHAR(12) NOT NULL,
-    Date_Created TIMESTAMP NOT NULL,
-    Date_Resolved TIMESTAMP,
+    Created_Date TIMESTAMP NOT NULL,
+    Resolved_Date TIMESTAMP,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Admin_ID) REFERENCES Users(User_ID),
     FOREIGN KEY (Transaction_ID) REFERENCES Transactions(Transaction_ID),
     FOREIGN KEY (Trade_ID) REFERENCES Trades(Trade_ID),
     CHECK (Status IN ('OPEN','UNDER_REVIEW','ESCALATED','RESOLVED','REJECTED')),
-    CHECK (Date_Resolved IS NULL OR Date_Resolved >= Date_Created)
+    CHECK (Resolved_Date IS NULL OR Resolved_Date >= Created_Date)
 );
 
 CREATE TABLE Cash_Ledger (
