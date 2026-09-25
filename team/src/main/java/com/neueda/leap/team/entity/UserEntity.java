@@ -105,46 +105,46 @@ public class UserEntity {
         this.status = status;
     }
 
-    public List<AccountEntity> getAccounts() {
-        return accounts;
-    }
-
-    public void setAccounts(List<AccountEntity> accounts) {
-        this.accounts = accounts;
-    }
-
-    public Set<RoleEntity> getRoles() {
-        return roles;
-    }
-
-    public void setRoles(Set<RoleEntity> roles) {
-        this.roles = roles;
-    }
-
-    // Role management methods
-    public boolean hasRole(String roleName) {
-        return roles.stream().anyMatch(r -> r.getRoleName().equals(roleName));
-    }
-
-    public void addRole(RoleEntity role) {
-        roles.add(role);
-        role.getUsers().add(this);
-    }
-
-    public void removeRole(RoleEntity role) {
-        roles.remove(role);
-        role.getUsers().remove(this);
-    }
-
-    public void addAccount(AccountEntity account) {
-        accounts.add(account);
-        account.setUser(this);
-    }
-
-    public void removeAccount(AccountEntity account) {
-        accounts.remove(account);
-        account.setUser(null);
-    }
+//    public List<AccountEntity> getAccounts() {
+//        return accounts;
+//    }
+//
+//    public void setAccounts(List<AccountEntity> accounts) {
+//        this.accounts = accounts;
+//    }
+//
+//    public Set<RoleEntity> getRoles() {
+//        return roles;
+//    }
+//
+//    public void setRoles(Set<RoleEntity> roles) {
+//        this.roles = roles;
+//    }
+//
+//    // Role management methods
+//    public boolean hasRole(String roleName) {
+//        return roles.stream().anyMatch(r -> r.getRoleName().equals(roleName));
+//    }
+//
+//    public void addRole(RoleEntity role) {
+//        roles.add(role);
+//        role.getUsers().add(this);
+//    }
+//
+//    public void removeRole(RoleEntity role) {
+//        roles.remove(role);
+//        role.getUsers().remove(this);
+//    }
+//
+//    public void addAccount(AccountEntity account) {
+//        accounts.add(account);
+//        account.setUser(this);
+//    }
+//
+//    public void removeAccount(AccountEntity account) {
+//        accounts.remove(account);
+//        account.setUser(null);
+//    }
 
     // Authentication methods
     public boolean login(String email, String password) {
