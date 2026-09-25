@@ -1,6 +1,7 @@
 from faker import Faker
 import random
 from pathlib import Path
+from datetime import datetime, timedelta
 
 fake = Faker()
 
@@ -16,12 +17,17 @@ for user_id in range(1, num_users + 1):
     else:
         status = random.choice(["SUSPENDED"])
     
+    # Generate timestamp with date and time
+    base_date = datetime.now() - timedelta(days=730)  # 2 years ago
+    days_ago = random.randint(0, 730)
+    created_date = base_date + timedelta(days=days_ago, hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
+    
     user = {
         "user_id": user_id,
         "name": fake.name(),
         "email": fake.unique.email(),
         "password": fake.password(length=12, special_chars=True, digits=True, upper_case=True, lower_case=True),
-        "created_date": fake.date_between(start_date="-2y", end_date="today"),
+        "created_date": created_date,
         "status": status
     }
     users.append(user)
@@ -37,7 +43,8 @@ with open(output_path, "w") as f:
         email = user["email"].replace("'", "''")
         password = user["password"].replace("'", "''")
         
-        sql = f"INSERT INTO Users (User_ID, Name, Email, Password, Created_Date, Status) VALUES ({user['user_id']}, '{name}', '{email}', '{password}', '{user['created_date']}', '{user['status']}');\n"
+        created_date_str = user['created_date'].strftime('%Y-%m-%d %H:%M:%S')
+        sql = f"INSERT INTO Users (User_ID, Name, Email, Password, Created_Date, Status) VALUES ({user['user_id']}, '{name}', '{email}', '{password}', '{created_date_str}', '{user['status']}');\n"
         f.write(sql)
 
 print(f"Generated {num_users} user records and saved to {output_path}")

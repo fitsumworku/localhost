@@ -144,7 +144,10 @@ def generate_positions(orders, executions, trades):
         else:  # Sell
             positions[key]['net_shares'] -= shares
         
-        # Update date to most recent
+        # Update date to most recent (ensure timestamp format)
+        if isinstance(date, str):
+            if ' ' not in date and 'T' not in date:
+                date = date + ' ' + f"{random.randint(0, 23):02d}:{random.randint(0, 59):02d}:{random.randint(0, 59):02d}"
         if date > positions[key]['updated_date']:
             positions[key]['updated_date'] = date
     

@@ -179,14 +179,14 @@ def generate_disputes(transactions, trades, admin_user_ids):
         status = get_dispute_status()
         
         # Generate dates
-        transaction_date = datetime.strptime(transaction['transaction_date'], '%Y-%m-%d')
+        transaction_date = datetime.strptime(transaction['transaction_date'], '%Y-%m-%d %H:%M:%S')
         # Date created: 1-30 days after transaction
-        date_created = transaction_date + timedelta(days=random.randint(1, 30))
+        date_created = transaction_date + timedelta(days=random.randint(1, 30), hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
         
         # Date resolved: only for resolved disputes, 7-60 days after creation
         date_resolved = None
         if status == 'RESOLVED':
-            date_resolved = date_created + timedelta(days=random.randint(7, 60))
+            date_resolved = date_created + timedelta(days=random.randint(7, 60), hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
         
         dispute = {
             'dispute_id': dispute_id,
@@ -197,8 +197,8 @@ def generate_disputes(transactions, trades, admin_user_ids):
             'dispute_type': dispute_type,
             'description': description,
             'status': status,
-            'date_created': date_created.strftime('%Y-%m-%d'),
-            'date_resolved': date_resolved.strftime('%Y-%m-%d') if date_resolved else None,
+            'date_created': date_created.strftime('%Y-%m-%d %H:%M:%S'),
+            'date_resolved': date_resolved.strftime('%Y-%m-%d %H:%M:%S') if date_resolved else None,
         }
         
         disputes.append(dispute)
@@ -222,14 +222,14 @@ def generate_disputes(transactions, trades, admin_user_ids):
                 status = get_dispute_status()
                 
                 # Generate dates
-                trade_date = datetime.strptime(trade['trade_date'], '%Y-%m-%d')
+                trade_date = datetime.strptime(trade['trade_date'], '%Y-%m-%d %H:%M:%S')
                 # Date created: 1-30 days after trade
-                date_created = trade_date + timedelta(days=random.randint(1, 30))
+                date_created = trade_date + timedelta(days=random.randint(1, 30), hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
                 
                 # Date resolved: only for resolved disputes, 7-60 days after creation
                 date_resolved = None
                 if status == 'RESOLVED':
-                    date_resolved = date_created + timedelta(days=random.randint(7, 60))
+                    date_resolved = date_created + timedelta(days=random.randint(7, 60), hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
                 
                 dispute = {
                     'dispute_id': dispute_id,
@@ -240,8 +240,8 @@ def generate_disputes(transactions, trades, admin_user_ids):
                     'dispute_type': dispute_type,
                     'description': description,
                     'status': status,
-                    'date_created': date_created.strftime('%Y-%m-%d'),
-                    'date_resolved': date_resolved.strftime('%Y-%m-%d') if date_resolved else None,
+                    'date_created': date_created.strftime('%Y-%m-%d %H:%M:%S'),
+                    'date_resolved': date_resolved.strftime('%Y-%m-%d %H:%M:%S') if date_resolved else None,
                 }
                 
                 disputes.append(dispute)

@@ -98,10 +98,10 @@ def generate_transactions(accounts):
     # Generate deposits and withdrawals for each account
     # Ensure initial deposit comes shortly after account creation
     for account_id in sorted(accounts.keys()):
-        account_created = datetime.strptime(accounts[account_id], '%Y-%m-%d')
+        account_created = datetime.strptime(accounts[account_id], '%Y-%m-%d %H:%M:%S')
         
         # Initial deposit: 1-7 days after account creation
-        initial_deposit_date = account_created + timedelta(days=random.randint(1, 7))
+        initial_deposit_date = account_created + timedelta(days=random.randint(1, 7), hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
         deposit_amount = round(random.uniform(1000, 50000), 2)
         
         deposit_transaction = {
@@ -110,7 +110,7 @@ def generate_transactions(accounts):
             'transaction_type': 'DEPOSIT',
             'transaction_amount': deposit_amount,
             'transaction_status': 'COMPLETED',  # Initial deposits always complete
-            'transaction_date': initial_deposit_date.strftime('%Y-%m-%d'),
+            'transaction_date': initial_deposit_date.strftime('%Y-%m-%d %H:%M:%S'),
         }
         transactions.append(deposit_transaction)
         transaction_id += 1
@@ -126,7 +126,7 @@ def generate_transactions(accounts):
         # Generate additional deposits
         for _ in range(num_additional_deposits):
             deposit_amount = round(random.uniform(500, 20000), 2)
-            deposit_date = current_date
+            deposit_date = current_date + timedelta(hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
             deposit_status = get_transaction_status_for_deposit_withdrawal()
             
             deposit_transaction = {
@@ -135,7 +135,7 @@ def generate_transactions(accounts):
                 'transaction_type': 'DEPOSIT',
                 'transaction_amount': deposit_amount,
                 'transaction_status': deposit_status,
-                'transaction_date': deposit_date.strftime('%Y-%m-%d'),
+                'transaction_date': deposit_date.strftime('%Y-%m-%d %H:%M:%S'),
             }
             transactions.append(deposit_transaction)
             transaction_id += 1
@@ -144,7 +144,7 @@ def generate_transactions(accounts):
         # Generate withdrawals
         for _ in range(num_withdrawals):
             withdrawal_amount = round(random.uniform(100, 10000), 2)
-            withdrawal_date = current_date
+            withdrawal_date = current_date + timedelta(hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
             withdrawal_status = get_transaction_status_for_deposit_withdrawal()
             
             withdrawal_transaction = {
@@ -153,7 +153,7 @@ def generate_transactions(accounts):
                 'transaction_type': 'WITHDRAWAL',
                 'transaction_amount': withdrawal_amount,
                 'transaction_status': withdrawal_status,
-                'transaction_date': withdrawal_date.strftime('%Y-%m-%d'),
+                'transaction_date': withdrawal_date.strftime('%Y-%m-%d %H:%M:%S'),
             }
             transactions.append(withdrawal_transaction)
             transaction_id += 1
@@ -163,7 +163,7 @@ def generate_transactions(accounts):
         for _ in range(random.randint(0, 2)):
             # Dividends or interest
             dividend_amount = round(random.uniform(10, 500), 2)
-            dividend_date = current_date
+            dividend_date = current_date + timedelta(hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
             transaction_type = random.choice(['DIVIDEND', 'INTEREST'])
             
             dividend_transaction = {
@@ -172,7 +172,7 @@ def generate_transactions(accounts):
                 'transaction_type': transaction_type,
                 'transaction_amount': dividend_amount,
                 'transaction_status': 'COMPLETED',  # Dividends and interest are always completed
-                'transaction_date': dividend_date.strftime('%Y-%m-%d'),
+                'transaction_date': dividend_date.strftime('%Y-%m-%d %H:%M:%S'),
             }
             transactions.append(dividend_transaction)
             transaction_id += 1
@@ -181,7 +181,7 @@ def generate_transactions(accounts):
         # Generate occasional fees
         for _ in range(random.randint(0, 2)):
             fee_amount = round(random.uniform(5, 50), 2)
-            fee_date = current_date
+            fee_date = current_date + timedelta(hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
             
             fee_transaction = {
                 'transaction_id': transaction_id,
@@ -189,7 +189,7 @@ def generate_transactions(accounts):
                 'transaction_type': 'FEE',
                 'transaction_amount': fee_amount,
                 'transaction_status': 'COMPLETED',  # Fees are always charged
-                'transaction_date': fee_date.strftime('%Y-%m-%d'),
+                'transaction_date': fee_date.strftime('%Y-%m-%d %H:%M:%S'),
             }
             transactions.append(fee_transaction)
             transaction_id += 1

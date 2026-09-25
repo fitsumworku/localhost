@@ -106,9 +106,9 @@ def generate_trades(executions, order_securities):
         trade_status = generate_trade_status()
         
         # Use the settlement date as the trade date
-        # Parse settlement date and add 0-2 days
+        # Parse settlement date and add 0-2 days with random time component
         settlement_date = datetime.strptime(execution['settlement_date'], '%Y-%m-%d %H:%M:%S')
-        trade_date = settlement_date + timedelta(days=random.randint(0, 2))
+        trade_date = settlement_date + timedelta(days=random.randint(0, 2), hours=random.randint(0, 23), minutes=random.randint(0, 59), seconds=random.randint(0, 59))
         
         trade = {
             'trade_id': trade_id,
@@ -117,7 +117,7 @@ def generate_trades(executions, order_securities):
             'trade_price': execution['price_of_execution'],
             'shares': execution['quantity_filled'],
             'trade_status': trade_status,
-            'trade_date': trade_date.strftime('%Y-%m-%d'),
+            'trade_date': trade_date.strftime('%Y-%m-%d %H:%M:%S'),
         }
         
         trades.append(trade)

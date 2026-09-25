@@ -160,7 +160,7 @@ def generate_ledger_entries(transactions, trades, order_sides, execution_orders)
             account_items[sample_account].append({
                 'type': 'trade',
                 'data': trade,
-                'date': datetime.strptime(trade['trade_date'], '%Y-%m-%d'),
+                'date': datetime.strptime(trade['trade_date'], '%Y-%m-%d %H:%M:%S'),
             })
     
     # Sort all items by date for each account
