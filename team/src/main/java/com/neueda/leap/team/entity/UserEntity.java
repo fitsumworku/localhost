@@ -3,10 +3,6 @@ package com.neueda.leap.team.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.HashSet;
 
 @Entity
 @Table(name = "Users")
@@ -32,18 +28,18 @@ public class UserEntity {
     @Column(name = "Status", nullable = false)
     private String status;  // ACTIVE, SUSPENDED
 
+    // TODO: re-add once AccountEntity is uncommented
     // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     // private List<AccountEntity> accounts = new ArrayList<>();
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "user_roles",
-        joinColumns = @JoinColumn(name = "user_id"),
-        inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
-    private Set<RoleEntity> roles = new HashSet<>();
-
-
+    // TODO: re-add once RoleEntity is uncommented
+    // @ManyToMany(fetch = FetchType.LAZY)
+    // @JoinTable(
+    //     name = "user_roles",
+    //     joinColumns = @JoinColumn(name = "user_id"),
+    //     inverseJoinColumns = @JoinColumn(name = "role_id")
+    // )
+    // private Set<RoleEntity> roles = new HashSet<>();
 
     public UserEntity() {}
 
@@ -103,47 +99,6 @@ public class UserEntity {
 
     public void setStatus(String status) {
         this.status = status;
-    }
-
-    public List<AccountEntity> getAccounts() {
-        return accounts;
-    }
-
-    public void setAccounts(List<AccountEntity> accounts) {
-        this.accounts = accounts;
-    }
-
-    public Set<RoleEntity> getRoles() {
-        return roles;
-    }
-
-    public void setRoles(Set<RoleEntity> roles) {
-        this.roles = roles;
-    }
-
-    // Role management methods
-    public boolean hasRole(String roleName) {
-        return roles.stream().anyMatch(r -> r.getRoleName().equals(roleName));
-    }
-
-    public void addRole(RoleEntity role) {
-        roles.add(role);
-        role.getUsers().add(this);
-    }
-
-    public void removeRole(RoleEntity role) {
-        roles.remove(role);
-        role.getUsers().remove(this);
-    }
-
-    public void addAccount(AccountEntity account) {
-        accounts.add(account);
-        account.setUser(this);
-    }
-
-    public void removeAccount(AccountEntity account) {
-        accounts.remove(account);
-        account.setUser(null);
     }
 
     // Authentication methods
