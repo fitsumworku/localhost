@@ -114,7 +114,6 @@ CREATE TABLE Executions (
     Quantity_Filled NUMERIC(18,4) NOT NULL,
     Price_Of_Execution NUMERIC(18,4) NOT NULL,
     Date_Of_Execution TIMESTAMP NOT NULL,
-    Settlement_Date TIMESTAMP,
     Status_Of_Execution VARCHAR(20) NOT NULL,
     Exchange_Trade_ID VARCHAR(100) UNIQUE,
     FOREIGN KEY (Order_ID) REFERENCES Orders(Order_ID),
