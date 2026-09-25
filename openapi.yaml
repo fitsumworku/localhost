@@ -1,0 +1,477 @@
+openapi: 3.0.3
+info:
+  title: Trading App API
+  version: 1.0.0
+  description: API for trading application with authentication and book management
+servers:
+  - url: http://localhost:8080
+    description: Development server
+
+paths:
+
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '201':
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Bad request - invalid input
+        '409':
+          description: Conflict - user already exists
+      operationId: register
+
+  /auth/login:
+    post:
+      summary: Login user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User successfully logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Bad request - invalid credentials
+        '401':
+          description: Unauthorized - invalid email or password
+      operationId: login
+
+  /auth/logout:
+    post:
+      summary: Logout user
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: User successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized - no active session
+      operationId: logout
+
+  /auth/me:
+    get:
+      summary: Get current authenticated user
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized - not authenticated
+      operationId: getCurrentUser
+
+  /accounts:
+    post:
+      summary: Create a new account
+      tags:
+        - Accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Accounts'
+      responses:
+        '201':
+          description: Account successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accounts'
+        '400':
+          description: Bad request - invalid input
+        '401':
+          description: Unauthorized - not authenticated
+      operationId: createAccount
+
+    get:
+      summary: Get all accounts for the current user
+      tags:
+        - Accounts
+      responses:
+        '200':
+          description: List of user accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Accounts'
+        '401':
+          description: Unauthorized - not authenticated
+      operationId: getAccounts
+
+  /accounts/{accountId}:
+    get:
+      summary: Get a specific account by ID
+      tags:
+        - Accounts
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: Account ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accounts{accountId}'
+        '401':
+          description: Unauthorized - not authenticated
+        '404':
+          description: Account not found
+      operationId: getAccountById
+
+  /accounts/{accountId}/balance:
+    get:
+      summary: Get account balance
+      tags:
+        - Accounts
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: Account ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Account balance information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/cashLedger/{accountId}'
+        '401':
+          description: Unauthorized - not authenticated
+        '404':
+          description: Account not found
+      operationId: getAccountBalance
+
+  /accounts/{accountId}/positions:
+    get:
+      summary: Get account positions
+      tags:
+        - Accounts
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: Account ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of account positions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Position'
+        '401':
+          description: Unauthorized - not authenticated
+        '404':
+          description: Account not found
+      operationId: getAccountPositions
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        userId:
+          type: integer
+          description: User ID
+        email:
+          type: string
+          format: email
+          description: User email address
+        name:
+          type: string
+          description: User's first name
+        passwordHash: 
+          type: string
+          description: Hashed password of the user
+        dateCreate:
+          type: string
+          format: date-time
+          description: Date when the user was created
+        status:
+          type: string
+          description: Status of the user (active, suspended)
+        
+      required:
+        - userId
+        - email
+        - passwordHash
+        - dateCreate
+        - status
+
+    Accounts:
+      type: object
+      properties:
+        accountId:
+          type: integer
+          description: Account ID
+        userId:
+          type: integer
+          description: ID of the user who owns the account
+        dateCreate:
+          type: string
+          format: date-time
+          description: Date when the account was created
+        status:
+          type: string
+          description: Status of the account (active, suspended)
+      required:
+        - userId
+        - accountId
+        - dateCreate
+        - status
+
+    CreateAccountRequest:
+      type: object
+      properties:
+        accountName:
+          type: string
+          description: Name of the account
+        accountType:
+          type: string
+          description: Type of account (trading, investment, etc.)
+      required:
+        - accountName
+        - accountType
+
+    AccountBalance:
+      type: object
+      properties:
+        accountId:
+          type: integer
+          description: Account ID
+        totalBalance:
+          type: number
+          format: double
+          description: Total balance in the account
+        cashBalance:
+          type: number
+          format: double
+          description: Available cash balance
+        investedBalance:
+          type: number
+          format: double
+          description: Balance invested in securities
+        currency:
+          type: string
+          description: Currency of the account (e.g., USD)
+        lastUpdated:
+          type: string
+          format: date-time
+          description: Last time the balance was updated
+      required:
+        - accountId
+        - totalBalance
+        - cashBalance
+        - investedBalance
+        - currency
+
+    Position:
+      type: object
+      properties:
+        positionId:
+          type: integer
+          description: Position ID
+        accountId:
+          type: integer
+          description: Account ID
+        securityId:
+          type: integer
+          description: Security ID
+        quantity:
+          type: number
+          format: double
+          description: Quantity of the security held
+        averageCost:
+          type: number
+          format: double
+          description: Average cost per unit
+        currentPrice:
+          type: number
+          format: double
+          description: Current price of the security
+        totalValue:
+          type: number
+          format: double
+          description: Total value of the position
+        gainLoss:
+          type: number
+          format: double
+          description: Unrealized gain or loss
+        percentageGainLoss:
+          type: number
+          format: double
+          description: Unrealized gain or loss as percentage
+      required:
+        - positionId
+        - accountId
+        - securityId
+        - quantity
+        - averageCost
+        - currentPrice
+        - totalValue
+
+    CashLedger:
+      type: object
+      properties:
+        Ledger_id:
+          type: integer
+          description: Ledger ID
+        accountId:
+          type: integer
+          description: ID of the account associated with the ledger entry
+        transactionId:
+          type: integer
+          description: ID of the transaction associated with the ledger entry
+        tradeId:
+          type: integer
+          description: ID of the trade associated with the ledger entry
+        entryType:
+          type: string
+          description: Type of the ledger entry (e.g., debit, credit)
+        debitAmount:
+          type: number
+          format: float
+          description: Amount debited in the ledger entry
+        creditAmount:
+          type: number
+          format: float
+          description: Amount credited in the ledger entry
+        runningBalance:
+          type: number
+          format: float
+          description: Running balance after the ledger entry
+        entryDate:
+          type: string
+          format: date-time
+          description: Date when the ledger entry was made
+    
+        
+      required:
+        - Ledger_id
+        - accountId
+        - entryType
+        - debitAmount
+        - creditAmount
+        - runningBalance
+        - entryDate
+
+    Securities:
+      type: object
+      properties:
+        securityId:
+          type: integer
+          description: Security ID
+        ticker:
+          type: string
+          description: Ticker symbol of the security
+        name:
+          type: string
+          description: Name of the security
+        assetType:
+          type: string
+          description: Type of the security (e.g., stock, bond)
+        exchange:
+          type: string
+          description: Exchange where the security is listed
+        status:
+          type: string
+          description: Status of the security (active, inactive)
+        sector:
+          type: string
+          description: Sector to which the security belongs
+        
+      required:
+        - securityId
+        - ticker
+        - name
+        - assetType
+        - exchange
+        - status
+        - sector
+
+    Orders:
+    type: object
+      properties:
+        orderId:
+          type: integer
+          description: Order ID associated with the order entry
+        accountId:
+          type: integer
+          description: ID of the account associated with the order
+        securityId:
+          type: integer
+          description: ID of the security being ordered
+        side:
+          type: string
+          description: Side of the order (e.g., buy, sell)
+        quantityOrdered:
+          type: integer
+          format: float
+          description: Quantity of the security being ordered
+        orderStatus:
+          type: string
+          description: Status of the order (e.g., pending, executed, cancelled)
+        createdDate:
+          type: string
+          format: date-time
+          description: Date when the order was placed
+        updatedDate:
+          type: string
+          format: date-time
+          description: Date when the order was last updated
+
+      required:
+        - orderId
+        - accountId
+        - securityId
+        - side
+        - quantityOrdered
+        - orderStatus
+        - createdDate
+        - updatedDate
+
