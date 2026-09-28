@@ -10,9 +10,10 @@
 
      @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "Role_ID")
      private Long roleId;
 
-     @Column(nullable = false, unique = true)
+     @Column(name = "Name", nullable = false, unique = true)
      private String roleName;  // TRADER, COMPLIANCE, USER_MANAGER, DISPUTE_REVIEWER, etc.
 
      @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY)

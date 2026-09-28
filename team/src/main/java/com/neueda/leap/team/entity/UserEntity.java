@@ -32,18 +32,22 @@ public class UserEntity {
     @Column(name = "Status", nullable = false)
     private String status;  // ACTIVE, SUSPENDED
 
-    // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    // private List<AccountEntity> accounts = new ArrayList<>();
+     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+     private List<AccountEntity> accounts = new ArrayList<>();
+
+     @OneToMany(mappedBy = "userForAudit", cascade = CascadeType.ALL, orphanRemoval =true)
+     private List<AuditLogEntity> auditLog = new ArrayList<>();
+
+     @OneToMany(mappedBy = "userForDispute", cascade = CascadeType.ALL, orphanRemoval =true)
+    private List<DisputeEntity> disputes = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-        name = "user_roles",
-        joinColumns = @JoinColumn(name = "user_id"),
-        inverseJoinColumns = @JoinColumn(name = "role_id")
+        name = "User_Roles",
+        joinColumns = @JoinColumn(name = "User_ID"),
+        inverseJoinColumns = @JoinColumn(name = "Role_ID")
     )
     private Set<RoleEntity> roles = new HashSet<>();
-
-
 
     public UserEntity() {}
 

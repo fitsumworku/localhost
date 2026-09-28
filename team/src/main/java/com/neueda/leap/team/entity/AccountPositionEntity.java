@@ -2,7 +2,7 @@ package com.neueda.leap.team.entity;
 
 import jakarta.persistence.*;
 
-import java.beans.Transient;
+// import java.beans.Transient;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -29,11 +29,11 @@ public class AccountPositionEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "Account_ID", nullable = false)
-    private AccountEntity account;
+    private AccountEntity accountForPosition;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "Security_Id", nullable = false)
-    private SecurityEntity security;
+    private SecurityEntity securityForAccountPosition;
 
     @Column(name = "Total_Shares", nullable = false)
     private double totalShares;
@@ -44,46 +44,47 @@ public class AccountPositionEntity {
     @Column(name = "Updated_Date", nullable = false)
     private LocalDateTime updatedDate;
 
-    // Constructors
-    public AccountPositionEntity() {}
+    public AccountPositionEntity(AccountEntity accountForPosition, SecurityEntity securityForAccountPosition, double totalShares, double averagePrice, LocalDateTime updatedDate) {
+        this.accountForPosition = accountForPosition;
+        this.securityForAccountPosition = securityForAccountPosition;
+        this.totalShares = totalShares;
+        this.averagePrice = averagePrice;
+        this.updatedDate = updatedDate;
+    }
 
-    public AccountPositionEntity(AccountEntity account, SecurityEntity security) {
-        this.account = account;
-        this.security = security;
-        this.totalShares = 0;
-        this.averagePrice = 0;
-        this.updatedDate = LocalDateTime.now();
+    public AccountPositionEntity() {
+
     }
 
     // Getters and Setters
-    public UUID getPositionId() {
+    public Long getPositionId() {
         return positionId;
     }
 
     public AccountEntity getAccount() {
-        return account;
+        return accountForPosition;
     }
 
     public void setAccount(AccountEntity account) {
-        this.account = account;
+        this.accountForPosition = account;
     }
 
     @Transient
     public Long getAccountId() {
-        return account == null ? null : account.getAccountId();
+        return accountForPosition == null ? null : accountForPosition.getAccountId();
     }
 
     public SecurityEntity getSecurity() {
-        return security;
+        return securityForAccountPosition;
     }
 
     public void setSecurity(SecurityEntity security) {
-        this.security = security;
+        this.securityForAccountPosition = security;
     }
 
     @Transient
-    public UUID getSecurityId() {
-        return security == null ? null : security.getSecurityId();
+    public Long getSecurityId() {
+        return securityForAccountPosition == null ? null : securityForAccountPosition.getSecurityId();
     }
 
     public double getTotalShares() {

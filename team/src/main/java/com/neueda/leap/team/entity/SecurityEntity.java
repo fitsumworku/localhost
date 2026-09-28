@@ -4,10 +4,9 @@
 
  import java.util.ArrayList;
  import java.util.List;
- import java.util.UUID;
 
  @Entity
- @Table(name = "securities")
+ @Table(name = "Securities")
  public class SecurityEntity {
      /**
       * CREATE TABLE Securities (
@@ -24,29 +23,38 @@
       */
 
      @Id
-     @GeneratedValue(strategy = GenerationType.UUID)
-     private UUID securityId;
+     @GeneratedValue(strategy = GenerationType.IDENTITY)
+     @Column(name = "Security_ID")
+     private Long securityId;
 
-     @Column
+     @Column(name = "Ticker", nullable = false)
      private String ticker;
 
-     @Column
+     @Column(name = "Name", nullable = false)
      private String name;
 
-     @Column(name = "asset_type")
+     @Column(name = "Asset_Type", nullable = false)
      private String assetType;
 
-     @Column
+     @Column(name = "Exchange", nullable = false)
      private String exchange;
 
-     @Column
+     @Column(name = "Status", nullable = false)
      private String status;
 
-     @Column
+     @Column(name = "Sector", nullable = false)
      private String sector;
 
-     @OneToMany(mappedBy = "security", cascade = CascadeType.ALL, orphanRemoval = true)
+     @OneToMany(mappedBy = "securityForAccountPosition", cascade = CascadeType.ALL, orphanRemoval = true)
      private List<AccountPositionEntity> positions = new ArrayList<>();
+
+     @OneToMany(mappedBy = "securityForOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+     private List<OrderEntity> orders = new ArrayList<>();
+
+    @OneToMany(mappedBy = "securityForTrade", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TradeEntity> trade;
+
+
 
      public SecurityEntity() {}
 
@@ -59,7 +67,7 @@
          this.sector = sector;
      }
 
-     public UUID getSecurityId() {
+     public Long getSecurityId() {
          return securityId;
      }
 
@@ -128,6 +136,17 @@
          positions.remove(position);
          position.setSecurity(null);
      }
+
+//     public TradeEntity getTrade() {
+//         return trade;
+//     }
+//
+//     public void setTrade(TradeEntity trade) {
+//         this.trade = trade;
+//         if (trade != null) {
+//             trade.setSecurityForTrade(this);
+//         }
+//     }
 
     
  }

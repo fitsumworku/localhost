@@ -4,7 +4,6 @@
 
  import java.util.ArrayList;
  import java.util.List;
-import java.beans.Transient;
 import java.time.LocalDateTime;
 
  @Entity
@@ -27,20 +26,20 @@ import java.time.LocalDateTime;
      private String accountStatus;
 
 
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<AccountPositionEntity> positions = new ArrayList<>();
+    @OneToMany(mappedBy = "accountForPosition", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AccountPositionEntity> accountPositionEntitiesList = new ArrayList<>();
 
-    // @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    // private List<OrderEntity> positions = new ArrayList<>();
+     @OneToMany(mappedBy = "accountForOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+     private List<OrderEntity> orderEntitiesList = new ArrayList<>();
 
-    // @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true)
-    // private List<TransactionEntity> positions = new ArrayList<>();
+     @OneToMany(mappedBy = "accountForTransaction", cascade = CascadeType.ALL, orphanRemoval = true)
+     private List<TransactionEntity> transaction = new ArrayList<>();
 
-    // @OneToMany(mappedBy = "dispute", cascade = CascadeType.ALL, orphanRemoval = true)
-    // private List<OrderEntity> positions = new ArrayList<>();
+    @OneToMany(mappedBy = "accountForCashLedger", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CashLedgerEntity> cashLedgerEntries = new ArrayList<>();
 
-    // @OneToMany(mappedBy = "cashLedger", cascade = CascadeType.ALL, orphanRemoval = true)
-    // private List<CashLedgerEntity> positions = new ArrayList<>();
+     @OneToMany(mappedBy = "accountForDispute", cascade = CascadeType.ALL, orphanRemoval = true)
+     private List<DisputeEntity> dispute = new ArrayList<>();
 
      // Constructors
      public AccountEntity() {}
