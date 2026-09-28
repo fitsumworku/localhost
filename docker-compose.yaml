@@ -1,0 +1,52 @@
+services:
+  app:
+    build:
+      context: ./team
+      dockerfile: Dockerfile
+    container_name: springboot_container
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    
+    restart: unless-stopped
+  
+  postgres-db:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    container_name: postgres_container
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:9.17
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "8082:80"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  pgdata:
