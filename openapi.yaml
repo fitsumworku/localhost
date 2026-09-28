@@ -5,7 +5,11 @@ info:
   description: REST API for trading app.
 
 servers:
-  - url: http://localhost:8081
+  - url: http://{host}:8081
+    variables:
+      host:
+        default: localhost
+        description: The server host
 
 tags:
   - name: authentication
