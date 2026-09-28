@@ -26,7 +26,7 @@ CREATE TABLE Users (
     Password VARCHAR(255) NOT NULL,
     Created_Date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     Status VARCHAR(9) NOT NULL,
-    CONSTRAINT chk_users_status CHECK (Status IN ('ACTIVE','SUSPENDED')),
+    CONSTRAINT chk_users_status CHECK (Status IN ('ACTIVE','SUSPENDED'))
 );
 
 CREATE TABLE Roles (
@@ -87,8 +87,8 @@ CREATE TABLE Account_Positions (
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
     UNIQUE (Account_ID, Security_ID),
-    CHECK (Total_Shares >= 0),
-    CHECK (Average_Price >= 0)
+    CHECK (Total_Shares > 0),
+    CHECK (Average_Price > 0)
 );
 
 CREATE TABLE Orders (
@@ -126,7 +126,7 @@ CREATE TABLE Trades (
     Trade_ID BIGSERIAL PRIMARY KEY,
     Execution_ID BIGINT NOT NULL,
     Security_ID BIGINT NOT NULL,
-    Price_Of_Trade NUMERIC(18,4) NOT NULL,
+    Trade_Price NUMERIC(18,4) NOT NULL,
     Shares NUMERIC(18,4) NOT NULL,
     Status_Of_Trade VARCHAR(18) NOT NULL,
     Date_Of_Trade TIMESTAMP NOT NULL,
@@ -154,7 +154,7 @@ CREATE TABLE Disputes (
     Dispute_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL,
     Admin_ID BIGINT NOT NULL,
-    Transaction_ID BIGINT,
+    Transaction_ID BIGINT NOT NULL,
     Trade_ID BIGINT,
     Dispute_Type VARCHAR(50) NOT NULL,
     Description TEXT,
@@ -185,8 +185,6 @@ CREATE TABLE Cash_Ledger (
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Transaction_ID) REFERENCES Transactions(Transaction_ID),
     FOREIGN KEY (Trade_ID) REFERENCES Trades(Trade_ID),
-    CHECK (Debit_Amount > 0),
-    CHECK (Credit_Amount > 0),
     CHECK (Running_Balance >= 0),
     CHECK (Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE','TRADE_SETTLEMENT')),
     CHECK (((Debit_Amount > 0 AND Credit_Amount = 0) OR (Credit_Amount > 0 AND Debit_Amount = 0)))
