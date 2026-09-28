@@ -87,8 +87,8 @@ CREATE TABLE Account_Positions (
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
     UNIQUE (Account_ID, Security_ID),
-    CHECK (Total_Shares >= 0),
-    CHECK (Average_Price >= 0)
+    CHECK (Total_Shares > 0),
+    CHECK (Average_Price > 0)
 );
 
 CREATE TABLE Orders (
@@ -185,8 +185,6 @@ CREATE TABLE Cash_Ledger (
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Transaction_ID) REFERENCES Transactions(Transaction_ID),
     FOREIGN KEY (Trade_ID) REFERENCES Trades(Trade_ID),
-    CHECK (Debit_Amount > 0),
-    CHECK (Credit_Amount > 0),
     CHECK (Running_Balance >= 0),
     CHECK (Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE','TRADE_SETTLEMENT')),
     CHECK (((Debit_Amount > 0 AND Credit_Amount = 0) OR (Credit_Amount > 0 AND Debit_Amount = 0)))
