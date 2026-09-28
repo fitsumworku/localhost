@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS Trades;
 DROP TABLE IF EXISTS Transactions;
 DROP TABLE IF EXISTS Disputes;
 DROP TABLE IF EXISTS Cash_Ledger;
+DROP TABLE IF EXISTS Balance;
 
 CREATE TABLE Users (
     User_ID BIGSERIAL PRIMARY KEY,
@@ -87,8 +88,8 @@ CREATE TABLE Account_Positions (
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
     UNIQUE (Account_ID, Security_ID),
-    CHECK (Total_Shares > 0),
-    CHECK (Average_Price > 0)
+    CHECK (Total_Shares >= 0),
+    CHECK (Average_Price >= 0)
 );
 
 CREATE TABLE Orders (
@@ -96,10 +97,14 @@ CREATE TABLE Orders (
     Account_ID BIGINT NOT NULL,
     Security_ID BIGINT NOT NULL,
     Side CHAR(1) NOT NULL,
+    Estimated_Price NUMERIC(18,4),
     Quantity_Ordered NUMERIC(18,4) NOT NULL,
     Order_Status VARCHAR(16) NOT NULL,
     Created_Date TIMESTAMP NOT NULL,
     Updated_Date TIMESTAMP NOT NULL,
+    Reserved_Cash NUMERIC(18,4) NOT NULL DEFAULT 0,
+    Is_After_Hours BOOLEAN NOT NULL DEFAULT FALSE,
+    Price_Threshold_Pct NUMERIC(5,2) NOT NULL DEFAULT 5.00,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
     CHECK (Side IN ('B','S')),
@@ -117,6 +122,7 @@ CREATE TABLE Executions (
     Status_Of_Execution VARCHAR(20) NOT NULL,
     Exchange_Trade_ID VARCHAR(100) UNIQUE,
     FOREIGN KEY (Order_ID) REFERENCES Orders(Order_ID),
+    FOREIGN KEY (Pending_ID) REFERENCES Pending_Orders(Pending_ID),
     CHECK (Quantity_Filled > 0),
     CHECK (Price_Of_Execution > 0),
     CHECK (Status_Of_Execution IN ('PENDING','FILLED','PARTIALLY_FILLED','FAILED'))
@@ -132,7 +138,7 @@ CREATE TABLE Trades (
     Date_Of_Trade TIMESTAMP NOT NULL,
     FOREIGN KEY (Execution_ID) REFERENCES Executions(Execution_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
-    CHECK (Price_Of_Trade > 0),
+    CHECK (Trade_Price > 0),
     CHECK (Shares > 0),
     CHECK (Status_Of_Trade IN ('PENDING','SETTLED','DISPUTED','REVERSED'))
 );
@@ -175,17 +181,30 @@ CREATE TABLE Cash_Ledger (
     Transaction_ID BIGINT,
     Trade_ID BIGINT,
     Entry_Type VARCHAR(16) NOT NULL,
-    Debit_Amount NUMERIC(18,4) NOT NULL,
+    Increase_Amount NUMERIC(18,4) NOT NULL,
     -- positive values (sell or deposit transactions)
-    Credit_Amount NUMERIC(18,4) NOT NULL,
+    Decrease_Amount NUMERIC(18,4) NOT NULL,
     -- negative values (buy or withdrawal transactions)
-    Running_Balance NUMERIC(18,4) NOT NULL,
-    -- running balance = previous balance - Credit_Amount + Debit_Amount
     Entry_Date TIMESTAMP NOT NULL,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Transaction_ID) REFERENCES Transactions(Transaction_ID),
     FOREIGN KEY (Trade_ID) REFERENCES Trades(Trade_ID),
-    CHECK (Running_Balance >= 0),
     CHECK (Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE','TRADE_SETTLEMENT')),
     CHECK (((Debit_Amount > 0 AND Credit_Amount = 0) OR (Credit_Amount > 0 AND Debit_Amount = 0)))
+);
+
+CREATE TABLE Buying_Power (
+    BP_ID BIGSERIAL PRIMARY KEY,
+    Account_ID BIGINT NOT NULL UNIQUE,
+    Available_Cash NUMERIC(18,4) NOT NULL,
+    -- Actual cash available in the account before pending order reservations
+    Reserved_Cash NUMERIC(18,4) NOT NULL DEFAULT 0,
+    -- Cash temporarily held for after-hours market orders
+    Buying_Power NUMERIC(18,4) NOT NULL,
+    -- Available_Cash - Reserved_Cash
+    Last_Updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
+    CHECK (Available_Cash >= 0),
+    CHECK (Reserved_Cash >= 0),
+    CHECK (Buying_Power >= 0)
 );
