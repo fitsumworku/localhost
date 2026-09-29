@@ -48,6 +48,14 @@ services:
       postgres-db:
         condition: service_healthy
     restart: unless-stopped
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: frontend_container
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
 
 volumes:
   pgdata:

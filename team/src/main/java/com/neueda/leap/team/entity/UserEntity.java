@@ -3,7 +3,10 @@ package com.neueda.leap.team.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 @Entity
 @Table(name = "Users")
 public class UserEntity {
@@ -105,7 +108,6 @@ public class UserEntity {
         this.status = status;
     }
 
-<<<<<<< HEAD
 //    public List<AccountEntity> getAccounts() {
 //        return accounts;
 //    }
@@ -147,8 +149,6 @@ public class UserEntity {
 //        account.setUser(null);
 //    }
 
-=======
->>>>>>> feature/user-endpoints
     // Authentication methods
     public boolean login(String email, String password) {
         if (!this.email.equals(email)) {
