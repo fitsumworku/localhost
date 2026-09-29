@@ -206,15 +206,15 @@ CREATE TABLE Cash_Ledger (
 CREATE TABLE Buying_Power (
     BP_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL UNIQUE,
-    Available_Cash NUMERIC(18,4) NOT NULL,
+    Account_Value NUMERIC(18,4) NOT NULL,
     -- Actual cash available in the account before pending order reservations
     Reserved_Cash NUMERIC(18,4) NOT NULL DEFAULT 0,
     -- Cash temporarily held for after-hours market orders
     Buying_Power NUMERIC(18,4) NOT NULL,
-    -- Available_Cash - Reserved_Cash
+    -- Account_Value - Reserved_Cash
     Last_Updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
-    CHECK (Available_Cash >= 0),
+    CHECK (Account_Value >= 0),
     CHECK (Reserved_Cash >= 0),
     CHECK (Buying_Power >= 0)
 );
