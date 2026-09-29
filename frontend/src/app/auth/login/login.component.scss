@@ -1,0 +1,137 @@
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #031C13 100%);
+  padding: 20px;
+}
+
+.login-card {
+  background: #031C13;
+  border: 1px solid #06402B;
+  border-radius: 8px;
+  padding: 60px 40px;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.login-title {
+  text-align: center;
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0 0 40px 0;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+::ng-deep .login-form .mat-mdc-form-field {
+  width: 100%;
+
+  .mat-mdc-form-field-infix {
+    padding: 12px 0 !important;
+  }
+
+  .mat-mdc-text-field-wrapper {
+    background-color: rgba(52, 120, 120, 0.2);
+    border-radius: 4px;
+  }
+
+  .mat-mdc-form-field-label {
+    color: rgba(255, 255, 255, 0.7) !important;
+    font-size: 14px;
+  }
+
+  .mat-mdc-input-element {
+    color: #ffffff !important;
+    font-size: 14px;
+
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+  }
+
+  .mat-mdc-form-field-error {
+    color: #ff6b6b !important;
+    font-size: 12px;
+  }
+}
+
+.submit-button {
+  background: linear-gradient(135deg, #06402B 100%) !important;
+  color: #ffffff !important;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 4px;
+  margin-top: 16px;
+  transition: all 0.3s ease;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #3d9999 0%, #4db8b8 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(45, 122, 122, 0.4);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.error-message {
+  color: #ff6b6b;
+  background-color: rgba(255, 107, 107, 0.1);
+  border-left: 4px solid #ff6b6b;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.signup-link {
+  text-align: center;
+  margin-top: 24px;
+  color: #ffffff;
+  font-size: 14px;
+
+  .link {
+    color: #06402B;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 600;
+    margin-left: 4px;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: #ffffff;
+      text-decoration: underline;
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 600px) {
+  .login-card {
+    padding: 40px 24px;
+  }
+
+  .login-title {
+    font-size: 24px;
+    margin-bottom: 32px;
+  }
+
+  .login-form {
+    gap: 20px;
+  }
+}

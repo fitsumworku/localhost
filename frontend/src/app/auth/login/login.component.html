@@ -1,0 +1,71 @@
+<div class="login-container">
+  <div class="login-card">
+    <h1 class="login-title">Log In</h1>
+
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <!-- Email Field -->
+      <mat-form-field class="full-width">
+        <input
+          matInput
+          type="email"
+          formControlName="email"
+          placeholder="Enter your email"
+          autocomplete="email"
+        />
+        <mat-error *ngIf="email?.hasError('required')">
+          Email is required
+        </mat-error>
+        <mat-error *ngIf="email?.hasError('email')">
+          Please enter a valid email
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Password Field -->
+      <mat-form-field class="full-width">        
+        <input
+          matInput
+          [type]="hidePassword ? 'password' : 'text'"
+          formControlName="password"
+          placeholder="Enter password"
+          autocomplete="current-password"
+        />
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="togglePasswordVisibility()"
+          [attr.aria-label]="'Hide password'"
+          [attr.aria-pressed]="hidePassword"
+        >
+        </button>
+        <mat-error *ngIf="password?.hasError('required')">
+          Password is required
+        </mat-error>
+        <mat-error *ngIf="password?.hasError('minlength')">
+          Password must be at least 6 characters
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Submit Button -->
+      <button
+        type="submit"
+        mat-raised-button
+        color="primary"
+        class="submit-button"
+        [disabled]="loginForm.invalid || isLoading"
+      >
+        {{ isLoading ? 'Logging In...' : 'Log In' }}
+      </button>
+    </form>
+
+    <!-- Sign Up Link -->
+    <div class="signup-link">
+      Don't have an account?
+      <a (click)="navigateToSignup()" class="link">Sign Up</a>
+    </div>
+  </div>
+</div>

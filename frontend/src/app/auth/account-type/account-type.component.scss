@@ -1,0 +1,159 @@
+.account-type-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #F3F4F6;
+  padding: 20px;
+}
+
+.account-type-card {
+  background: #ffffff;
+  border: 2px solid #D6E4F5;
+  border-radius: 12px;
+  padding: 60px 40px;
+  width: 100%;
+  max-width: 700px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.account-type-title {
+  text-align: center;
+  color: #000000;
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.account-type-subtitle {
+  text-align: center;
+  color: #6B6D78;
+  font-size: 14px;
+  margin: 0 0 40px 0;
+}
+
+.account-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.account-option {
+  background: #ffffff !important;
+  border: 2px solid #e0e0e0 !important;
+  border-radius: 12px;
+  padding: 32px 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+
+  &:hover:not(.selected) {
+    border-color: #d0d0d0 !important;
+    background: #fafafa !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  &.selected {
+    border-color: #06402B !important;
+    background: #F8FAFC !important;
+    box-shadow: 0 0 0 1px rgba(6, 64, 43, 0.1), 0 4px 16px rgba(6, 64, 43, 0.08);
+  }
+
+  mat-card-content {
+    padding: 0 !important;
+  }
+}
+
+.account-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  margin: 0 auto 16px;
+
+  mat-icon {
+    color: #666666;
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  &.admin-icon {
+    background: rgba(6, 64, 43, 0.15);
+
+    mat-icon {
+      color: #06402B;
+    }
+  }
+}
+
+.account-name {
+  color: #0A0A0C;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.account-description {
+  color: #6B6D78;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .account-type-card {
+    padding: 40px 24px;
+  }
+
+  .account-type-title {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  .account-type-subtitle {
+    margin-bottom: 32px;
+  }
+
+  .account-options {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .account-type-card {
+    padding: 30px 20px;
+  }
+
+  .account-type-title {
+    font-size: 20px;
+  }
+
+  .account-option {
+    padding: 24px 16px;
+  }
+
+  .account-icon {
+    width: 50px;
+    height: 50px;
+
+    mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  .account-name {
+    font-size: 16px;
+  }
+
+  .account-description {
+    font-size: 12px;
+  }
+}
