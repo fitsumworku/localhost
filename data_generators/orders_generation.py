@@ -156,12 +156,27 @@ def generate_orders(active_securities, account_ids, num_orders_per_account=15):
                 side = 'B'
                 security_balances[sec_id] += template['quantity']
             
+            # Generate estimated price (market price range: $10-$500 with realistic variation)
+            base_price = random.uniform(10, 500)
+            # Add ±20% variation to simulate market price changes
+            estimated_price = base_price * random.uniform(0.80, 1.20)
+            
+            # Calculate reserved cash based on side
+            # BUY orders: reserve Estimated_Price * Quantity_Ordered
+            # SELL orders: no reservation (Reserved_Cash = 0)
+            if side == 'B':
+                reserved_cash = estimated_price * template['quantity']
+            else:
+                reserved_cash = 0.0
+            
             order = {
                 'order_id': order_id,
                 'account_id': template['account_id'],
                 'security_id': template['security_id'],
                 'side': side,
+                'estimated_price': estimated_price,
                 'quantity': template['quantity'],
+                'reserved_cash': reserved_cash,
                 'status': template['status'],
                 'created_date': template['created_date'].strftime('%Y-%m-%d %H:%M:%S'),
                 'updated_date': template['updated_date'].strftime('%Y-%m-%d %H:%M:%S')
@@ -180,13 +195,19 @@ def format_orders_sql(orders):
         "-- Execute this file in PostgreSQL to populate the Orders table",
         f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"-- Total records: {len(orders)}",
-        "-- Table: Orders (Order_ID, Account_ID, Security_ID, Side, Quantity_Ordered, Order_Status, Created_Date, Updated_Date)",
+        "-- Table: Orders (Order_ID, Account_ID, Security_ID, Side, Estimated_Price, Quantity_Ordered, Order_Status, Created_Date, Updated_Date, Reserved_Cash)",
         "-- Status options: PENDING, IN_EXECUTION, CANCELLED",
+        "-- BUY orders have Reserved_Cash = Estimated_Price * Quantity_Ordered",
+        "-- SELL orders have Reserved_Cash = 0",
         ""
     ]
     
     for order in orders:
-        sql = f"INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Side, Quantity_Ordered, Order_Status, Created_Date, Updated_Date) VALUES ({order['order_id']}, {order['account_id']}, {order['security_id']}, '{order['side']}', {order['quantity']}, '{order['status']}', '{order['created_date']}', '{order['updated_date']}');"
+        # Format price with 2 decimal places
+        estimated_price_fmt = f"{order['estimated_price']:.2f}"
+        reserved_cash_fmt = f"{order['reserved_cash']:.2f}"
+        
+        sql = f"INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Side, Estimated_Price, Quantity_Ordered, Order_Status, Created_Date, Updated_Date, Reserved_Cash) VALUES ({order['order_id']}, {order['account_id']}, {order['security_id']}, '{order['side']}', {estimated_price_fmt}, {order['quantity']}, '{order['status']}', '{order['created_date']}', '{order['updated_date']}', {reserved_cash_fmt});"
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)
