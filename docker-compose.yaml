@@ -15,9 +15,9 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
-    
+
     restart: unless-stopped
-  
+
   postgres-db:
     build:
       context: .
@@ -48,5 +48,6 @@ services:
       postgres-db:
         condition: service_healthy
     restart: unless-stopped
+
 volumes:
   pgdata:
