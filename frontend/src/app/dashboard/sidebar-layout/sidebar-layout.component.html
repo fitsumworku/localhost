@@ -1,0 +1,32 @@
+<div class="sidebar-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>Localhost Trading Site</h2>
+    </div>
+
+    <nav class="sidebar-menu">
+      <div class="menu-section">
+        <p class="menu-label">MAIN_MENU</p>
+        <ul class="menu-list">
+          <li *ngFor="let item of menuItems" (click)="navigateTo(item.route)" class="menu-item">
+            <mat-icon>{{ item.icon }}</mat-icon>
+            <span>{{ item.label }}</span>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button mat-raised-button class="logout-button" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>
