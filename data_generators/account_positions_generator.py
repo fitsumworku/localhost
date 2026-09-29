@@ -12,8 +12,9 @@ def parse_orders_file(filename):
         print(f"Error reading {filename}: {e}")
         return None
     
-    # Pattern: VALUES (order_id, account_id, security_id, 'side', quantity, 'status', 'created_date', 'updated_date')
-    pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([BS])',\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
+    # Pattern: Updated format includes Estimated_Price and Reserved_Cash
+    # VALUES (order_id, account_id, security_id, 'side', estimated_price, quantity, 'status', 'created_date', 'updated_date', reserved_cash)
+    pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([BS])',\s*([^,]*),\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^)]*)?\s*\)"
     
     matches = re.findall(pattern, content)
     for match in matches:
@@ -21,10 +22,10 @@ def parse_orders_file(filename):
         account_id = int(match[1])
         security_id = int(match[2])
         side = match[3]
-        quantity = int(match[4])
-        status = match[5]
-        created_date = match[6]
-        updated_date = match[7]
+        quantity = int(match[5])
+        status = match[6]
+        created_date = match[7]
+        updated_date = match[8]
         
         orders[order_id] = {
             'account_id': account_id,
