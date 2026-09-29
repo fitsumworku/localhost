@@ -5,11 +5,11 @@
 -- hold one or more accounts; accounts hold instruments via transactions
 -- and current holdings.
 
-DROP TABLE IF EXISTS Users;
 DROP TABLE IF EXISTS Roles;
 DROP TABLE IF EXISTS User_Roles;
 DROP TABLE IF EXISTS Audit_Logs;
 DROP TABLE IF EXISTS Accounts;
+DROP TABLE IF EXISTS Users;
 DROP TABLE IF EXISTS Securities;
 DROP TABLE IF EXISTS Account_Positions;
 DROP TABLE IF EXISTS Orders;
@@ -97,21 +97,17 @@ CREATE TABLE Orders (
     Account_ID BIGINT NOT NULL,
     Security_ID BIGINT NOT NULL,
     Side CHAR(1) NOT NULL,
-    Estimated_Price NUMERIC(18,4) NOT NULL,
-    Quantity_Ordered NUMERIC(18,4) NOT NULL,
+    Total_Spend NUMERIC(18,4) NOT NULL,
     Order_Status VARCHAR(16) NOT NULL,
     Created_Date TIMESTAMP NOT NULL,
     Updated_Date TIMESTAMP NOT NULL,
-    Reserved_Cash NUMERIC(18,4) NOT NULL DEFAULT 0,
     Is_After_Hours BOOLEAN NOT NULL DEFAULT FALSE,
-    Price_Threshold_Pct NUMERIC(5,2) NOT NULL DEFAULT 5.00,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
+    CHECK (Total_Spend > 0),
     CHECK (Side IN ('B','S')),
-    CHECK (Quantity_Ordered > 0),
     CHECK (Order_Status IN ('PENDING','IN_EXECUTION','CANCELLED')),
-    CHECK (Updated_Date >= Created_Date),
-    CHECK ((Side = 'B' AND Reserved_Cash > 0) OR (Side = 'S' AND Reserved_Cash = 0))
+    CHECK (Updated_Date >= Created_Date)
 );
 
 CREATE TABLE Executions (
@@ -126,7 +122,7 @@ CREATE TABLE Executions (
     FOREIGN KEY (Order_ID) REFERENCES Orders(Order_ID),
     CHECK (Quantity_Filled > 0),
     CHECK (Price_Of_Execution > 0),
-    CHECK (Status_Of_Execution IN ('PENDING','FILLED','PARTIALLY_FILLED','FAILED')),
+    CHECK (Status_Of_Execution IN ('PENDING','FILLED','FAILED')),
     CHECK (Settlement_Date IS NULL OR Settlement_Date >= Date_Of_Execution)
 );
 
@@ -192,29 +188,24 @@ CREATE TABLE Cash_Ledger (
     -- amount removed from account (buy, withdrawal, fee)
     Credit_Amount NUMERIC(18,4) NOT NULL DEFAULT 0,
     -- amount added to account (sell, deposit, dividend, interest)
-    Running_Balance NUMERIC(18,4) NOT NULL,
-    -- cumulative balance after this entry
     Entry_Date TIMESTAMP NOT NULL,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Transaction_ID) REFERENCES Transactions(Transaction_ID),
     FOREIGN KEY (Trade_ID) REFERENCES Trades(Trade_ID),
+    CHECK (Transaction_ID IS NOT NULL OR Trade_ID IS NOT NULL),
     CHECK (Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE','TRADE_SETTLEMENT','TRADE_REVERSAL')),
-    CHECK (Running_Balance >= 0),
     CHECK ((Debit_Amount > 0 AND Credit_Amount = 0) OR (Credit_Amount > 0 AND Debit_Amount = 0))
 );
 
-CREATE TABLE Buying_Power (
-    BP_ID BIGSERIAL PRIMARY KEY,
+CREATE TABLE Account_Funds (
+    AF_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL UNIQUE,
-    Account_Value NUMERIC(18,4) NOT NULL,
-    -- Actual cash available in the account before pending order reservations
     Reserved_Cash NUMERIC(18,4) NOT NULL DEFAULT 0,
-    -- Cash temporarily held for after-hours market orders
+    -- Cash temporarily held for market orders
     Buying_Power NUMERIC(18,4) NOT NULL,
-    -- Account_Value - Reserved_Cash
+    -- Cash remaining to be used for new orders
     Last_Updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
-    CHECK (Account_Value >= 0),
     CHECK (Reserved_Cash >= 0),
     CHECK (Buying_Power >= 0)
 );
