@@ -5,20 +5,31 @@
 -- hold one or more accounts; accounts hold instruments via transactions
 -- and current holdings.
 
-DROP TABLE IF EXISTS Roles;
-DROP TABLE IF EXISTS User_Roles;
-DROP TABLE IF EXISTS Users;
-DROP TABLE IF EXISTS Accounts;
-DROP TABLE IF EXISTS Securities;
-DROP TABLE IF EXISTS Account_Positions;
-DROP TABLE IF EXISTS Orders;
-DROP TABLE IF EXISTS Order_Reservations;
-DROP TABLE IF EXISTS Executions;
-DROP TABLE IF EXISTS Trades;
-DROP TABLE IF EXISTS Transactions;
-DROP TABLE IF EXISTS Cash_Ledger;
-DROP TABLE IF EXISTS Disputes;
 DROP TABLE IF EXISTS Audit_Logs;
+DROP TABLE IF EXISTS Disputes;
+DROP TABLE IF EXISTS Cash_Ledger;
+DROP TABLE IF EXISTS Transactions;
+DROP TABLE IF EXISTS Trades;
+DROP TABLE IF EXISTS Executions;
+DROP TABLE IF EXISTS Order_Reservations;
+DROP TABLE IF EXISTS Orders;
+DROP TABLE IF EXISTS Account_Positions;
+DROP TABLE IF EXISTS Securities;
+DROP TABLE IF EXISTS Accounts;
+DROP TABLE IF EXISTS User_Roles;
+DROP TABLE IF EXISTS Roles;
+DROP TABLE IF EXISTS Users;
+
+
+
+
+
+
+
+
+
+
+
 
 CREATE TABLE Users (
     User_ID BIGSERIAL PRIMARY KEY,
