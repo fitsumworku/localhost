@@ -134,7 +134,6 @@ CREATE TABLE Order_Reservations(
     Security_ID BIGINT NOT NULL,
     Side CHAR(1) NOT NULL,
     Reserved_Cash NUMERIC(20,2),
-    Reserved_Cash NUMERIC(20,2),
     Reserved_Quantity NUMERIC(28,12),
     Status VARCHAR(12) NOT NULL DEFAULT 'ACTIVE'
         CHECK (Status IN ('ACTIVE', 'CONSUMED', 'RELEASED')),
@@ -190,7 +189,7 @@ CREATE TABLE Executions(
             (Quote_Price IS NULL AND Quote_Currency IS NULL AND Quote_Timestamp IS NULL 
                 AND Quote_Source IS NULL)
             OR  
-            (Quote_Price IS NOT NULL AND Quote_Price > 0 AND QUOTE_Price < 'Infinity'::NUMERIC
+            (Quote_Price IS NOT NULL AND Quote_Price > 0 AND Quote_Price < 'Infinity'::NUMERIC
                 AND Quote_Currency IS NOT NULL AND Quote_Timestamp IS NOT NULL
                 AND Quote_Source IS NOT NULL AND length(btrim(Quote_Source)) > 0
                 AND Quote_Timestamp <= Finished_At)
@@ -230,7 +229,7 @@ CREATE TABLE Executions(
 );
 
 CREATE UNIQUE INDEX uq_one_filled_Execution_per_order
-    ON Executions(Order_ID) WHERE Status_Of_Execution = 'FILLED'
+    ON Executions(Order_ID) WHERE Status_Of_Execution = 'FILLED';
 CREATE UNIQUE INDEX uq_exchange_trade_reference
     ON Executions(Quote_Source, Exchange_Trade_ID) WHERE Exchange_Trade_ID IS NOT NULL;
 
@@ -281,9 +280,9 @@ CREATE TABLE Cash_Ledger(
     Credit_Amount NUMERIC(20,2) NOT NULL DEFAULT 0
         CHECK (Credit_Amount >= 0 AND Credit_Amount < 'Infinity'::NUMERIC),
     Running_Balance NUMERIC(20,2) NOT NULL
-        CHECK (Running_Balance >= 0 AND Running_balance < 'Infinity'::NUMERIC),
-    ENTRY_DATE TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-    FOREIGN KEY (Transaction_ID, Account_ID) References Transactions(Transaction_ID, Account_ID),
+        CHECK (Running_Balance >= 0 AND Running_Balance < 'Infinity'::NUMERIC),
+    Entry_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    FOREIGN KEY (Transaction_ID, Account_ID) REFERENCES Transactions(Transaction_ID, Account_ID),
     FOREIGN KEY (Trade_ID, Account_ID) REFERENCES Trades(Trade_ID, Account_ID),
     CHECK ((Transaction_ID IS NOT NULL) <> (Trade_ID IS NOT NULL)),
     CHECK ((Debit_Amount > 0 AND Credit_Amount = 0)
@@ -322,7 +321,7 @@ CREATE TABLE Audit_Logs(
     Actor_Type VARCHAR(6) NOT NULL CHECK (Actor_Type IN ('USER', 'SYSTEM')),
     Subject_User_ID BIGINT REFERENCES Users(User_ID),
     Affected_Table VARCHAR(100) NOT NULL,
-    Record_key JSONB NOT NULL,
+    Record_Key JSONB NOT NULL,
     Action_Type VARCHAR(40) NOT NULL CHECK (length(btrim(Action_Type)) > 0),
     Old_Value JSONB,
     New_Value JSONB,
