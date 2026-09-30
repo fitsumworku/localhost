@@ -26,6 +26,7 @@ export class SidebarLayoutComponent {
     { label: 'Portfolio', icon: 'work_bag', route: '/client-dashboard' },
     { label: 'Markets', icon: 'trending_up', route: '/markets' },
     { label: 'Compare Markets', icon: 'join_inner', route: '/compare' },
+    { label: 'Transaction History', icon: 'history', route: '/transactions' },
     { label: 'Settings', icon: 'settings', route: '/settings' }
   ];
 
