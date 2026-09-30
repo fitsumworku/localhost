@@ -5,6 +5,12 @@
 -- hold one or more accounts; accounts hold instruments via transactions
 -- and current holdings.
 
+BEGIN;
+
+DROP VIEW IF EXISTS Trade_Details;
+DROP VIEW IF EXISTS Position_Availability;
+DROP VIEW IF EXISTS Account_Cash_Availability;
+
 DROP TABLE IF EXISTS Audit_Logs;
 DROP TABLE IF EXISTS Disputes;
 DROP TABLE IF EXISTS Cash_Ledger;
@@ -341,5 +347,16 @@ CREATE TABLE Audit_Logs(
     OR (Actor_Type = 'SYSTEM' AND Actor_User_ID is NULL)),
     CHECK(jsonb_typeof(Record_Key) = 'object')
 );
+
+
+CREATE INDEX ix_user_roles_role ON User_Roles(Role_ID, User_ID);
+CREATE INDEX ix_accounts_user ON Accounts(User_ID, Account_ID);
+CREATE INDEX ix_positions_security ON ACCOUNT_POSITIONS(Security_ID);
+
+
+
+INSERT INTO Roles(Name) Values ('CLIENT'), ('ADMIN');
+
+COMMIT;
 
 
