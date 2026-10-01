@@ -1,0 +1,68 @@
+<div class="compliance-container">
+  <!-- Header -->
+  <div class="header">
+    <h1>Compliance</h1>
+    <p class="subtitle">Manage client compliance and status</p>
+  </div>
+
+  <!-- Search Section -->
+  <div class="search-section">
+    <mat-form-field class="search-field">
+      <mat-label>Search by Client ID or Name...</mat-label>
+      <input
+        matInput
+        [(ngModel)]="searchQuery"
+        (input)="onSearchChange()"
+        placeholder="e.g., CL-10482, Maya Chen"
+      />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+  </div>
+
+  <!-- Clients Table -->
+  <div class="table-section">
+    <div class="table-container">
+      <table class="clients-table">
+        <thead>
+          <tr>
+            <th class="col-client-id">Client ID</th>
+            <th class="col-name">Name</th>
+            <th class="col-status">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let client of displayedClients" class="client-row">
+            <td class="col-client-id">{{ client.id }}</td>
+            <td class="col-name">{{ client.name }}</td>
+            <td class="col-status">
+              <div class="status-container">
+                <span
+                  class="status-badge"
+                  [style.backgroundColor]="getStatusColor(client.status)"
+                >
+                  <mat-icon class="status-icon">
+                    {{ client.status === 'active' ? 'check_circle' : 'block' }}
+                  </mat-icon>
+                  {{ getStatusLabel(client.status) }}
+                </span>
+                <button
+                  mat-icon-button
+                  (click)="toggleClientStatus(client)"
+                  class="toggle-btn"
+                  [title]="'Toggle to ' + (client.status === 'active' ? 'Blacklisted' : 'Active')"
+                >
+                  <mat-icon>swap_horiz</mat-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="displayedClients.length === 0" class="no-clients">
+      <mat-icon class="empty-icon">people_outline</mat-icon>
+      <p>No clients found</p>
+    </div>
+  </div>
+</div>

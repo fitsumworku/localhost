@@ -1,0 +1,117 @@
+<div class="markets-container">
+  <div class="header">
+    <h1>Markets Overview</h1>
+    <p class="subtitle">Explore trending assets and market data</p>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="search-section">
+    <mat-form-field class="search-field">
+      <mat-label>Search assets...</mat-label>
+      <input
+        matInput
+        placeholder="Enter ticker symbol"
+        [(ngModel)]="searchQuery"
+        (input)="onSearchChange()"
+      />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+  </div>
+
+  <!-- Trending Assets Section -->
+  <div class="trending-section">
+    <h2>Trending Assets</h2>
+    <div class="trending-grid">
+      <div class="trending-card" *ngFor="let asset of trendingAssets">
+        <div class="trending-header">
+          <span class="symbol">{{ asset.symbol }}</span>
+          <span class="change" [style.color]="getChangeColor(asset.change)">
+            {{ asset.changePercent }}
+          </span>
+        </div>
+        <div class="trending-price">${{ asset.price }}</div>
+        <div class="trending-chart">
+          <svg viewBox="0 0 100 50" preserveAspectRatio="none">
+            <polyline
+              points="0,40 10,35 20,38 30,30 40,25 50,28 60,20 70,22 80,15 90,18 100,10"
+              fill="none"
+              stroke="#06402B"
+              stroke-width="2"
+            />
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Market Assets Section -->
+  <div class="market-section">
+    <div class="section-header">
+      <h2>Market Assets</h2>
+      <div class="filter-buttons">
+        <button
+          mat-stroked-button
+          [class.active]="isFilterActive('all')"
+          (click)="selectFilter('all')"
+        >
+          All
+        </button>
+        <button
+          mat-stroked-button
+          [class.active]="isFilterActive('equity')"
+          (click)="selectFilter('equity')"
+        >
+          Equities
+        </button>
+        <button
+          mat-stroked-button
+          [class.active]="isFilterActive('crypto')"
+          (click)="selectFilter('crypto')"
+        >
+          Crypto
+        </button>
+        <button
+          mat-stroked-button
+          [class.active]="isFilterActive('etf')"
+          (click)="selectFilter('etf')"
+        >
+          ETFs
+        </button>
+      </div>
+    </div>
+
+    <!-- Scrollable Market Assets Table -->
+    <div class="table-container">
+      <table class="assets-table">
+        <thead>
+          <tr>
+            <th class="col-symbol">Ticker</th>
+            <th class="col-price">Price</th>
+            <th class="col-change">24h Change</th>
+            <th class="col-volume">Volume</th>
+            <th class="col-marketcap">Market Cap</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let asset of marketAssets"
+            class="asset-row"
+            (click)="openTradingDialog(asset)"
+          >
+            <td class="col-symbol">{{ asset.symbol }}</td>
+            <td class="col-price">${{ asset.price }}</td>
+            <td class="col-change" [style.color]="getChangeColor(asset.change24h)">
+              {{ asset.changePercent }}
+            </td>
+            <td class="col-volume">{{ asset.volume }}</td>
+            <td class="col-marketcap">{{ asset.marketCap }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="marketAssets.length === 0" class="no-results">
+      <p>No assets found matching your search.</p>
+    </div>
+  </div>
+</div>

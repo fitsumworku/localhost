@@ -1,0 +1,116 @@
+.dispute-dialog {
+  width: 100%;
+  padding: 24px;
+
+  .dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e0e0e0;
+
+    .transaction-info {
+      h2 {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin: 0 0 8px 0;
+      }
+
+      .transaction-details {
+        font-size: 12px;
+        color: #666;
+        margin: 0;
+      }
+    }
+
+    .close-btn {
+      color: #999;
+
+      &:hover {
+        color: #1a1a1a;
+      }
+    }
+  }
+
+  .dispute-form {
+    .form-group {
+      margin-bottom: 24px;
+
+      .form-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #1a1a1a;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+      }
+
+      mat-form-field {
+        width: 100%;
+
+        ::ng-deep .mat-mdc-form-field {
+          width: 100%;
+        }
+      }
+
+      .textarea-field {
+        ::ng-deep .mat-mdc-text-field-wrapper {
+          padding-bottom: 0;
+        }
+      }
+
+      .field-hint {
+        font-size: 11px;
+        color: #ff6b6b;
+        margin-top: 4px;
+        margin-bottom: 0;
+      }
+    }
+
+    .dialog-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e0e0;
+
+      button {
+        padding: 10px 24px;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+      }
+
+      .cancel-btn {
+        color: #666;
+        border-color: #e0e0e0;
+
+        &:hover {
+          border-color: #999;
+          color: #999;
+        }
+      }
+
+      .submit-btn {
+        background-color: #06402b;
+        color: white;
+
+        &:hover:not(:disabled) {
+          background-color: #05331f;
+        }
+
+        &:disabled {
+          background-color: #ccc;
+          cursor: not-allowed;
+        }
+      }
+    }
+  }
+}
