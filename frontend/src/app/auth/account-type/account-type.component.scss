@@ -3,13 +3,13 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: #F3F4F6;
+  background: #F8FAFC;
   padding: 20px;
 }
 
 .account-type-card {
   background: #ffffff;
-  border: 2px solid #D6E4F5;
+  border: 2px solid #06402B;
   border-radius: 12px;
   padding: 60px 40px;
   width: 100%;
@@ -47,13 +47,7 @@
   transition: all 0.3s ease;
   text-align: center;
 
-  &:hover:not(.selected) {
-    border-color: #d0d0d0 !important;
-    background: #fafafa !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-  }
-
-  &.selected {
+  &:hover {
     border-color: #06402B !important;
     background: #F8FAFC !important;
     box-shadow: 0 0 0 1px rgba(6, 64, 43, 0.1), 0 4px 16px rgba(6, 64, 43, 0.08);
@@ -75,19 +69,18 @@
   margin: 0 auto 16px;
 
   mat-icon {
-    color: #666666;
+    color: #06402B;
     font-size: 32px;
     width: 32px;
     height: 32px;
   }
-
-  &.admin-icon {
-    background: rgba(6, 64, 43, 0.15);
-
-    mat-icon {
-      color: #06402B;
-    }
+  &.user-icon {
+    background: #06402B26;
   }
+  &.admin-icon {
+    background: #06402B26;
+  }
+
 }
 
 .account-name {

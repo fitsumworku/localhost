@@ -1,0 +1,110 @@
+<div class="trading-dialog">
+  <!-- Header -->
+  <div class="dialog-header">
+    <div>
+      <h2 class="asset-name">{{ data.symbol }}</h2>
+      <p class="asset-price">{{ data.price | currency }}</p>
+    </div>
+    <button mat-icon-button (click)="close()" class="close-btn">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Transaction Type -->
+  <div class="transaction-type">
+    <button
+      [class.active]="transactionType === 'buy'"
+      (click)="selectTransactionType('buy')"
+      class="type-btn buy-btn"
+    >
+      BUY
+    </button>
+    <button
+      [class.active]="transactionType === 'sell'"
+      (click)="selectTransactionType('sell')"
+      class="type-btn sell-btn"
+    >
+      SELL
+    </button>
+  </div>
+
+  <!-- Order Type -->
+  <div class="order-type-section">
+    <label class="section-label">Order Type</label>
+    <div class="order-type-buttons">
+      <button
+        [class.active]="orderType === 'market'"
+        (click)="selectOrderType('market')"
+        class="order-btn"
+      >
+        Market
+      </button>
+      <button
+        [class.active]="orderType === 'limit'"
+        (click)="selectOrderType('limit')"
+        class="order-btn"
+      >
+        Limit
+      </button>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <form [formGroup]="tradeForm" class="trade-form">
+    <!-- Quantity -->
+    <div class="form-group">
+      <label class="form-label">Quantity</label>
+      <div class="quantity-input">
+        <button type="button" class="qty-btn">-</button>
+        <mat-form-field class="qty-field">
+          <input
+            matInput
+            type="number"
+            formControlName="quantity"
+            placeholder="0"
+          />
+        </mat-form-field>
+        <button type="button" class="qty-btn">+</button>
+      </div>
+    </div>
+
+    <!-- Limit Price (only if limit order) -->
+    <div class="form-group" *ngIf="orderType === 'limit'">
+      <label class="form-label">Limit Price</label>
+      <mat-form-field>
+        <mat-label>Price</mat-label>
+        <input
+          matInput
+          type="number"
+          formControlName="limitPrice"
+          placeholder="0.00"
+        />
+        <span matSuffix>USD</span>
+      </mat-form-field>
+    </div>
+
+    <!-- Estimated Total -->
+    <div class="estimated-section">
+      <div class="estimated-label">Estimated Total</div>
+      <div class="estimated-value">
+        {{ estimatedTotal | currency }}
+      </div>
+      <p class="estimated-note">
+        Based on {{ orderType === 'market' ? 'current' : 'limit' }} price of {{ (orderType === 'market' ? data.price : tradeForm.get('limitPrice')?.value) | currency }}
+      </p>
+    </div>
+
+    <!-- Action Button -->
+    <button
+      type="button"
+      mat-raised-button
+      class="action-btn"
+      [class.buy]="transactionType === 'buy'"
+      [class.sell]="transactionType === 'sell'"
+      (click)="onSubmit()"
+      [disabled]="!tradeForm.valid"
+    >
+      Place {{ transactionType === 'buy' ? 'Buy' : 'Sell' }} Order
+    </button>
+  </form>
+</div>
