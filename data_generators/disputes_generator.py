@@ -44,12 +44,12 @@ def parse_trades_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (trade_id, execution_id, security_id, trade_price, shares, 'trade_status', 'trade_date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: Updated format - VALUES (trade_id, execution_id, security_id, trade_price, shares, 'status_of_trade', 'date_of_trade', reversal_date)
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*([^)]*)\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            trade_id, execution_id, security_id, trade_price, shares, trade_status, trade_date = match
+            trade_id, execution_id, security_id, trade_price, shares, trade_status, trade_date, reversal_date = match
             
             # Get all trades
             trades.append({
@@ -77,12 +77,12 @@ def parse_transactions_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (transaction_id, account_id, transaction_amount, 'transaction_type', 'transaction_date', 'transaction_status')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: Updated format - VALUES (transaction_id, account_id, amount_of_transaction, 'type_of_transaction', 'date_of_transaction', 'status_of_transaction', reversal_date)
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^)]*)\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            transaction_id, account_id, amount, transaction_type, transaction_date, status = match
+            transaction_id, account_id, amount, transaction_type, transaction_date, status, reversal_date = match
             
             # Only get DISPUTED or FAILED transactions
             if status in ['DISPUTED', 'FAILED']:
@@ -266,7 +266,7 @@ def format_disputes_sql(disputes):
         date_resolved_str = f"'{dispute['date_resolved']}'" if dispute['date_resolved'] else 'NULL'
         transaction_id_str = str(dispute['transaction_id']) if dispute['transaction_id'] else 'NULL'
         trade_id_str = str(dispute['trade_id']) if dispute['trade_id'] else 'NULL'
-        sql = f"INSERT INTO Disputes (Dispute_ID, Account_ID, Admin_ID, Transaction_ID, Trade_ID, Dispute_Type, Description, Status, Date_Created, Date_Resolved) VALUES ({dispute['dispute_id']}, {dispute['account_id']}, {dispute['admin_id']}, {transaction_id_str}, {trade_id_str}, '{dispute['dispute_type']}', '{dispute['description']}', '{dispute['status']}', '{dispute['date_created']}', {date_resolved_str});"
+        sql = f"INSERT INTO Disputes (Dispute_ID, Account_ID, Admin_ID, Transaction_ID, Trade_ID, Dispute_Type, Description, Status, Created_Date, Resolved_Date) VALUES ({dispute['dispute_id']}, {dispute['account_id']}, {dispute['admin_id']}, {transaction_id_str}, {trade_id_str}, '{dispute['dispute_type']}', '{dispute['description']}', '{dispute['status']}', '{dispute['date_created']}', {date_resolved_str});"
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)

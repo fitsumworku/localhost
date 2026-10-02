@@ -1,10 +1,13 @@
 package com.neueda.leap.team.controller;
 
+import com.neueda.leap.team.dto.AuthResponse;
 import com.neueda.leap.team.dto.LoginRequest;
 import com.neueda.leap.team.dto.RegisterRequest;
 import com.neueda.leap.team.dto.UserDto;
 import com.neueda.leap.team.service.UserService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 // The /auth endpoints from openapi.yaml
@@ -25,7 +28,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public UserDto login(@RequestBody LoginRequest req) {
+    public AuthResponse login(@RequestBody LoginRequest req) {
         return service.login(req);
     }
 
@@ -35,7 +38,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public UserDto me(@RequestParam Long userId) {
-        return service.getById(userId);
+    public UserDto me(@AuthenticationPrincipal UserDetails principal) {
+        return service.getByEmail(principal.getUsername());
     }
 }

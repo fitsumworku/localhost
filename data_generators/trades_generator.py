@@ -133,13 +133,15 @@ def format_trades_sql(trades):
         "-- Execute this file in PostgreSQL to populate the Trades table",
         f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"-- Total records: {len(trades)}",
-        "-- Table: Trades (Trade_ID, Execution_ID, Security_ID, Trade_Price, Shares, Trade_Status, Trade_Date)",
+        "-- Table: Trades (Trade_ID, Execution_ID, Security_ID, Trade_Price, Shares, Status_Of_Trade, Date_Of_Trade, Reversal_Date)",
         "-- Status values: PENDING, SETTLED, DISPUTED, REVERSED",
+        "-- Reversal_Date is NULL unless Status_Of_Trade = 'REVERSED'",
         ""
     ]
     
     for trade in trades:
-        sql = f"INSERT INTO Trades (Trade_ID, Execution_ID, Security_ID, Trade_Price, Shares, Trade_Status, Trade_Date) VALUES ({trade['trade_id']}, {trade['execution_id']}, {trade['security_id']}, {trade['trade_price']}, {trade['shares']}, '{trade['trade_status']}', '{trade['trade_date']}');"
+        # Reversal_Date is NULL for all generated trades (will be set by dispute resolution)
+        sql = f"INSERT INTO Trades (Trade_ID, Execution_ID, Security_ID, Trade_Price, Shares, Status_Of_Trade, Date_Of_Trade, Reversal_Date) VALUES ({trade['trade_id']}, {trade['execution_id']}, {trade['security_id']}, {trade['trade_price']}, {trade['shares']}, '{trade['trade_status']}', '{trade['trade_date']}', NULL);"
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)
