@@ -36,13 +36,13 @@ def parse_orders_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern to extract order data from INSERT statement (new format)
-        # VALUES (order_id, account_id, security_id, 'side', quantity, 'status', 'created_date', 'updated_date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([^']*)',\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern to extract order data from INSERT statement (updated format with Estimated_Price and Reserved_Cash)
+        # VALUES (order_id, account_id, security_id, 'side', estimated_price, quantity, 'status', 'created_date', 'updated_date', reserved_cash)
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([^']*)',\s*([^,]*),\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^)]*)?\s*\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            order_id, account_id, security_id, side, quantity, status, created_date, updated_date = match
+            order_id, account_id, security_id, side, estimated_price, quantity, status, created_date, updated_date, reserved_cash = match
             
             orders.append({
                 'order_id': int(order_id),

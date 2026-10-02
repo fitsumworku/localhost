@@ -5,11 +5,11 @@
 -- hold one or more accounts; accounts hold instruments via transactions
 -- and current holdings.
 
-DROP TABLE IF EXISTS Users;
 DROP TABLE IF EXISTS Roles;
 DROP TABLE IF EXISTS User_Roles;
 DROP TABLE IF EXISTS Audit_Logs;
 DROP TABLE IF EXISTS Accounts;
+DROP TABLE IF EXISTS Users;
 DROP TABLE IF EXISTS Securities;
 DROP TABLE IF EXISTS Account_Positions;
 DROP TABLE IF EXISTS Orders;
@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS Trades;
 DROP TABLE IF EXISTS Transactions;
 DROP TABLE IF EXISTS Disputes;
 DROP TABLE IF EXISTS Cash_Ledger;
+DROP TABLE IF EXISTS Balance;
 
 CREATE TABLE Users (
     User_ID BIGSERIAL PRIMARY KEY,
@@ -81,9 +82,9 @@ CREATE TABLE Account_Positions (
     Position_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL,
     Security_ID BIGINT NOT NULL,
-    Total_Shares NUMERIC(18,4),
-    Average_Price NUMERIC(18,4),
-    Updated_Date TIMESTAMP,
+    Total_Shares NUMERIC(18,4) NOT NULL DEFAULT 0,
+    Average_Price NUMERIC(18,4) NOT NULL DEFAULT 0,
+    Updated_Date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
     UNIQUE (Account_ID, Security_ID),
@@ -96,14 +97,15 @@ CREATE TABLE Orders (
     Account_ID BIGINT NOT NULL,
     Security_ID BIGINT NOT NULL,
     Side CHAR(1) NOT NULL,
-    Quantity_Ordered NUMERIC(18,4) NOT NULL,
+    Total_Spend NUMERIC(18,4) NOT NULL,
     Order_Status VARCHAR(16) NOT NULL,
     Created_Date TIMESTAMP NOT NULL,
     Updated_Date TIMESTAMP NOT NULL,
+    Is_After_Hours BOOLEAN NOT NULL DEFAULT FALSE,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
+    CHECK (Total_Spend > 0),
     CHECK (Side IN ('B','S')),
-    CHECK (Quantity_Ordered > 0),
     CHECK (Order_Status IN ('PENDING','IN_EXECUTION','CANCELLED')),
     CHECK (Updated_Date >= Created_Date)
 );
@@ -114,12 +116,14 @@ CREATE TABLE Executions (
     Quantity_Filled NUMERIC(18,4) NOT NULL,
     Price_Of_Execution NUMERIC(18,4) NOT NULL,
     Date_Of_Execution TIMESTAMP NOT NULL,
+    Settlement_Date TIMESTAMP,
     Status_Of_Execution VARCHAR(20) NOT NULL,
     Exchange_Trade_ID VARCHAR(100) UNIQUE,
     FOREIGN KEY (Order_ID) REFERENCES Orders(Order_ID),
     CHECK (Quantity_Filled > 0),
     CHECK (Price_Of_Execution > 0),
-    CHECK (Status_Of_Execution IN ('PENDING','FILLED','PARTIALLY_FILLED','FAILED'))
+    CHECK (Status_Of_Execution IN ('PENDING','FILLED','FAILED')),
+    CHECK (Settlement_Date IS NULL OR Settlement_Date >= Date_Of_Execution)
 );
 
 CREATE TABLE Trades (
@@ -130,11 +134,13 @@ CREATE TABLE Trades (
     Shares NUMERIC(18,4) NOT NULL,
     Status_Of_Trade VARCHAR(18) NOT NULL,
     Date_Of_Trade TIMESTAMP NOT NULL,
+    Reversal_Date TIMESTAMP DEFAULT NULL,
     FOREIGN KEY (Execution_ID) REFERENCES Executions(Execution_ID),
     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
-    CHECK (Price_Of_Trade > 0),
+    CHECK (Trade_Price > 0),
     CHECK (Shares > 0),
-    CHECK (Status_Of_Trade IN ('PENDING','SETTLED','DISPUTED','REVERSED'))
+    CHECK (Status_Of_Trade IN ('PENDING','SETTLED','DISPUTED','REVERSED')),
+    CHECK (Reversal_Date IS NULL OR (Status_Of_Trade = 'REVERSED' AND Reversal_Date >= Date_Of_Trade))
 );
 
 CREATE TABLE Transactions (
@@ -144,17 +150,19 @@ CREATE TABLE Transactions (
     Type_Of_Transaction VARCHAR(16) NOT NULL,
     Date_Of_Transaction TIMESTAMP NOT NULL,
     Status_Of_Transaction VARCHAR(9) NOT NULL,
+    Reversal_Date TIMESTAMP DEFAULT NULL,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     CHECK (Amount_Of_Transaction > 0),
     CHECK (Type_Of_Transaction IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE')),
-    CHECK (Status_Of_Transaction IN ('PENDING','COMPLETED','FAILED','DISPUTED','REVERSED'))
+    CHECK (Status_Of_Transaction IN ('PENDING','COMPLETED','FAILED','DISPUTED','REVERSED')),
+    CHECK (Reversal_Date IS NULL OR (Status_Of_Transaction = 'REVERSED' AND Reversal_Date >= Date_Of_Transaction))
 );
 
 CREATE TABLE Disputes (
     Dispute_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL,
     Admin_ID BIGINT NOT NULL,
-    Transaction_ID BIGINT NOT NULL,
+    Transaction_ID BIGINT,
     Trade_ID BIGINT,
     Dispute_Type VARCHAR(50) NOT NULL,
     Description TEXT,
@@ -166,7 +174,8 @@ CREATE TABLE Disputes (
     FOREIGN KEY (Transaction_ID) REFERENCES Transactions(Transaction_ID),
     FOREIGN KEY (Trade_ID) REFERENCES Trades(Trade_ID),
     CHECK (Status IN ('OPEN','UNDER_REVIEW','ESCALATED','RESOLVED','REJECTED')),
-    CHECK (Resolved_Date IS NULL OR Resolved_Date >= Created_Date)
+    CHECK (Resolved_Date IS NULL OR Resolved_Date >= Created_Date),
+    CHECK ((Transaction_ID IS NOT NULL AND Trade_ID IS NULL) OR (Trade_ID IS NOT NULL AND Transaction_ID IS NULL))
 );
 
 CREATE TABLE Cash_Ledger (
@@ -175,19 +184,28 @@ CREATE TABLE Cash_Ledger (
     Transaction_ID BIGINT,
     Trade_ID BIGINT,
     Entry_Type VARCHAR(16) NOT NULL,
-    Debit_Amount NUMERIC(18,4) NOT NULL,
-    -- positive values (sell or deposit transactions)
-    Credit_Amount NUMERIC(18,4) NOT NULL,
-    -- negative values (buy or withdrawal transactions)
-    Running_Balance NUMERIC(18,4) NOT NULL,
-    -- running balance = previous balance - Credit_Amount + Debit_Amount
+    Debit_Amount NUMERIC(18,4) NOT NULL DEFAULT 0,
+    -- amount removed from account (buy, withdrawal, fee)
+    Credit_Amount NUMERIC(18,4) NOT NULL DEFAULT 0,
+    -- amount added to account (sell, deposit, dividend, interest)
     Entry_Date TIMESTAMP NOT NULL,
     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
     FOREIGN KEY (Transaction_ID) REFERENCES Transactions(Transaction_ID),
     FOREIGN KEY (Trade_ID) REFERENCES Trades(Trade_ID),
-    CHECK (Debit_Amount > 0),
-    CHECK (Credit_Amount > 0),
-    CHECK (Running_Balance >= 0),
-    CHECK (Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE','TRADE_SETTLEMENT')),
-    CHECK (((Debit_Amount > 0 AND Credit_Amount = 0) OR (Credit_Amount > 0 AND Debit_Amount = 0)))
+    CHECK (Transaction_ID IS NOT NULL OR Trade_ID IS NOT NULL),
+    CHECK (Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE','TRADE_SETTLEMENT','TRADE_REVERSAL')),
+    CHECK ((Debit_Amount > 0 AND Credit_Amount = 0) OR (Credit_Amount > 0 AND Debit_Amount = 0))
+);
+
+CREATE TABLE Account_Funds (
+    AF_ID BIGSERIAL PRIMARY KEY,
+    Account_ID BIGINT NOT NULL UNIQUE,
+    Reserved_Cash NUMERIC(18,4) NOT NULL DEFAULT 0,
+    -- Cash temporarily held for market orders
+    Buying_Power NUMERIC(18,4) NOT NULL,
+    -- Cash remaining to be used for new orders
+    Last_Updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
+    CHECK (Reserved_Cash >= 0),
+    CHECK (Buying_Power >= 0)
 );
