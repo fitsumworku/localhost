@@ -1,15 +1,12 @@
--- PaySprint Wealth Platform — Enterprise Schema
--- Pre-loaded, read-heavy schema used for exploration and query practice
--- across Modules 02-05 (and referenced again in Module 10).
--- Domain: a wealth management platform. Advisors manage clients; clients
--- hold one or more accounts; accounts hold instruments via transactions
--- and current holdings.
 
 BEGIN;
 
+-- Remove views before their underlying tables.
 DROP VIEW IF EXISTS Trade_Details;
 DROP VIEW IF EXISTS Position_Availability;
 DROP VIEW IF EXISTS Account_Cash_Availability;
+
+-- Remove dependent tables before the tables they reference.
 
 DROP TABLE IF EXISTS Audit_Logs;
 DROP TABLE IF EXISTS Disputes;
@@ -21,42 +18,31 @@ DROP TABLE IF EXISTS Order_Reservations;
 DROP TABLE IF EXISTS Orders;
 DROP TABLE IF EXISTS Account_Positions;
 DROP TABLE IF EXISTS Securities;
+DROP TABLE IF EXISTS Account_Cash_Balances;
 DROP TABLE IF EXISTS Accounts;
 DROP TABLE IF EXISTS User_Roles;
 DROP TABLE IF EXISTS Roles;
 DROP TABLE IF EXISTS Users;
-
-
-
-
-
-
-
-
-
-
-
 
 CREATE TABLE Users (
     User_ID BIGSERIAL PRIMARY KEY,
     Name VARCHAR(100) NOT NULL CHECK (length(btrim(Name)) > 0),
     Email VARCHAR(255) NOT NULL CHECK (Email = lower(btrim(Email)) AND length(Email) > 0),
     Password_Hash VARCHAR(255) NOT NULL CHECK (length(Password_Hash) > 0),
-
     Status VARCHAR(9) NOT NULL DEFAULT 'ACTIVE'
         CHECK (Status IN ('ACTIVE', 'SUSPENDED')),
     Created_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-    Unique(Email),
+    UNIQUE (Email),
     CHECK (Updated_Date >= Created_Date)
 );
 
-CREATE TABLE Roles(
+CREATE TABLE Roles (
     Role_ID BIGSERIAL PRIMARY KEY,
     Name VARCHAR(16) NOT NULL UNIQUE CHECK (Name IN ('CLIENT', 'ADMIN'))
 );
 
-CREATE TABLE User_Roles(
+CREATE TABLE User_Roles (
     User_ID BIGINT NOT NULL REFERENCES Users(User_ID),
     Role_ID BIGINT NOT NULL REFERENCES Roles(Role_ID),
     PRIMARY KEY (User_ID, Role_ID)
@@ -65,16 +51,23 @@ CREATE TABLE User_Roles(
 CREATE TABLE Accounts (
     Account_ID BIGSERIAL PRIMARY KEY,
     User_ID BIGINT NOT NULL REFERENCES Users(User_ID),
-
+    
     Currency CHAR(3) NOT NULL DEFAULT 'USD' CHECK (Currency = 'USD'),
-    Cash_Balance NUMERIC(20, 2) NOT NULL DEFAULT 0
-        CHECK(Cash_balance >= 0 AND Cash_Balance < 'Infinity'::NUMERIC),
     Created_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     CHECK (Updated_Date >= Created_Date)
 );
 
-CREATE TABLE Securities(
+
+CREATE TABLE Account_Cash_Balances (
+    Account_ID BIGINT PRIMARY KEY REFERENCES Accounts(Account_ID),
+    Cash_Balance NUMERIC(20,2) NOT NULL DEFAULT 0
+        CHECK (Cash_Balance >= 0 AND Cash_Balance < 'Infinity'::NUMERIC),
+    Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+
+CREATE TABLE Securities (
     Security_ID BIGSERIAL PRIMARY KEY,
     Ticker VARCHAR(40) NOT NULL CHECK (length(btrim(Ticker)) > 0),
     Name VARCHAR(255) NOT NULL CHECK (length(btrim(Name)) > 0),
@@ -88,18 +81,19 @@ CREATE TABLE Securities(
     UNIQUE (Ticker, Exchange),
     UNIQUE (Security_ID, Quote_Currency),
     CHECK (
-        (Asset_Type = 'FOREX' AND Base_Currency IS NOT NULL 
-           AND Base_Currency ~ '^[A-Z]{3}$' AND Base_Currency <> Quote_Currency)
+        (Asset_Type = 'FOREX' AND Base_Currency IS NOT NULL
+            AND Base_Currency ~ '^[A-Z]{3}$' AND Base_Currency <> Quote_Currency)
         OR (Asset_Type <> 'FOREX' AND Base_Currency IS NULL)
     )
 );
 
 CREATE TABLE Account_Positions (
-    Position_ID BIGSERIAL PRIMARY KEY, 
+    Position_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
     Security_ID BIGINT NOT NULL REFERENCES Securities(Security_ID),
     Quantity NUMERIC(28,12) NOT NULL DEFAULT 0
         CHECK (Quantity >= 0 AND Quantity < 'Infinity'::NUMERIC),
+    
     Average_Price NUMERIC(28,12) NOT NULL DEFAULT 0
         CHECK (Average_Price >= 0 AND Average_Price < 'Infinity'::NUMERIC),
     Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
@@ -107,7 +101,7 @@ CREATE TABLE Account_Positions (
     CHECK (Quantity <> 0 OR Average_Price = 0)
 );
 
-CREATE TABLE Orders(
+CREATE TABLE Orders (
     Order_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
     Security_ID BIGINT NOT NULL REFERENCES Securities(Security_ID),
@@ -116,13 +110,15 @@ CREATE TABLE Orders(
     Requested_Amount NUMERIC(20,2),
     Quantity_Ordered NUMERIC(28,12),
     Order_Status VARCHAR(16) NOT NULL DEFAULT 'SUBMITTED'
-        CHECK (Order_Status IN ('SUBMITTED', 'ACCEPTED', 'IN_EXECUTION', 'FILLED', 'REJECTED', 'CANCELLED')),
+        CHECK (Order_Status IN ('SUBMITTED', 'ACCEPTED', 'IN_EXECUTION',
+                                'FILLED', 'REJECTED', 'CANCELLED')),
     Created_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     Accepted_At TIMESTAMPTZ,
     Terminal_At TIMESTAMPTZ,
     Rejection_Reason TEXT,
     UNIQUE (Account_ID, Client_Request_ID),
+    
     UNIQUE (Order_ID, Account_ID, Security_ID, Side),
     CHECK (
         (Side = 'B' AND Requested_Amount IS NOT NULL AND Requested_Amount > 0
@@ -132,20 +128,20 @@ CREATE TABLE Orders(
             AND Quantity_Ordered < 'Infinity'::NUMERIC AND Requested_Amount IS NULL)
     ),
     CHECK (Updated_Date >= Created_Date),
-    CHECK (Accepted_At IS NULL OR Accepted_At >= Created_Date), 
+    CHECK (Accepted_At IS NULL OR Accepted_At >= Created_Date),
     CHECK (Terminal_At IS NULL OR Terminal_At >= COALESCE(Accepted_At, Created_Date)),
     CHECK (Order_Status NOT IN ('ACCEPTED', 'IN_EXECUTION', 'FILLED', 'CANCELLED')
-            OR Accepted_At IS NOT NULL),
+           OR Accepted_At IS NOT NULL),
     CHECK (Order_Status <> 'SUBMITTED' OR Accepted_At IS NULL),
     CHECK ((Order_Status IN ('FILLED', 'REJECTED', 'CANCELLED')) = (Terminal_At IS NOT NULL)),
     CHECK (
-        (Order_Status = 'REJECTED' AND Rejection_Reason IS NOT NULL 
+        (Order_Status = 'REJECTED' AND Rejection_Reason IS NOT NULL
             AND length(btrim(Rejection_Reason)) > 0)
         OR (Order_Status <> 'REJECTED' AND Rejection_Reason IS NULL)
     )
 );
 
-CREATE TABLE Order_Reservations(
+CREATE TABLE Order_Reservations (
     Order_ID BIGINT PRIMARY KEY,
     Account_ID BIGINT NOT NULL,
     Security_ID BIGINT NOT NULL,
@@ -161,60 +157,57 @@ CREATE TABLE Order_Reservations(
     CHECK (
         (Side = 'B' AND Reserved_Cash IS NOT NULL AND Reserved_Cash > 0
             AND Reserved_Cash < 'Infinity'::NUMERIC AND Reserved_Quantity IS NULL)
-        OR 
+        OR
         (Side = 'S' AND Reserved_Quantity IS NOT NULL AND Reserved_Quantity > 0
             AND Reserved_Quantity < 'Infinity'::NUMERIC AND Reserved_Cash IS NULL)
     ),
     CHECK ((Status = 'ACTIVE' AND Resolved_At IS NULL)
-            OR (Status <> 'ACTIVE' AND Resolved_At IS NOT NULL AND Resolved_At >= Created_Date))
+        OR (Status <> 'ACTIVE' AND Resolved_At IS NOT NULL AND Resolved_At >= Created_Date))
 );
 
 
-CREATE TABLE Executions(
+CREATE TABLE Executions (
     Execution_ID BIGSERIAL PRIMARY KEY,
     Order_ID BIGINT NOT NULL,
     Account_ID BIGINT NOT NULL,
     Security_ID BIGINT NOT NULL,
     Side CHAR(1) NOT NULL,
-    Status_Of_Execution VARCHAR(8) NOT NULL 
-        CHECK(Status_Of_Execution IN ('FILLED', 'REJECTED', 'FAILED')),
+    Status_Of_Execution VARCHAR(8) NOT NULL
+        CHECK (Status_Of_Execution IN ('FILLED', 'REJECTED', 'FAILED')),
     Started_At TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     Finished_At TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     Quote_Price NUMERIC(28,12),
     Quote_Currency CHAR(3),
     Quote_Timestamp TIMESTAMPTZ,
     Quote_Source VARCHAR(100),
-
+    
     FX_Rate_To_USD NUMERIC(28,12),
     FX_Quote_Timestamp TIMESTAMPTZ,
     FX_Source VARCHAR(100),
     Quantity_Filled NUMERIC(28,12),
-
+    
     Price_Of_Execution NUMERIC(28,12),
-    Cash_Amount Numeric(20,2) GENERATED ALWAYS AS 
+    Cash_Amount NUMERIC(20,2) GENERATED ALWAYS AS
         (round(Quantity_Filled * Price_Of_Execution, 2)) STORED,
     Failure_Reason TEXT,
     Exchange_Trade_ID VARCHAR(100),
-    FOREIGN KEY(Order_ID, Account_ID, Security_ID, Side)
+    FOREIGN KEY (Order_ID, Account_ID, Security_ID, Side)
         REFERENCES Orders(Order_ID, Account_ID, Security_ID, Side),
     FOREIGN KEY (Security_ID, Quote_Currency)
         REFERENCES Securities(Security_ID, Quote_Currency),
     UNIQUE (Execution_ID, Account_ID),
     CHECK (Finished_At >= Started_At),
-
     CHECK (
-            (Quote_Price IS NULL AND Quote_Currency IS NULL AND Quote_Timestamp IS NULL 
-                AND Quote_Source IS NULL)
-            OR  
-            (Quote_Price IS NOT NULL AND Quote_Price > 0 AND Quote_Price < 'Infinity'::NUMERIC
-                AND Quote_Currency IS NOT NULL AND Quote_Timestamp IS NOT NULL
-                AND Quote_Source IS NOT NULL AND length(btrim(Quote_Source)) > 0
-                AND Quote_Timestamp <= Finished_At)
-
+        (Quote_Price IS NULL AND Quote_Currency IS NULL AND Quote_Timestamp IS NULL
+            AND Quote_Source IS NULL)
+        OR
+        (Quote_Price IS NOT NULL AND Quote_Price > 0 AND Quote_Price < 'Infinity'::NUMERIC
+            AND Quote_Currency IS NOT NULL AND Quote_Timestamp IS NOT NULL
+            AND Quote_Source IS NOT NULL AND length(btrim(Quote_Source)) > 0
+            AND Quote_Timestamp <= Finished_At)
     ),
-
     CHECK (FX_Rate_To_USD IS NULL OR
-            (FX_Rate_To_USD > 0 AND FX_Rate_To_USD < 'Infinity'::NUMERIC)),
+           (FX_Rate_To_USD > 0 AND FX_Rate_To_USD < 'Infinity'::NUMERIC)),
     CHECK (FX_Rate_To_USD IS NULL OR Quote_Price IS NOT NULL),
     CHECK (Quote_Currency IS DISTINCT FROM 'USD' OR FX_Rate_To_USD IS NULL OR FX_Rate_To_USD = 1),
     CHECK (
@@ -233,8 +226,8 @@ CREATE TABLE Executions(
             AND Cash_Amount IS NOT NULL AND Cash_Amount > 0
             AND Quote_Price IS NOT NULL AND FX_Rate_To_USD IS NOT NULL
             AND Price_Of_Execution = round(Quote_Price * FX_Rate_To_USD, 12)
-            AND (Quote_Currency = 'USD' OR 
-                (FX_Quote_Timestamp IS NOT NULL AND FX_Source IS NOT NULL))
+            AND (Quote_Currency = 'USD' OR
+                 (FX_Quote_Timestamp IS NOT NULL AND FX_Source IS NOT NULL))
             AND Failure_Reason IS NULL)
         OR
         (Status_Of_Execution IN ('REJECTED', 'FAILED')
@@ -242,16 +235,15 @@ CREATE TABLE Executions(
             AND Failure_Reason IS NOT NULL AND length(btrim(Failure_Reason)) > 0
             AND Exchange_Trade_ID IS NULL)
     )
-
 );
 
-CREATE UNIQUE INDEX uq_one_filled_Execution_per_order
+CREATE UNIQUE INDEX uq_one_filled_execution_per_order
     ON Executions(Order_ID) WHERE Status_Of_Execution = 'FILLED';
 CREATE UNIQUE INDEX uq_exchange_trade_reference
     ON Executions(Quote_Source, Exchange_Trade_ID) WHERE Exchange_Trade_ID IS NOT NULL;
 
 
-CREATE TABLE Trades(
+CREATE TABLE Trades (
     Trade_ID BIGSERIAL PRIMARY KEY,
     Execution_ID BIGINT NOT NULL UNIQUE,
     Account_ID BIGINT NOT NULL,
@@ -262,7 +254,8 @@ CREATE TABLE Trades(
     CHECK (Settlement_Date >= Trade_Date)
 );
 
-CREATE TABLE Transactions(
+
+CREATE TABLE Transactions (
     Transaction_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
     Client_Request_ID UUID NOT NULL,
@@ -276,22 +269,24 @@ CREATE TABLE Transactions(
     Completed_At TIMESTAMPTZ,
     Failure_Reason TEXT,
     UNIQUE (Account_ID, Client_Request_ID),
-    UNIQUE(Transaction_ID, Account_ID),
-    CHECK((Transaction_Status = 'PENDING' AND Completed_At IS NULL)
-            OR (Transaction_Status <> 'PENDING' AND Completed_At IS NOT NULL
-                AND Completed_At >= Transaction_Date)),
+    UNIQUE (Transaction_ID, Account_ID),
+    CHECK ((Transaction_Status = 'PENDING' AND Completed_At IS NULL)
+        OR (Transaction_Status <> 'PENDING' AND Completed_At IS NOT NULL
+            AND Completed_At >= Transaction_Date)),
     CHECK ((Transaction_Status = 'FAILED' AND Failure_Reason IS NOT NULL
-            AND length(btrim(Failure_Reason)) > 0)
+                AND length(btrim(Failure_Reason)) > 0)
         OR (Transaction_Status <> 'FAILED' AND Failure_Reason IS NULL))
 );
 
-CREATE TABLE Cash_Ledger(
+
+CREATE TABLE Cash_Ledger (
     Ledger_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
     Transaction_ID BIGINT UNIQUE,
     Trade_ID BIGINT UNIQUE,
-    Entry_Type VARCHAR(16) NOT NULL 
-        CHECK(Entry_Type IN ('DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST', 'FEE', 'BUY', 'SELL')),
+    Entry_Type VARCHAR(16) NOT NULL
+        CHECK (Entry_Type IN ('DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST', 'FEE', 'BUY', 'SELL')),
+    
     Debit_Amount NUMERIC(20,2) NOT NULL DEFAULT 0
         CHECK (Debit_Amount >= 0 AND Debit_Amount < 'Infinity'::NUMERIC),
     Credit_Amount NUMERIC(20,2) NOT NULL DEFAULT 0
@@ -305,37 +300,38 @@ CREATE TABLE Cash_Ledger(
     CHECK ((Debit_Amount > 0 AND Credit_Amount = 0)
         OR (Credit_Amount > 0 AND Debit_Amount = 0)),
     CHECK (
-        (Transaction_ID IS NOT NULL AND Entry_Type IN ('DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST', 'FEE'))
-        OR (Trade_ID IS NOT NULL AND Entry_Type IN ('BUY', 'SELL'))
+        (Transaction_ID IS NOT NULL AND Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE'))
+        OR (Trade_ID IS NOT NULL AND Entry_Type IN ('BUY','SELL'))
     ),
-    CHECK ((Entry_Type IN ('DEPOSIT', 'DIVIDEND', 'INTEREST', 'SELL') AND Debit_Amount > 0)
-        OR (Entry_Type IN ('WITHDRAWAL', 'FEE', 'BUY') AND Credit_Amount > 0))
+    CHECK ((Entry_Type IN ('DEPOSIT','DIVIDEND','INTEREST','SELL') AND Debit_Amount > 0)
+        OR (Entry_Type IN ('WITHDRAWAL','FEE','BUY') AND Credit_Amount > 0))
 );
 
-CREATE TABLE Disputes(
+
+CREATE TABLE Disputes (
     Dispute_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
     Admin_ID BIGINT REFERENCES Users(User_ID),
     Transaction_ID BIGINT,
     Trade_ID BIGINT,
     Dispute_Type VARCHAR(50) NOT NULL CHECK (length(btrim(Dispute_Type)) > 0),
-    Description Text,
+    Description TEXT,
     Status VARCHAR(12) NOT NULL DEFAULT 'OPEN'
-        CHECK (Status IN ('OPEN', 'UNDER_REVIEW', 'ESCALATED', 'RESOLVED', 'REJECTED')),
+        CHECK (Status IN ('OPEN','UNDER_REVIEW','ESCALATED','RESOLVED','REJECTED')),
     Date_Created TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     Date_Resolved TIMESTAMPTZ,
     FOREIGN KEY (Transaction_ID, Account_ID) REFERENCES Transactions(Transaction_ID, Account_ID),
     FOREIGN KEY (Trade_ID, Account_ID) REFERENCES Trades(Trade_ID, Account_ID),
     CHECK ((Transaction_ID IS NOT NULL) <> (Trade_ID IS NOT NULL)),
-    CHECK ((Status IN ('RESOLVED', 'REJECTED') AND Date_Resolved IS NOT NULL
+    CHECK ((Status IN ('RESOLVED','REJECTED') AND Date_Resolved IS NOT NULL
                 AND Date_Resolved >= Date_Created)
-            OR (Status NOT IN ('RESOLVED', 'REJECTED') AND Date_Resolved IS NULL))
+        OR (Status NOT IN ('RESOLVED','REJECTED') AND Date_Resolved IS NULL))
 );
 
-CREATE TABLE Audit_Logs(
+CREATE TABLE Audit_Logs (
     Audit_ID BIGSERIAL PRIMARY KEY,
     Actor_User_ID BIGINT REFERENCES Users(User_ID),
-    Actor_Type VARCHAR(6) NOT NULL CHECK (Actor_Type IN ('USER', 'SYSTEM')),
+    Actor_Type VARCHAR(6) NOT NULL CHECK (Actor_Type IN ('USER','SYSTEM')),
     Subject_User_ID BIGINT REFERENCES Users(User_ID),
     Affected_Table VARCHAR(100) NOT NULL,
     Record_Key JSONB NOT NULL,
@@ -344,19 +340,62 @@ CREATE TABLE Audit_Logs(
     New_Value JSONB,
     Timestamp TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     CHECK ((Actor_Type = 'USER' AND Actor_User_ID IS NOT NULL)
-    OR (Actor_Type = 'SYSTEM' AND Actor_User_ID is NULL)),
-    CHECK(jsonb_typeof(Record_Key) = 'object')
+        OR (Actor_Type = 'SYSTEM' AND Actor_User_ID IS NULL)),
+    CHECK (jsonb_typeof(Record_Key) = 'object')
 );
-
 
 CREATE INDEX ix_user_roles_role ON User_Roles(Role_ID, User_ID);
 CREATE INDEX ix_accounts_user ON Accounts(User_ID, Account_ID);
-CREATE INDEX ix_positions_security ON ACCOUNT_POSITIONS(Security_ID);
+CREATE INDEX ix_positions_security ON Account_Positions(Security_ID);
+CREATE INDEX ix_orders_account_history ON Orders(Account_ID, Created_Date DESC, Order_ID DESC);
+CREATE INDEX ix_orders_security ON Orders(Security_ID);
+CREATE INDEX ix_orders_execution_queue ON Orders(Security_ID, Created_Date, Order_ID)
+    WHERE Order_Status = 'ACCEPTED';
+CREATE INDEX ix_orders_in_execution ON Orders(Updated_Date) WHERE Order_Status = 'IN_EXECUTION';
+CREATE INDEX ix_active_reservations ON Order_Reservations(Account_ID, Security_ID, Side)
+    WHERE Status = 'ACTIVE';
+CREATE INDEX ix_executions_order ON Executions(Order_ID, Finished_At, Execution_ID);
+CREATE INDEX ix_trades_account_history ON Trades(Account_ID, Trade_Date DESC, Trade_ID DESC);
+CREATE INDEX ix_transactions_account_history ON Transactions(Account_ID, Transaction_Date DESC, Transaction_ID DESC);
+CREATE INDEX ix_ledger_account_history ON Cash_Ledger(Account_ID, Ledger_ID);
+CREATE INDEX ix_disputes_account ON Disputes(Account_ID, Date_Created DESC);
+CREATE INDEX ix_disputes_admin ON Disputes(Admin_ID) WHERE Admin_ID IS NOT NULL;
+CREATE INDEX ix_disputes_transaction ON Disputes(Transaction_ID) WHERE Transaction_ID IS NOT NULL;
+CREATE INDEX ix_disputes_trade ON Disputes(Trade_ID) WHERE Trade_ID IS NOT NULL;
+CREATE INDEX ix_audit_subject_time ON Audit_Logs(Subject_User_ID, Timestamp, Audit_ID);
+CREATE INDEX ix_audit_actor ON Audit_Logs(Actor_User_ID) WHERE Actor_User_ID IS NOT NULL;
+CREATE INDEX ix_audit_record ON Audit_Logs(Affected_Table, Record_Key, Audit_ID);
 
 
+CREATE VIEW Account_Cash_Availability AS
+SELECT a.Account_ID, a.User_ID, a.Currency, b.Cash_Balance,
+       COALESCE(r.Reserved_Cash, 0) AS Reserved_Cash,
+       b.Cash_Balance - COALESCE(r.Reserved_Cash, 0) AS Available_Cash
+FROM Accounts a
+JOIN Account_Cash_Balances b USING (Account_ID)
+LEFT JOIN (
+    SELECT Account_ID, sum(Reserved_Cash) AS Reserved_Cash
+    FROM Order_Reservations WHERE Status = 'ACTIVE' AND Side = 'B' GROUP BY Account_ID
+) r USING (Account_ID);
 
-INSERT INTO Roles(Name) Values ('CLIENT'), ('ADMIN');
+CREATE VIEW Position_Availability AS
+SELECT p.Position_ID, p.Account_ID, p.Security_ID, p.Quantity, p.Average_Price,
+       COALESCE(r.Reserved_Quantity, 0) AS Reserved_Quantity,
+       p.Quantity - COALESCE(r.Reserved_Quantity, 0) AS Available_Quantity
+FROM Account_Positions p
+LEFT JOIN (
+    SELECT Account_ID, Security_ID, sum(Reserved_Quantity) AS Reserved_Quantity
+    FROM Order_Reservations WHERE Status = 'ACTIVE' AND Side = 'S' GROUP BY Account_ID, Security_ID
+) r USING (Account_ID, Security_ID);
+
+CREATE VIEW Trade_Details AS
+SELECT t.Trade_ID, t.Account_ID, e.Order_ID, t.Execution_ID, e.Security_ID, e.Side,
+       e.Quantity_Filled, e.Price_Of_Execution, e.Cash_Amount,
+       t.Trade_Date, t.Settlement_Date,
+       e.Quote_Price, e.Quote_Currency, e.Quote_Timestamp, e.Quote_Source,
+       e.FX_Rate_To_USD, e.FX_Quote_Timestamp, e.FX_Source
+FROM Trades t JOIN Executions e USING (Execution_ID);
+
+INSERT INTO Roles(Name) VALUES ('CLIENT'), ('ADMIN');
 
 COMMIT;
-
-
