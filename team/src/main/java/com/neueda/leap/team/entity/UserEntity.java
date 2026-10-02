@@ -3,10 +3,10 @@ package com.neueda.leap.team.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.ArrayList;
-import java.util.Set;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "Users")
@@ -117,13 +117,13 @@ public class UserEntity {
 //        this.accounts = accounts;
 //    }
 //
-//    public Set<RoleEntity> getRoles() {
-//        return roles;
-//    }
-//
-//    public void setRoles(Set<RoleEntity> roles) {
-//        this.roles = roles;
-//    }
+    public Set<RoleEntity> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(Set<RoleEntity> roles) {
+        this.roles = roles;
+    }
 //
 //    // Role management methods
 //    public boolean hasRole(String roleName) {
