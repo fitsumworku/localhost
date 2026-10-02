@@ -311,8 +311,8 @@ CREATE TABLE Cash_Ledger (
 
 CREATE TABLE Disputes (
     Dispute_ID BIGSERIAL PRIMARY KEY,
-    Account_ID BIGINT NOT NULL,
-    Admin_ID BIGINT NOT NULL,
+    Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
+    Admin_ID BIGINT REFERENCES Users(User_ID),
     Transaction_ID BIGINT,
     Trade_ID BIGINT,
     Dispute_Type VARCHAR(50) NOT NULL CHECK (length(btrim(Dispute_Type)) > 0),
