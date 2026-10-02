@@ -31,6 +31,7 @@ CREATE TABLE Users (
     Password_Hash VARCHAR(255) NOT NULL CHECK (length(Password_Hash) > 0),
     Status VARCHAR(9) NOT NULL DEFAULT 'ACTIVE'
         CHECK (Status IN ('ACTIVE', 'SUSPENDED')),
+    Role_ID BIGINT NOT NULL REFERENCES Roles(Role_ID),
     Created_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     UNIQUE (Email),
@@ -42,11 +43,11 @@ CREATE TABLE Roles (
     Name VARCHAR(16) NOT NULL UNIQUE CHECK (Name IN ('CLIENT', 'ADMIN'))
 );
 
-CREATE TABLE User_Roles (
-    User_ID BIGINT NOT NULL REFERENCES Users(User_ID),
-    Role_ID BIGINT NOT NULL REFERENCES Roles(Role_ID),
-    PRIMARY KEY (User_ID, Role_ID)
-);
+-- CREATE TABLE User_Roles (
+--     User_ID BIGINT NOT NULL REFERENCES Users(User_ID),
+--     Role_ID BIGINT NOT NULL REFERENCES Roles(Role_ID),
+--     PRIMARY KEY (User_ID, Role_ID)
+-- );
 
 CREATE TABLE Accounts (
     Account_ID BIGSERIAL PRIMARY KEY,
