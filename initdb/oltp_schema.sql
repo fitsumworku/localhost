@@ -1,4 +1,5 @@
 
+
 BEGIN;
 
 -- Remove views before their underlying tables.
@@ -6,7 +7,6 @@ DROP VIEW IF EXISTS Trade_Details;
 DROP VIEW IF EXISTS Position_Availability;
 DROP VIEW IF EXISTS Account_Cash_Availability;
 
--- Remove dependent tables before the tables they reference.
 
 DROP TABLE IF EXISTS Audit_Logs;
 DROP TABLE IF EXISTS Disputes;
@@ -20,38 +20,39 @@ DROP TABLE IF EXISTS Account_Positions;
 DROP TABLE IF EXISTS Securities;
 DROP TABLE IF EXISTS Account_Cash_Balances;
 DROP TABLE IF EXISTS Accounts;
-DROP TABLE IF EXISTS User_Roles;
-DROP TABLE IF EXISTS Roles;
-DROP TABLE IF EXISTS Users;
+-- Remove the junction table if resetting an older revision; it is no longer recreated.
 
-CREATE TABLE Users (
-    User_ID BIGSERIAL PRIMARY KEY,
-    Name VARCHAR(100) NOT NULL CHECK (length(btrim(Name)) > 0),
-    Email VARCHAR(255) NOT NULL CHECK (Email = lower(btrim(Email)) AND length(Email) > 0),
-    Password_Hash VARCHAR(255) NOT NULL CHECK (length(Password_Hash) > 0),
-    Status VARCHAR(9) NOT NULL DEFAULT 'ACTIVE'
-        CHECK (Status IN ('ACTIVE', 'SUSPENDED')),
-    Role_ID BIGINT NOT NULL REFERENCES Roles(Role_ID),
-    Created_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-    Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-    UNIQUE (Email),
-    CHECK (Updated_Date >= Created_Date)
-);
+DROP TABLE IF EXISTS User_Roles;
+DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS Roles;
 
 CREATE TABLE Roles (
     Role_ID BIGSERIAL PRIMARY KEY,
     Name VARCHAR(16) NOT NULL UNIQUE CHECK (Name IN ('CLIENT', 'ADMIN'))
 );
 
--- CREATE TABLE User_Roles (
---     User_ID BIGINT NOT NULL REFERENCES Users(User_ID),
---     Role_ID BIGINT NOT NULL REFERENCES Roles(Role_ID),
---     PRIMARY KEY (User_ID, Role_ID)
--- );
+CREATE TABLE Users (
+    User_ID BIGSERIAL PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL CHECK (length(btrim(Name)) > 0),
+    Email VARCHAR(255) NOT NULL CHECK (Email = lower(btrim(Email)) AND length(Email) > 0),
+    Password_Hash VARCHAR(255) NOT NULL CHECK (length(Password_Hash) > 0),
+    -- Exactly one role per login; many users may reference the same role.
+    -- Spring assigns CLIENT on public registration; admin provisioning is protected.
+    Role_ID BIGINT NOT NULL REFERENCES Roles(Role_ID),
+    -- SUSPENDED means blacklisted. Spring must write actor/time to Audit_Logs.
+    Status VARCHAR(9) NOT NULL DEFAULT 'ACTIVE'
+        CHECK (Status IN ('ACTIVE', 'SUSPENDED')),
+    Created_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    UNIQUE (Email),
+    CHECK (Updated_Date >= Created_Date)
+);
 
 CREATE TABLE Accounts (
     Account_ID BIGSERIAL PRIMARY KEY,
     User_ID BIGINT NOT NULL REFERENCES Users(User_ID),
+    -- Spring must require a CLIENT owner; this FK checks user existence only.
+    -- Blacklisting is checked through the owning Users.Status, not per account.
     
     Currency CHAR(3) NOT NULL DEFAULT 'USD' CHECK (Currency = 'USD'),
     Created_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
@@ -94,7 +95,7 @@ CREATE TABLE Account_Positions (
     Security_ID BIGINT NOT NULL REFERENCES Securities(Security_ID),
     Quantity NUMERIC(28,12) NOT NULL DEFAULT 0
         CHECK (Quantity >= 0 AND Quantity < 'Infinity'::NUMERIC),
-    
+    -- Weighted average acquisition cost per unit, in account currency (USD).
     Average_Price NUMERIC(28,12) NOT NULL DEFAULT 0
         CHECK (Average_Price >= 0 AND Average_Price < 'Infinity'::NUMERIC),
     Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
@@ -119,7 +120,7 @@ CREATE TABLE Orders (
     Terminal_At TIMESTAMPTZ,
     Rejection_Reason TEXT,
     UNIQUE (Account_ID, Client_Request_ID),
-    
+    -- Supports ownership/instrument/side consistency in child tables.
     UNIQUE (Order_ID, Account_ID, Security_ID, Side),
     CHECK (
         (Side = 'B' AND Requested_Amount IS NOT NULL AND Requested_Amount > 0
@@ -166,7 +167,8 @@ CREATE TABLE Order_Reservations (
         OR (Status <> 'ACTIVE' AND Resolved_At IS NOT NULL AND Resolved_At >= Created_Date))
 );
 
-
+-- Each row is a COMPLETED attempt. Waiting/working state belongs to Orders.
+-- Failed attempts can precede the order's one successful full fill.
 CREATE TABLE Executions (
     Execution_ID BIGSERIAL PRIMARY KEY,
     Order_ID BIGINT NOT NULL,
@@ -181,12 +183,12 @@ CREATE TABLE Executions (
     Quote_Currency CHAR(3),
     Quote_Timestamp TIMESTAMPTZ,
     Quote_Source VARCHAR(100),
-    
+    -- USD per ONE major unit of Quote_Currency; 1 for a USD quote.
     FX_Rate_To_USD NUMERIC(28,12),
     FX_Quote_Timestamp TIMESTAMPTZ,
     FX_Source VARCHAR(100),
     Quantity_Filled NUMERIC(28,12),
-    
+    -- USD per unit, after any approved currency conversion.
     Price_Of_Execution NUMERIC(28,12),
     Cash_Amount NUMERIC(20,2) GENERATED ALWAYS AS
         (round(Quantity_Filled * Price_Of_Execution, 2)) STORED,
@@ -255,7 +257,8 @@ CREATE TABLE Trades (
     CHECK (Settlement_Date >= Trade_Date)
 );
 
-
+-- Non-trading cash operations. A buy/sell is represented by Trades + Cash_Ledger.
+-- Keeping a type here does not require exposing it in the initial UI.
 CREATE TABLE Transactions (
     Transaction_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
@@ -279,7 +282,10 @@ CREATE TABLE Transactions (
         OR (Transaction_Status <> 'FAILED' AND Failure_Reason IS NULL))
 );
 
-
+-- Lock the account's Account_Cash_Balances row before posting.
+-- Let INSERT allocate Ledger_ID from its default;
+-- do not preallocate IDs in the application. With the default sequence CACHE 1,
+-- Ledger_ID orders that account's postings. Update Account_Cash_Balances in that transaction.
 CREATE TABLE Cash_Ledger (
     Ledger_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
@@ -287,7 +293,7 @@ CREATE TABLE Cash_Ledger (
     Trade_ID BIGINT UNIQUE,
     Entry_Type VARCHAR(16) NOT NULL
         CHECK (Entry_Type IN ('DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST', 'FEE', 'BUY', 'SELL')),
-    
+    -- Both amounts are positive magnitudes. Cash change = Debit_Amount - Credit_Amount.
     Debit_Amount NUMERIC(20,2) NOT NULL DEFAULT 0
         CHECK (Debit_Amount >= 0 AND Debit_Amount < 'Infinity'::NUMERIC),
     Credit_Amount NUMERIC(20,2) NOT NULL DEFAULT 0
@@ -308,7 +314,7 @@ CREATE TABLE Cash_Ledger (
         OR (Entry_Type IN ('WITHDRAWAL','FEE','BUY') AND Credit_Amount > 0))
 );
 
-
+-- Retained from the original schema; implementing a dispute UI remains optional.
 CREATE TABLE Disputes (
     Dispute_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
@@ -345,7 +351,7 @@ CREATE TABLE Audit_Logs (
     CHECK (jsonb_typeof(Record_Key) = 'object')
 );
 
-CREATE INDEX ix_user_roles_role ON User_Roles(Role_ID, User_ID);
+CREATE INDEX ix_users_role ON Users(Role_ID, User_ID);
 CREATE INDEX ix_accounts_user ON Accounts(User_ID, Account_ID);
 CREATE INDEX ix_positions_security ON Account_Positions(Security_ID);
 CREATE INDEX ix_orders_account_history ON Orders(Account_ID, Created_Date DESC, Order_ID DESC);
@@ -367,7 +373,9 @@ CREATE INDEX ix_audit_subject_time ON Audit_Logs(Subject_User_ID, Timestamp, Aud
 CREATE INDEX ix_audit_actor ON Audit_Logs(Actor_User_ID) WHERE Actor_User_ID IS NOT NULL;
 CREATE INDEX ix_audit_record ON Audit_Logs(Affected_Table, Record_Key, Audit_ID);
 
-
+-- Views derive availability; they do not authorize requests or replace locking.
+-- A missing balance row is an application integrity error, not a zero balance.
+-- The cash view includes only accounts whose balance row has been created.
 CREATE VIEW Account_Cash_Availability AS
 SELECT a.Account_ID, a.User_ID, a.Currency, b.Cash_Balance,
        COALESCE(r.Reserved_Cash, 0) AS Reserved_Cash,
