@@ -11,12 +11,13 @@ def parse_orders_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (order_id, account_id, security_id, 'side', quantity, 'status', 'created_date', 'updated_date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([^']*)',\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: Updated format - VALUES (order_id, account_id, security_id, 'side', estimated_price, quantity, 'status', 'created_date', 'updated_date', reserved_cash)
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([^']*)',\s*([^,]*),\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^)]*)?\s*\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            order_id, account_id, security_id, side, quantity, status, created_date, updated_date = match
+            order_id = match[0]
+            side = match[3]
             order_sides[int(order_id)] = side
         
         print(f"Parsed {len(order_sides)} orders with side information")
@@ -65,12 +66,12 @@ def parse_trades_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (trade_id, execution_id, security_id, trade_price, shares, 'status', 'trade_date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: Updated format - VALUES (trade_id, execution_id, security_id, trade_price, shares, 'status_of_trade', 'date_of_trade', reversal_date)
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*([^)]*)\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            trade_id, execution_id, security_id, trade_price, shares, status, trade_date = match
+            trade_id, execution_id, security_id, trade_price, shares, status, trade_date, reversal_date = match
             try:
                 price = float(trade_price)
                 quantity = float(shares)
@@ -105,12 +106,12 @@ def parse_transactions_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern: VALUES (transaction_id, account_id, transaction_amount, 'transaction_type', 'transaction_date', 'transaction_status')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: Updated format - VALUES (transaction_id, account_id, amount_of_transaction, 'type_of_transaction', 'date_of_transaction', 'status_of_transaction', reversal_date)
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^)]*)\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            transaction_id, account_id, amount_str, transaction_type, trans_date, status = match
+            transaction_id, account_id, amount_str, transaction_type, trans_date, status, reversal_date = match
             
             try:
                 amount_float = float(amount_str)

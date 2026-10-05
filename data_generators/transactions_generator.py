@@ -10,16 +10,15 @@ def parse_trades_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern to extract trade data from INSERT statement
-        # VALUES (trade_id, execution_id, trade_price, shares, 'trade_status', 'trade_date')
-        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*([^,]*),\s*(\d+),\s*'([^']*)',\s*'([^']*)'\s*\)"
+        # Pattern: Updated format - VALUES (trade_id, execution_id, security_id, trade_price, shares, 'status_of_trade', 'date_of_trade', reversal_date)
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',\s*([^)]*)\)"
         
         matches = re.findall(pattern, content)
         for match in matches:
-            trade_id, execution_id, trade_price_str, shares, trade_status, trade_date = match
+            trade_id, execution_id, security_id, trade_price_str, shares, status_of_trade, trade_date, reversal_date = match
             
             # Only include SETTLED or DISPUTED trades
-            if trade_status in ['SETTLED', 'DISPUTED']:
+            if status_of_trade in ['SETTLED', 'DISPUTED']:
                 try:
                     trade_price = float(trade_price_str)
                 except ValueError:
@@ -30,7 +29,7 @@ def parse_trades_file(filepath):
                     'execution_id': int(execution_id),
                     'trade_price': trade_price,
                     'shares': int(shares),
-                    'trade_status': trade_status,
+                    'trade_status': status_of_trade,
                     'trade_date': trade_date,
                 })
         
@@ -205,14 +204,19 @@ def format_transactions_sql(transactions):
         "-- Execute this file in PostgreSQL to populate the Transactions table",
         f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"-- Total records: {len(transactions)}",
-        "-- Table: Transactions (Transaction_ID, Account_ID, Transaction_Amount, Transaction_Type, Transaction_Date, Transaction_Status)",
-        "-- Transaction_Type options: DEPOSIT, WITHDRAWAL, DIVIDEND, INTEREST, FEE",
-        "-- Transaction_Status options: PENDING, COMPLETED, FAILED, DISPUTED, REVERSED",
+        "-- Table: Transactions (Transaction_ID, Account_ID, Amount_Of_Transaction, Type_Of_Transaction, Date_Of_Transaction, Status_Of_Transaction, Reversal_Date)",
+        "-- Type_Of_Transaction options: DEPOSIT, WITHDRAWAL, DIVIDEND, INTEREST, FEE",
+        "-- Status_Of_Transaction options: PENDING, COMPLETED, FAILED, DISPUTED, REVERSED",
+        "-- Reversal_Date is NULL unless Status_Of_Transaction = 'REVERSED'",
         ""
     ]
     
     for transaction in transactions:
-        sql = f"INSERT INTO Transactions (Transaction_ID, Account_ID, Transaction_Amount, Transaction_Type, Transaction_Date, Transaction_Status) VALUES ({transaction['transaction_id']}, {transaction['account_id']}, {transaction['transaction_amount']}, '{transaction['transaction_type']}', '{transaction['transaction_date']}', '{transaction['transaction_status']}');"
+        # Format amount with 2 decimal places
+        amount_fmt = f"{transaction['transaction_amount']:.2f}"
+        
+        # Reversal_Date is NULL for all generated transactions (will be set by dispute resolution)
+        sql = f"INSERT INTO Transactions (Transaction_ID, Account_ID, Amount_Of_Transaction, Type_Of_Transaction, Date_Of_Transaction, Status_Of_Transaction, Reversal_Date) VALUES ({transaction['transaction_id']}, {transaction['account_id']}, {amount_fmt}, '{transaction['transaction_type']}', '{transaction['transaction_date']}', '{transaction['transaction_status']}', NULL);"
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)
