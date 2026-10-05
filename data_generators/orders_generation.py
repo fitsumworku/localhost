@@ -1,5 +1,18 @@
+#!/usr/bin/env python3
+"""
+orders_generation.py - Generate trading orders with full lifecycle tracking.
+
+Orders represent client requests to buy/sell securities:
+- BUY orders: Requested_Amount (cash to spend) is provided, Quantity_Ordered is NULL
+- SELL orders: Quantity_Ordered (shares to sell) is provided, Requested_Amount is NULL
+- Status lifecycle: SUBMITTED → ACCEPTED → IN_EXECUTION → (FILLED|REJECTED|CANCELLED)
+- Timestamps: Created_Date, Accepted_At (when status moves to ACCEPTED), Terminal_At (when status reaches terminal)
+"""
+
 import random
 import re
+import uuid
+from pathlib import Path
 from datetime import datetime, timedelta
 
 def parse_securities_file(filepath):
@@ -10,9 +23,8 @@ def parse_securities_file(filepath):
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern to match: VALUES (security_id, 'ticker', 'name', 'asset_type', 'exchange', 'ACTIVE', 'sector')
-        # The Status field is in the 6th parameter position
-        pattern = r"VALUES\s*\((\d+),\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'[^']*',\s*'ACTIVE',\s*'[^']*'\s*\)"
+        # Pattern to match: VALUES (security_id, ..., 'ACTIVE', ...)
+        pattern = r"VALUES\s*\((\d+),.*?'ACTIVE',"
         
         matches = re.findall(pattern, content)
         active_securities = [int(m) for m in matches]
@@ -20,7 +32,7 @@ def parse_securities_file(filepath):
         print(f"Parsed {len(active_securities)} active securities from {filepath}")
         
     except FileNotFoundError:
-        print(f"Warning: {filepath} not found. Using hardcoded list.")
+        print(f"Warning: {filepath} not found.")
         return None
     except Exception as e:
         print(f"Error parsing securities file: {e}")
@@ -30,7 +42,7 @@ def parse_securities_file(filepath):
 
 def parse_accounts_file(filepath):
     """Parse accounts_insert.sql to extract all account IDs"""
-    account_ids = set()
+    account_ids = []
     
     try:
         with open(filepath, 'r') as f:
@@ -45,7 +57,7 @@ def parse_accounts_file(filepath):
         print(f"Parsed {len(account_ids)} unique account IDs from {filepath}")
         
     except FileNotFoundError:
-        print(f"Warning: {filepath} not found. Using default range.")
+        print(f"Warning: {filepath} not found.")
         return None
     except Exception as e:
         print(f"Error parsing accounts file: {e}")
@@ -53,136 +65,89 @@ def parse_accounts_file(filepath):
     
     return account_ids if account_ids else None
 
-# Order sides and statuses
-order_sides = ['B', 'S']
-
-# Status distribution: 40% PENDING, 40% IN_EXECUTION, 20% CANCELLED (per schema)
-status_distribution = ['PENDING'] * 40 + ['IN_EXECUTION'] * 40 + ['CANCELLED'] * 20
-
-def generate_orders(active_securities, account_ids, num_orders_per_account=15):
-    """Generate orders ensuring sells have corresponding prior buys"""
+def generate_orders(active_securities, account_ids):
+    """Generate orders with proper status lifecycle"""
     orders = []
     order_id = 1
     
+    # Status weights for order distribution
+    # 40% SUBMITTED/ACCEPTED (still pending), 40% IN_EXECUTION, 20% terminal (FILLED/REJECTED/CANCELLED)
+    status_choices = ['SUBMITTED', 'ACCEPTED', 'IN_EXECUTION', 'FILLED', 'REJECTED', 'CANCELLED']
+    status_weights = [0.15, 0.25, 0.40, 0.10, 0.05, 0.05]
+    
     for account_id in account_ids:
-        # Step 1: Generate orders with dates and attributes
+        # Generate 10-20 orders per account
         num_orders = random.randint(10, 20)
-        order_templates = []
         
         for _ in range(num_orders):
             security_id = random.choice(active_securities)
-            quantity = random.randint(10, 1000)
             
-            # Pre-assign as buy or sell (70/30 ratio)
-            intended_side = 'S' if random.random() < 0.30 else 'B'
+            # Determine side (70% BUY, 30% SELL)
+            side = 'B' if random.random() < 0.70 else 'S'
             
-            # Generate dates (orders from past 90 days)
+            # Generate base dates (orders from past 90 days)
             days_ago = random.randint(0, 90)
-            base_date = datetime.now() - timedelta(days=days_ago)
-            created_date = base_date
-            updated_date = created_date + timedelta(days=random.randint(0, 30))
+            created_date = datetime.now() - timedelta(days=days_ago, hours=random.randint(0, 23), 
+                                                       minutes=random.randint(0, 59), seconds=random.randint(0, 59))
             
-            # Select status based on distribution
-            status = random.choice(status_distribution)
+            # Randomly select order status
+            order_status = random.choices(status_choices, weights=status_weights)[0]
             
-            order_templates.append({
+            # Generate order values based on side
+            if side == 'B':
+                # BUY: specify requested amount in USD
+                requested_amount = round(random.uniform(1000, 50000), 2)
+                quantity_ordered = None
+            else:
+                # SELL: specify quantity of shares (10-1000)
+                quantity_ordered = round(random.uniform(10, 1000), 12)
+                requested_amount = None
+            
+            # Determine timestamp flow based on status
+            if order_status == 'SUBMITTED':
+                accepted_at = None
+                terminal_at = None
+                rejection_reason = None
+            elif order_status in ('ACCEPTED', 'IN_EXECUTION'):
+                # Move to ACCEPTED at some point after creation
+                accepted_at = created_date + timedelta(minutes=random.randint(1, 30))
+                terminal_at = None
+                rejection_reason = None
+            else:  # FILLED, REJECTED, CANCELLED (terminal states)
+                # Must have accepted_at before terminal
+                accepted_at = created_date + timedelta(minutes=random.randint(1, 30))
+                terminal_at = accepted_at + timedelta(hours=random.randint(0, 8), minutes=random.randint(0, 59))
+                
+                if order_status == 'REJECTED':
+                    rejection_reason = random.choice([
+                        'Insufficient funds',
+                        'Invalid security',
+                        'Quantity exceeds available balance',
+                        'Market closed',
+                        'Order size too large'
+                    ])
+                else:
+                    rejection_reason = None
+            
+            # Generate unique Client_Request_ID (UUID)
+            client_request_id = str(uuid.uuid4())
+            
+            orders.append({
+                'order_id': order_id,
                 'account_id': account_id,
                 'security_id': security_id,
-                'quantity': quantity,
-                'status': status,
-                'created_date': created_date,
-                'updated_date': updated_date,
-                'intended_side': intended_side,
-                'is_synthetic': False,  # Track if we added this for buy requirement
-            })
-        
-        # Step 2: Sort by created date
-        order_templates.sort(key=lambda x: x['created_date'])
-        
-        # Step 3: Add synthetic buy orders where needed for sells
-        # Track what securities have been bought chronologically
-        securities_bought_by_date = {}  # {security_id: {date: qty}}
-        
-        orders_to_add = []  # For synthetic buys
-        
-        for template in order_templates:
-            sec_id = template['security_id']
-            
-            # Check if this is a sell without a prior buy
-            if template['intended_side'] == 'S':
-                has_prior_buy = False
-                for prev_template in order_templates:
-                    if (prev_template['security_id'] == sec_id and 
-                        prev_template['created_date'] < template['created_date'] and
-                        prev_template['intended_side'] == 'B'):
-                        has_prior_buy = True
-                        break
-                
-                # If no prior buy, add a synthetic one
-                if not has_prior_buy:
-                    # Create synthetic buy order before this sell
-                    buy_days_before = random.randint(1, 30)
-                    synthetic_date = template['created_date'] - timedelta(days=buy_days_before)
-                    
-                    orders_to_add.append({
-                        'account_id': account_id,
-                        'security_id': sec_id,
-                        'quantity': template['quantity'],
-                        'status': random.choice(status_distribution),
-                        'created_date': synthetic_date,
-                        'updated_date': synthetic_date + timedelta(days=random.randint(0, 30)),
-                        'intended_side': 'B',
-                        'is_synthetic': True,
-                    })
-        
-        # Add synthetic orders to templates and resort
-        order_templates.extend(orders_to_add)
-        order_templates.sort(key=lambda x: x['created_date'])
-        
-        # Step 4: Resolve final sides and create order objects
-        security_balances = {}
-        
-        for template in order_templates:
-            sec_id = template['security_id']
-            if sec_id not in security_balances:
-                security_balances[sec_id] = 0
-            
-            # Try to honor intended side
-            if template['intended_side'] == 'S' and security_balances[sec_id] > 0:
-                side = 'S'
-                template['quantity'] = min(template['quantity'], security_balances[sec_id])
-                security_balances[sec_id] -= template['quantity']
-            else:
-                side = 'B'
-                security_balances[sec_id] += template['quantity']
-            
-            # Generate estimated price (market price range: $10-$500 with realistic variation)
-            base_price = random.uniform(10, 500)
-            # Add ±20% variation to simulate market price changes
-            estimated_price = base_price * random.uniform(0.80, 1.20)
-            
-            # Calculate reserved cash based on side
-            # BUY orders: reserve Estimated_Price * Quantity_Ordered
-            # SELL orders: no reservation (Reserved_Cash = 0)
-            if side == 'B':
-                reserved_cash = estimated_price * template['quantity']
-            else:
-                reserved_cash = 0.0
-            
-            order = {
-                'order_id': order_id,
-                'account_id': template['account_id'],
-                'security_id': template['security_id'],
+                'client_request_id': client_request_id,
                 'side': side,
-                'estimated_price': estimated_price,
-                'quantity': template['quantity'],
-                'reserved_cash': reserved_cash,
-                'status': template['status'],
-                'created_date': template['created_date'].strftime('%Y-%m-%d %H:%M:%S'),
-                'updated_date': template['updated_date'].strftime('%Y-%m-%d %H:%M:%S')
-            }
+                'requested_amount': requested_amount,
+                'quantity_ordered': quantity_ordered,
+                'order_status': order_status,
+                'created_date': created_date,
+                'updated_date': terminal_at or accepted_at or created_date,
+                'accepted_at': accepted_at,
+                'terminal_at': terminal_at,
+                'rejection_reason': rejection_reason
+            })
             
-            orders.append(order)
             order_id += 1
     
     return orders
@@ -190,53 +155,82 @@ def generate_orders(active_securities, account_ids, num_orders_per_account=15):
 def format_orders_sql(orders):
     """Format orders as SQL INSERT statements"""
     sql_lines = [
-        "-- filepath: c:\\Users\\Administrator\\Downloads\\data_generator\\orders_insert.sql",
-        "-- Orders generated by generate_orders.py",
+        "-- Orders generated by orders_generation.py",
         "-- Execute this file in PostgreSQL to populate the Orders table",
         f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"-- Total records: {len(orders)}",
-        "-- Table: Orders (Order_ID, Account_ID, Security_ID, Side, Estimated_Price, Quantity_Ordered, Order_Status, Created_Date, Updated_Date, Reserved_Cash)",
-        "-- Status options: PENDING, IN_EXECUTION, CANCELLED",
-        "-- BUY orders have Reserved_Cash = Estimated_Price * Quantity_Ordered",
-        "-- SELL orders have Reserved_Cash = 0",
-        ""
+        "-- Status distribution: submitted/accepted/in_execution/filled/rejected/cancelled",
+        "-- BUY orders: Requested_Amount specified, Quantity_Ordered is NULL",
+        "-- SELL orders: Quantity_Ordered specified, Requested_Amount is NULL\n"
     ]
     
     for order in orders:
-        # Format price with 2 decimal places
-        estimated_price_fmt = f"{order['estimated_price']:.2f}"
-        reserved_cash_fmt = f"{order['reserved_cash']:.2f}"
+        # Handle NULL values
+        requested_amount_str = f"{order['requested_amount']}" if order['requested_amount'] is not None else "NULL"
+        quantity_ordered_str = f"{order['quantity_ordered']}" if order['quantity_ordered'] is not None else "NULL"
+        accepted_at_str = f"'{order['accepted_at'].strftime('%Y-%m-%d %H:%M:%S')}'" if order['accepted_at'] else "NULL"
+        terminal_at_str = f"'{order['terminal_at'].strftime('%Y-%m-%d %H:%M:%S')}'" if order['terminal_at'] else "NULL"
+        rejection_reason_str = f"'{order['rejection_reason']}'" if order['rejection_reason'] else "NULL"
         
-        sql = f"INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Side, Estimated_Price, Quantity_Ordered, Order_Status, Created_Date, Updated_Date, Reserved_Cash) VALUES ({order['order_id']}, {order['account_id']}, {order['security_id']}, '{order['side']}', {estimated_price_fmt}, {order['quantity']}, '{order['status']}', '{order['created_date']}', '{order['updated_date']}', {reserved_cash_fmt});"
+        sql = (
+            f"INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Client_Request_ID, Side, "
+            f"Requested_Amount, Quantity_Ordered, Order_Status, Created_Date, Updated_Date, "
+            f"Accepted_At, Terminal_At, Rejection_Reason) "
+            f"VALUES ({order['order_id']}, {order['account_id']}, {order['security_id']}, "
+            f"'{order['client_request_id']}', '{order['side']}', {requested_amount_str}, {quantity_ordered_str}, "
+            f"'{order['order_status']}', '{order['created_date'].strftime('%Y-%m-%d %H:%M:%S')}', "
+            f"'{order['updated_date'].strftime('%Y-%m-%d %H:%M:%S')}', {accepted_at_str}, {terminal_at_str}, "
+            f"{rejection_reason_str});"
+        )
         sql_lines.append(sql)
     
     return "\n".join(sql_lines)
 
 if __name__ == "__main__":
-    # Parse files to get dynamic data
-    securities_file = "securities_insert.sql"
-    accounts_file = "accounts_insert.sql"
+    # Parse input files
+    print("Parsing input files...")
+    securities_file = Path(__file__).parent / "securities_insert.sql"
+    accounts_file = Path(__file__).parent / "accounts_insert.sql"
     
-    # Parse securities file
     active_securities = parse_securities_file(securities_file)
+    if active_securities is None:
+        print("Error: Failed to parse securities file")
+        exit(1)
     
-    # Parse accounts file
     account_ids = parse_accounts_file(accounts_file)
-    
-    print(f"\nStarting order generation...")
-    print(f"Active securities: {len(active_securities)}")
-    print(f"Account IDs: {len(account_ids)}")
+    if account_ids is None:
+        print("Error: Failed to parse accounts file")
+        exit(1)
     
     # Generate orders
+    print("\nGenerating orders...")
     orders = generate_orders(active_securities, account_ids)
     
     # Format as SQL
-    sql_output = format_orders_sql(orders)
+    sql_content = format_orders_sql(orders)
     
-    # Write to file
-    output_path = "orders_insert.sql"
-    with open(output_path, 'w') as f:
-        f.write(sql_output)
+    # Save to file
+    output_path = Path(__file__).parent / "orders_insert.sql"
+    with open(output_path, "w") as f:
+        f.write(sql_content)
     
-    print(f"\nGenerated {len(orders)} orders")
-    print(f"Output written to {output_path}")
+    # Print summary
+    print(f"\n✓ Generated {len(orders)} orders")
+    print(f"✓ Average orders per account: {len(orders) / len(account_ids):.1f}")
+    
+    buy_count = sum(1 for o in orders if o['side'] == 'B')
+    sell_count = sum(1 for o in orders if o['side'] == 'S')
+    print(f"  * BUY orders: {buy_count} ({buy_count/len(orders)*100:.1f}%)")
+    print(f"  * SELL orders: {sell_count} ({sell_count/len(orders)*100:.1f}%)")
+    
+    status_counts = {}
+    for o in orders:
+        status = o['order_status']
+        status_counts[status] = status_counts.get(status, 0) + 1
+    
+    print(f"  * Status distribution:")
+    for status, count in sorted(status_counts.items()):
+        print(f"    - {status}: {count} ({count/len(orders)*100:.1f}%)")
+    
+    print(f"\n✓ Saved to {output_path}")
+    print(f"✓ Note: Run AFTER securities_generation.py and accounts_generation.py")
