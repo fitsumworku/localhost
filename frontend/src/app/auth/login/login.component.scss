@@ -1,137 +1,368 @@
-.login-container {
+$bg: #020f0a;
+$surface: rgba(6, 28, 20, 0.62);
+$border: rgba(46, 229, 157, 0.18);
+$accent: #2ee59d;
+$accent-strong: #19c27f;
+$text: #e8fff5;
+$muted: rgba(232, 255, 245, 0.6);
+$error: #ff7a7a;
+
+// Cover the whole viewport (also hides the browser's default body margin)
+:host {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.login-page {
+  position: relative;
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #031C13 100%);
-  padding: 20px;
+  padding: 24px;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at 50% 120%, #06301f 0%, $bg 60%);
+  overflow: hidden;
 }
 
-.login-card {
-  background: #031C13;
-  border: 1px solid #06402B;
-  border-radius: 8px;
-  padding: 60px 40px;
+// ============ Background ============
+
+.background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fog {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.55;
+  animation: drift 22s ease-in-out infinite alternate;
+}
+
+.fog-1 { width: 55vw; height: 55vw; left: -18vw; top: -22vw; background: #0d7a4f; }
+.fog-2 { width: 50vw; height: 50vw; right: -20vw; bottom: -25vw; background: #12a065; animation-delay: -8s; }
+.fog-3 { width: 35vw; height: 35vw; right: 5vw; top: -15vw; background: #0a5c3b; animation-delay: -15s; opacity: 0.4; }
+
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(4vw, 3vw) scale(1.12); }
+}
+
+.chart {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-width: 450px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  height: 100%;
+  // Fade the chart in from the left so the rising end stands out
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 35%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 35%);
 }
 
-.login-title {
-  text-align: center;
-  color: #ffffff;
-  font-size: 32px;
-  font-weight: 600;
-  margin: 0 0 40px 0;
+.grid-line {
+  stroke: rgba(46, 229, 157, 0.07);
+  stroke-width: 1;
 }
 
-.login-form {
+.chart-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgba(46, 229, 157, 0.8));
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 3.5s ease-out 0.3s forwards;
+}
+
+.chart-area {
+  opacity: 0;
+  animation: fade-in 2s ease-out 1.5s forwards;
+}
+
+.chart-dot {
+  fill: #5dffc0;
+  opacity: 0;
+  filter: drop-shadow(0 0 10px #5dffc0);
+  animation: fade-in 0.6s ease-out 3.6s forwards, pulse 2.4s ease-in-out 4.2s infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fade-in { to { opacity: 1; } }
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.6); }
+}
+
+.symbol {
+  position: absolute;
+  bottom: -10vh;
+  color: $accent;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  text-shadow: 0 0 12px rgba(46, 229, 157, 0.6);
+  animation-name: float-up;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes float-up {
+  0%   { transform: translateY(0) rotate(-4deg); opacity: 0; }
+  10%  { opacity: var(--symbol-opacity); }
+  90%  { opacity: var(--symbol-opacity); }
+  100% { transform: translateY(-125vh) rotate(4deg); opacity: 0; }
+}
+
+// ============ Card ============
+
+.card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  padding: 44px 40px 36px;
+  box-sizing: border-box;
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: 20px;
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 60px rgba(46, 229, 157, 0.08);
+  animation: rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, $accent, #0f8f5c);
+  box-shadow: 0 0 20px rgba(46, 229, 157, 0.45);
+
+  mat-icon { color: $bg; font-size: 22px; width: 22px; height: 22px; }
+}
+
+.brand-name {
+  color: $text;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.title {
+  margin: 0;
+  color: $text;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin: 6px 0 28px;
+  color: $muted;
+  font-size: 14px;
+}
+
+// ============ Form ============
+
+.form {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 14px;
 }
 
-.full-width {
-  width: 100%;
-}
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  border-radius: 12px;
+  background: rgba(2, 15, 10, 0.55);
+  border: 1px solid rgba(232, 255, 245, 0.1);
+  transition: border-color 0.2s, box-shadow 0.2s;
 
-::ng-deep .login-form .mat-mdc-form-field {
-  width: 100%;
-
-  .mat-mdc-form-field-infix {
-    padding: 12px 0 !important;
+  &:focus-within {
+    border-color: $accent;
+    box-shadow: 0 0 0 4px rgba(46, 229, 157, 0.12);
   }
 
-  .mat-mdc-text-field-wrapper {
-    background-color: rgba(52, 120, 120, 0.2);
-    border-radius: 4px;
-  }
+  &.invalid { border-color: $error; }
 
-  .mat-mdc-form-field-label {
-    color: rgba(255, 255, 255, 0.7) !important;
-    font-size: 14px;
-  }
+  input {
+    flex: 1;
+    height: 100%;
+    min-width: 0;
+    padding: 18px 12px 0 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: $text;
+    font: inherit;
+    font-size: 15px;
 
-  .mat-mdc-input-element {
-    color: #ffffff !important;
-    font-size: 14px;
-
-    &::placeholder {
-      color: rgba(255, 255, 255, 0.5);
+    // Keep Chrome's autofill from painting the field white/yellow
+    &:-webkit-autofill {
+      -webkit-text-fill-color: $text;
+      transition: background-color 9999s;
     }
   }
 
-  .mat-mdc-form-field-error {
-    color: #ff6b6b !important;
-    font-size: 12px;
+  // Floating label: sits in the middle, moves up when focused or filled
+  label {
+    position: absolute;
+    left: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $muted;
+    font-size: 15px;
+    pointer-events: none;
+    transition: all 0.18s ease;
+  }
+
+  input:focus + label,
+  input:not(:placeholder-shown) + label {
+    top: 14px;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    color: $accent;
   }
 }
 
-.submit-button {
-  background: linear-gradient(135deg, #06402B 100%) !important;
-  color: #ffffff !important;
-  font-size: 16px;
-  font-weight: 600;
-  padding: 12px 24px;
-  border-radius: 4px;
-  margin-top: 16px;
-  transition: all 0.3s ease;
+.field-icon {
+  margin: 0 12px 0 16px;
+  color: $muted;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+
+  .field:focus-within & { color: $accent; }
+}
+
+.toggle-visibility {
+  display: grid;
+  place-items: center;
+  margin-right: 8px;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: $muted;
+  cursor: pointer;
+
+  &:hover { color: $text; background: rgba(232, 255, 245, 0.06); }
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.field-error {
+  margin: -6px 0 0 4px;
+  color: $error;
+  font-size: 12px;
+}
+
+.submit {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, $accent, $accent-strong);
+  color: $bg;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(46, 229, 157, 0.28);
+  transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
 
   &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #3d9999 0%, #4db8b8 100%) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(45, 122, 122, 0.4);
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+    box-shadow: 0 14px 36px rgba(46, 229, 157, 0.4);
   }
 
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+  &:active:not(:disabled) { transform: translateY(0); }
+  &:disabled { opacity: 0.7; cursor: progress; }
 }
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(2, 15, 10, 0.3);
+  border-top-color: $bg;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .error-message {
-  color: #ff6b6b;
-  background-color: rgba(255, 107, 107, 0.1);
-  border-left: 4px solid #ff6b6b;
-  padding: 12px 16px;
-  border-radius: 4px;
-  margin-bottom: 16px;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 122, 122, 0.1);
+  border: 1px solid rgba(255, 122, 122, 0.3);
+  color: $error;
+  font-size: 13px;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
 }
 
-.signup-link {
+.signup {
+  margin: 24px 0 0;
   text-align: center;
-  margin-top: 24px;
-  color: #ffffff;
+  color: $muted;
   font-size: 14px;
-
-  .link {
-    color: #06402B;
-    cursor: pointer;
-    text-decoration: none;
-    font-weight: 600;
-    margin-left: 4px;
-    transition: color 0.2s ease;
-
-    &:hover {
-      color: #ffffff;
-      text-decoration: underline;
-    }
-  }
 }
 
-// Responsive design
-@media (max-width: 600px) {
-  .login-card {
-    padding: 40px 24px;
-  }
+.link {
+  padding: 0;
+  margin-left: 4px;
+  border: none;
+  background: none;
+  color: $accent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 
-  .login-title {
-    font-size: 24px;
-    margin-bottom: 32px;
-  }
+  &:hover { text-decoration: underline; }
+}
 
-  .login-form {
-    gap: 20px;
-  }
+// ============ Small screens & reduced motion ============
+
+@media (max-width: 480px) {
+  .card { padding: 36px 24px 28px; border-radius: 16px; }
+  .title { font-size: 24px; }
+}
+
+// Respect the OS "reduce motion" setting: show the finished chart, no floating
+@media (prefers-reduced-motion: reduce) {
+  .fog, .symbol, .chart-dot, .card { animation: none; }
+  .symbol { display: none; }
+  .chart-line { animation: none; stroke-dashoffset: 0; }
+  .chart-area, .chart-dot { animation: none; opacity: 1; }
 }
