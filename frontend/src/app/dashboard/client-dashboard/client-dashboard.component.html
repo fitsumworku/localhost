@@ -1,0 +1,157 @@
+<!-- <div class="client-dashboard">
+  <div class="dashboard-header">
+    <h1>Portfolio Dashboard</h1>
+    <p class="subtitle">Track your portfolio performance and holdings</p>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stats-grid">
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <p class="stat-label">PORTFOLIO_VALUE</p>
+        <!-- <h2 class="stat-value">{{ portfolioValue }}</h2>
+        <p class="stat-change positive">
+          <mat-icon>trending_up</mat-icon>
+          {{ portfolioChange }} today
+        </p> -->
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <p class="stat-label">CASH_BALANCE</p>
+        <!-- <h2 class="stat-value">{{ cashBalance }}</h2>
+        <p class="stat-subtext">2.00x leverage margin</p> -->
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <p class="stat-label">BUYING_POWER</p>
+        <!-- <h2 class="stat-value">{{ buyingPower }}</h2>
+        <p class="stat-subtext">Available for trading</p> -->
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <p class="stat-label">TOTAL_RETURN</p>
+        <!-- <h2 class="stat-value">{{ totalReturn }}</h2>
+        <p class="stat-change positive">
+          <mat-icon>trending_up</mat-icon>
+          {{ totalReturnPercent }} all-time
+        </p> -->
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Performance Chart Section -->
+  <mat-card class="chart-card">
+    <mat-card-header>
+      <mat-card-title>PERFORMANCE_CHART</mat-card-title>
+      <div class="time-period-buttons">
+        <button
+          *ngFor="let period of timePeriods"
+          mat-stroked-button
+          [class.active]="selectedPeriod === period"
+          (click)="selectPeriod(period)"
+        >
+          {{ period }}
+        </button>
+      </div>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="chart-placeholder">
+        <!-- Chart will be rendered here -->
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Current Holdings Section -->
+  <div class="dashboard-section">
+    <h2 class="section-title">CURRENT_HOLDINGS</h2>
+    <mat-card class="data-card">
+      <table mat-table [dataSource]="holdingsData" class="holdings-table">
+        <!-- Asset Column -->
+        <ng-container matColumnDef="asset">
+          <th mat-header-cell *matHeaderCellDef>Asset</th>
+          <td mat-cell *matCellDef="let element">{{ element.asset }}</td>
+        </ng-container>
+
+        <!-- Shares Column -->
+        <ng-container matColumnDef="shares">
+          <th mat-header-cell *matHeaderCellDef>Shares</th>
+          <td mat-cell *matCellDef="let element">{{ element.shares }}</td>
+        </ng-container>
+
+        <!-- Avg Cost Column -->
+        <ng-container matColumnDef="avgCost">
+          <th mat-header-cell *matHeaderCellDef>Avg Cost</th>
+          <td mat-cell *matCellDef="let element">{{ element.avgCost }}</td>
+        </ng-container>
+
+        <!-- Current Price Column -->
+        <ng-container matColumnDef="currentPrice">
+          <th mat-header-cell *matHeaderCellDef>Current Price</th>
+          <td mat-cell *matCellDef="let element">{{ element.currentPrice }}</td>
+        </ng-container>
+
+        <!-- Total Value Column -->
+        <ng-container matColumnDef="totalValue">
+          <th mat-header-cell *matHeaderCellDef>Total Value</th>
+          <td mat-cell *matCellDef="let element">{{ element.totalValue }}</td>
+        </ng-container>
+
+        <!-- Day Change Column -->
+        <ng-container matColumnDef="dayChange">
+          <th mat-header-cell *matHeaderCellDef>Day Change</th>
+          <td mat-cell *matCellDef="let element">{{ element.dayChange }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+      <div *ngIf="holdingsData.length === 0" class="empty-state">
+        <p>No holdings to display</p>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- Recent Activity Section -->
+  <div class="dashboard-section">
+    <h2 class="section-title">RECENT_ACTIVITY</h2>
+    <mat-card class="data-card">
+      <table mat-table [dataSource]="activityData" class="activity-table">
+        <!-- Symbol Column -->
+        <ng-container matColumnDef="symbol">
+          <th mat-header-cell *matHeaderCellDef>Symbol</th>
+          <td mat-cell *matCellDef="let element">{{ element.symbol }}</td>
+        </ng-container>
+
+        <!-- Action Column -->
+        <ng-container matColumnDef="action">
+          <th mat-header-cell *matHeaderCellDef>Action</th>
+          <td mat-cell *matCellDef="let element">{{ element.action }}</td>
+        </ng-container>
+
+        <!-- Price Column -->
+        <ng-container matColumnDef="price">
+          <th mat-header-cell *matHeaderCellDef>Price</th>
+          <td mat-cell *matCellDef="let element">{{ element.price }}</td>
+        </ng-container>
+
+        <!-- Time Column -->
+        <ng-container matColumnDef="time">
+          <th mat-header-cell *matHeaderCellDef>Time</th>
+          <td mat-cell *matCellDef="let element">{{ element.time }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="activityColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: activityColumns;"></tr>
+      </table>
+      <div *ngIf="activityData.length === 0" class="empty-state">
+        <p>No recent activity</p>
+      </div>
+    </mat-card>
+  </div>
+<!-- </div> --> 

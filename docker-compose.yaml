@@ -15,9 +15,9 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
-    
+
     restart: unless-stopped
-  
+
   postgres-db:
     build:
       context: .
@@ -48,5 +48,14 @@ services:
       postgres-db:
         condition: service_healthy
     restart: unless-stopped
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: frontend_container
+    ports:
+      - "8090:8080"
+    restart: unless-stopped
+
 volumes:
   pgdata:

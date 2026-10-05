@@ -10,7 +10,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-// The /auth endpoints from openapi.yaml
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -34,7 +34,7 @@ public class AuthController {
 
     @PostMapping("/logout")
     public void logout() {
-        // No tokens/sessions yet, so there is nothing to clear
+    
     }
 
     @GetMapping("/me")

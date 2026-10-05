@@ -1,0 +1,109 @@
+<div class="transaction-history-container">
+  <!-- Header -->
+  <div class="header">
+    <h1>Transaction History</h1>
+    <p class="subtitle">View all your trading transactions</p>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stats-grid">
+    <!-- Portfolio Value Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">PORTFOLIO_VALUE</p>
+        <mat-icon class="stat-icon">trending_up</mat-icon>
+      </div>
+      <!-- <h2 class="stat-value">{{ portfolioValue }}</h2>
+      <p class="stat-change">{{ portfolioChange }}</p> -->
+    </div>
+
+    <!-- Cash Balance Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">CASH_BALANCE</p>
+        <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
+      </div>
+      <!-- <h2 class="stat-value">{{ cashBalance }}</h2>
+      <p class="stat-change">{{ cashStatus }}</p> -->
+    </div>
+
+    <!-- Buying Power Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">BUYING_POWER</p>
+        <mat-icon class="stat-icon">shopping_cart</mat-icon>
+      </div>
+      <!-- <h2 class="stat-value">{{ buyingPower }}</h2>
+      <p class="stat-change">{{ buyingStatus }}</p> -->
+    </div>
+
+    <!-- Total Return Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">TOTAL_RETURN</p>
+        <mat-icon class="stat-icon">show_chart</mat-icon>
+      </div>
+      <!-- <h2 class="stat-value">{{ totalReturn }}</h2>
+      <p class="stat-change">{{ totalReturnPercent }}</p> -->
+    </div>
+  </div>
+
+  <!-- Transaction History Table -->
+  <div class="transaction-section">
+    <div class="section-header">
+      <h2>Transaction History</h2>
+      <a href="#" class="view-all-link">View All</a>
+    </div>
+
+    <!-- Scrollable Table -->
+    <div class="table-container">
+      <table class="transactions-table">
+        <thead>
+          <tr>
+            <th class="col-date">Date</th>
+            <th class="col-asset">Asset</th>
+            <th class="col-type">Type</th>
+            <th class="col-amount">Amount</th>
+            <th class="col-price">Price</th>
+            <th class="col-pnl">P&L</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let transaction of transactionData" class="transaction-row">
+            <td class="col-date">{{ transaction.date }}</td>
+            <td class="col-asset">{{ transaction.asset }}</td>
+            <td class="col-type">
+              <span
+                class="type-badge"
+                [style.backgroundColor]="getTypeColor(transaction.type)"
+              >
+                {{ transaction.type.toUpperCase() }}
+              </span>
+            </td>
+            <td class="col-amount">{{ transaction.amount }}</td>
+            <td class="col-price">${{ transaction.price }}</td>
+            <td class="col-pnl" [style.color]="getPnlColor(transaction.pnl)">
+              {{ transaction.pnl >= 0 ? '+' : '' }}${{ transaction.pnl }}
+            </td>
+            <td class="col-actions">
+              <button
+                mat-icon-button
+                (click)="openDisputeDialog(transaction)"
+                title="Dispute transaction"
+                class="action-btn"
+              >
+                <mat-icon>flag</mat-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="transactionData.length === 0" class="no-transactions">
+      <mat-icon class="empty-icon">receipt_long</mat-icon>
+      <p>No transactions yet</p>
+    </div>
+  </div>
+</div>
