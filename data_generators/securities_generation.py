@@ -13,14 +13,22 @@ SECTORS = [
     'Communication Services', 'Information Technology'
 ]
 
-ASSET_TYPES = ['STOCK', 'BOND', 'ETF', 'CRYPTO']
+ASSET_TYPES = ['EQUITY', 'FOREX', 'CRYPTO']
 STATUSES = ['ACTIVE', 'HALTED', 'DELISTED']
 
-# Asset type distribution: 80% STOCK, 10% BOND, 7% ETF, 3% CRYPTO
-asset_type_weights = [0.80, 0.10, 0.07, 0.03]
+# Asset type distribution: 85% EQUITY, 5% FOREX, 10% CRYPTO
+asset_type_weights = [0.85, 0.05, 0.10]
 
 # Status distribution: 95% ACTIVE, 4% HALTED, 1% DELISTED
 status_weights = [0.95, 0.04, 0.01]
+
+# Common base currencies for FOREX pairs
+FOREX_PAIRS = [
+    ('EUR', 'USD'), ('GBP', 'USD'), ('JPY', 'USD'), ('CHF', 'USD'),
+    ('CAD', 'USD'), ('AUD', 'USD'), ('NZD', 'USD'), ('SGD', 'USD'),
+    ('HKD', 'USD'), ('SEK', 'USD'), ('NOK', 'USD'), ('INR', 'USD'),
+    ('BRL', 'USD'), ('RUB', 'USD'), ('ZAR', 'USD'), ('TRY', 'USD')
+]
 
 def generate_ticker(exchange, index):
     """Generate a fake ticker symbol"""
@@ -38,19 +46,32 @@ def generate_securities(exchange, count):
     securities = []
     
     for i in range(count):
-        ticker = generate_ticker(exchange, i)
+        asset_type = np.random.choice(ASSET_TYPES, p=asset_type_weights)
         
-        # Ensure unique tickers
-        while any(s['Ticker'] == ticker for s in securities):
+        if asset_type == 'FOREX':
+            # FOREX pair (e.g., EUR/USD)
+            base_currency, quote_currency = FOREX_PAIRS[i % len(FOREX_PAIRS)]
+            ticker = f"{base_currency}{quote_currency}"
+            name = f"{base_currency}/{quote_currency} Currency Pair"
+        else:
             ticker = generate_ticker(exchange, i)
+            
+            # Ensure unique tickers
+            while any(s['Ticker'] == ticker for s in securities):
+                ticker = generate_ticker(exchange, i)
+            
+            name = f"{ticker} Corporation"
+            base_currency = None
         
         security = {
             'Ticker': ticker,
-            'Exchange': exchange,
-            'Name': f"{ticker} Corporation",
-            'Asset_Type': np.random.choice(ASSET_TYPES, p=asset_type_weights),
+            'Exchange': exchange if asset_type != 'FOREX' else 'OTC',  # FOREX traded OTC
+            'Name': name,
+            'Asset_Type': asset_type,
             'Status': np.random.choice(STATUSES, p=status_weights),
-            'Sector': np.random.choice(SECTORS)
+            'Sector': np.random.choice(SECTORS) if asset_type != 'FOREX' else 'Foreign Exchange',
+            'Quote_Currency': 'USD',  # All quote in USD
+            'Base_Currency': base_currency  # Only for FOREX
         }
         
         securities.append(security)
@@ -75,27 +96,34 @@ print("\n" + "="*70)
 print("VERIFICATION OF DISTRIBUTIONS")
 print("="*70)
 
-print("\n1. ASSET TYPE DISTRIBUTION (Target: 80% STOCK, 10% BOND, 7% ETF, 3% CRYPTO):")
-asset_dist = df['Asset_Type'].value_counts(normalize=True).sort_index()
-for asset_type, pct in asset_dist.items():
-    print(f"   {asset_type}: {pct*100:.2f}% ({int(pct*1000)} securities)")
+print("\n1. ASSET TYPE DISTRIBUTION (Target: 85% EQUITY, 5% FOREX, 10% CRYPTO):")
+asset_dist = df['Asset_Type'].value_counts()
+for asset_type, count in asset_dist.items():
+    pct = count / len(df) * 100
+    print(f"   {asset_type}: {pct:.2f}% ({count} securities)")
 
 print("\n2. STATUS DISTRIBUTION (Target: 95% ACTIVE, 4% HALTED, 1% DELISTED):")
 status_dist = df['Status'].value_counts(normalize=True).sort_index()
 for status, pct in status_dist.items():
-    print(f"   {status}: {pct*100:.2f}% ({int(pct*1000)} securities)")
+    print(f"   {status}: {pct*100:.2f}%")
 
 print("\n3. EXCHANGE DISTRIBUTION:")
 exchange_dist = df['Exchange'].value_counts()
 for exchange, count in exchange_dist.items():
     print(f"   {exchange}: {count} securities")
 
-print("\n4. SECTOR DISTRIBUTION:")
-sector_dist = df['Sector'].value_counts().sort_values(ascending=False)
-for sector, count in sector_dist.items():
-    print(f"   {sector}: {count} securities ({count/1000*100:.1f}%)")
+print("\n4. QUOTE CURRENCY DISTRIBUTION:")
+quote_dist = df['Quote_Currency'].value_counts()
+for currency, count in quote_dist.items():
+    print(f"   {currency}: {count} securities (all quote in {currency})")
 
-print("\n5. SAMPLE SECURITIES:")
+print("\n5. FOREX PAIRS (with Base_Currency):")
+forex_df = df[df['Asset_Type'] == 'FOREX']
+print(f"   Total FOREX pairs: {len(forex_df)}")
+for _, row in forex_df.head(10).iterrows():
+    print(f"   - {row['Ticker']} (Base: {row['Base_Currency']}, Quote: {row['Quote_Currency']})")
+
+print("\n6. SAMPLE SECURITIES:")
 print(df.head(10).to_string())
 
 # Generate SQL INSERT statements
@@ -108,7 +136,9 @@ def generate_sql_inserts(dataframe, table_name='Securities'):
     sql_statements.append("-- Execute this file in PostgreSQL to populate the Securities table")
     sql_statements.append(f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     sql_statements.append(f"-- Total records: {len(dataframe)}")
-    sql_statements.append("-- Table: Securities (Security_ID, Ticker, Name, Asset_Type, Exchange, Status, Sector)\n")
+    sql_statements.append("-- Asset Types: 85% EQUITY, 5% FOREX, 10% CRYPTO")
+    sql_statements.append("-- Quote_Currency: Always USD (all securities quote in USD)")
+    sql_statements.append("-- Base_Currency: Only for FOREX pairs (e.g., EUR for EUR/USD)\n")
     
     for idx, row in dataframe.iterrows():
         security_id = idx + 1
@@ -116,9 +146,12 @@ def generate_sql_inserts(dataframe, table_name='Securities'):
         name = row['Name'].replace("'", "''")
         sector = row['Sector'].replace("'", "''")
         
+        # Handle nullable Base_Currency
+        base_currency = f"'{row['Base_Currency']}'" if pd.notna(row['Base_Currency']) else "NULL"
+        
         insert_statement = (
-            f"INSERT INTO Securities (Security_ID, Ticker, Name, Asset_Type, Exchange, Status, Sector) "
-            f"VALUES ({security_id}, '{row['Ticker']}', '{name}', '{row['Asset_Type']}', '{row['Exchange']}', '{row['Status']}', '{sector}');"
+            f"INSERT INTO Securities (Security_ID, Ticker, Name, Asset_Type, Exchange, Status, Sector, Quote_Currency, Base_Currency) "
+            f"VALUES ({security_id}, '{row['Ticker']}', '{name}', '{row['Asset_Type']}', '{row['Exchange']}', '{row['Status']}', '{sector}', '{row['Quote_Currency']}', {base_currency});"
         )
         sql_statements.append(insert_statement)
     
@@ -141,6 +174,10 @@ print("="*70)
 print(f"Total Securities: {len(df)}")
 print(f"NYSE Securities: {len(df[df['Exchange'] == 'NYSE'])}")
 print(f"NASDAQ Securities: {len(df[df['Exchange'] == 'NASDAQ'])}")
+print(f"OTC (FOREX) Securities: {len(df[df['Exchange'] == 'OTC'])}")
+print(f"EQUITY Securities: {len(df[df['Asset_Type'] == 'EQUITY'])}")
+print(f"FOREX Pairs: {len(df[df['Asset_Type'] == 'FOREX'])}")
+print(f"CRYPTO Assets: {len(df[df['Asset_Type'] == 'CRYPTO'])}")
 
 # Show sample SQL statements
 print("\n" + "="*70)
