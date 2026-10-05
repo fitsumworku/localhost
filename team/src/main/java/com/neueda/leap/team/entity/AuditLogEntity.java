@@ -30,32 +30,41 @@ public class AuditLogEntity {
     @Column(name = "Audit_ID")
     private Long auditLogId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "User_ID", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "Actor_User_ID")
     private UserEntity userForAudit;
+
+    @Column(name = "Actor_Type", nullable = false)
+    private String actorType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "Subject_User_ID")
+    private UserEntity subjectUser;
 
     @Column(name = "Affected_Table", nullable = false)
     private String affectedTable;
 
-    @Column(name = "Record_ID", nullable = false)
-    private Long recordId;
+    @Column(name = "Record_Key", nullable = false, columnDefinition = "jsonb")
+    private String recordKey;
 
     @Column(name = "Action_Type", nullable = false)
     private String actionType;
 
-    @Column(name = "Old_Value")
+    @Column(name = "Old_Value", columnDefinition = "jsonb")
     private String oldValue;
 
-    @Column(name = "New_Value")
+    @Column(name = "New_Value", columnDefinition = "jsonb")
     private String newValue;
 
     @Column(name = "Timestamp", nullable = false)
     private LocalDateTime timestamp;
 
-    public AuditLogEntity(UserEntity userForAudit, String affectedTable, Long recordId, String actionType, String oldValue, String newValue) {
+    public AuditLogEntity(UserEntity userForAudit, String actorType, UserEntity subjectUser, String affectedTable, String recordKey, String actionType, String oldValue, String newValue) {
         this.userForAudit = userForAudit;
+        this.actorType = actorType;
+        this.subjectUser = subjectUser;
         this.affectedTable = affectedTable;
-        this.recordId = recordId;
+        this.recordKey = recordKey;
         this.actionType = actionType;
         this.oldValue = oldValue;
         this.newValue = newValue;
@@ -82,6 +91,22 @@ public class AuditLogEntity {
         this.userForAudit = userForAudit;
     }
 
+    public String getActorType() {
+        return actorType;
+    }
+
+    public void setActorType(String actorType) {
+        this.actorType = actorType;
+    }
+
+    public UserEntity getSubjectUser() {
+        return subjectUser;
+    }
+
+    public void setSubjectUser(UserEntity subjectUser) {
+        this.subjectUser = subjectUser;
+    }
+
     public String getAffectedTable() {
         return affectedTable;
     }
@@ -90,12 +115,12 @@ public class AuditLogEntity {
         this.affectedTable = affectedTable;
     }
 
-    public Long getRecordId() {
-        return recordId;
+    public String getRecordKey() {
+        return recordKey;
     }
 
-    public void setRecordId(Long recordId) {
-        this.recordId = recordId;
+    public void setRecordKey(String recordKey) {
+        this.recordKey = recordKey;
     }
 
     public String getActionType() {

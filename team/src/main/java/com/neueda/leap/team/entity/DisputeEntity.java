@@ -40,16 +40,22 @@ public class DisputeEntity {
     @JoinColumn(name = "Account_ID", nullable = false)
     private AccountEntity accountForDispute;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "Admin_ID", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "Admin_ID")
     private UserEntity userForDispute;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "Transaction_ID", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+        @JoinColumn(name = "Transaction_ID", referencedColumnName = "Transaction_ID"),
+        @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
+    })
     private TransactionEntity transactionForDispute;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "Trade_ID")
+        @JoinColumns({
+            @JoinColumn(name = "Trade_ID", referencedColumnName = "Trade_ID"),
+            @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
+        })
     private TradeEntity tradeForDispute;
 
     @Column(name = "Dispute_Type", nullable = false)

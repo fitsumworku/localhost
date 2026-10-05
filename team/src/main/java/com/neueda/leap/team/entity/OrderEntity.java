@@ -6,30 +6,11 @@
  import java.time.LocalDateTime;
  import java.util.ArrayList;
  import java.util.List;
+ import java.util.UUID;
 
  @Entity
  @Table(name = "Orders")
  public class OrderEntity {
-
-     /**
-      *
-      * CREATE TABLE Orders (
-      *     Order_ID BIGSERIAL PRIMARY KEY,
-      *     Account_ID BIGINT NOT NULL,
-      *     Security_ID BIGINT NOT NULL,
-      *     Side CHAR(1) NOT NULL,
-      *     Quantity_Ordered NUMERIC(18,4) NOT NULL,
-      *     Order_Status VARCHAR(16) NOT NULL,
-      *     Created_Date TIMESTAMP NOT NULL,
-      *     Updated_Date TIMESTAMP NOT NULL,
-      *     FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
-      *     FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
-      *     CHECK (Side IN ('B','S')),
-      *     CHECK (Quantity_Ordered > 0),
-      *     CHECK (Order_Status IN ('PENDING','IN_EXECUTION','CANCELLED')),
-      *     CHECK (Updated_Date >= Created_Date)
-      * );
-      */
 
      @Id
      @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,10 +25,16 @@
      @JoinColumn(name = "Security_ID", nullable = false)
      private SecurityEntity securityForOrder;
 
+    @Column(name = "Client_Request_ID", nullable = false)
+    private UUID clientRequestId;
+
      @Column(name = "Side", nullable = false)
      private String side;
 
-     @Column(name = "Quantity_Ordered", nullable = false)
+    @Column(name = "Requested_Amount", precision = 20, scale = 2)
+    private BigDecimal requestedAmount;
+
+    @Column(name = "Quantity_Ordered", precision = 28, scale = 12)
      private BigDecimal quantityOrdered;
 
      @Column(name = "Order_Status", nullable = false)
@@ -59,12 +46,25 @@
      @Column(name = "Updated_Date", nullable = false)
      private LocalDateTime updatedDate;
 
+    @Column(name = "Accepted_At")
+    private LocalDateTime acceptedAt;
+
+    @Column(name = "Terminal_At")
+    private LocalDateTime terminalAt;
+
+    @Column(name = "Rejection_Reason")
+    private String rejectionReason;
+
+    @OneToOne(mappedBy = "orderForReservation", cascade = CascadeType.ALL, orphanRemoval = true)
+    private OrderReservationEntity orderReservation;
+
     @OneToMany(mappedBy = "orderForExecution", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ExecutionEntity> executions = new ArrayList<>();
 
      public OrderEntity(AccountEntity accountForOrder, SecurityEntity securityForOrder, String side, BigDecimal quantityOrdered, String orderStatus, LocalDateTime createdDate, LocalDateTime updatedDate) {
          this.accountForOrder = accountForOrder;
          this.securityForOrder = securityForOrder;
+         this.clientRequestId = UUID.randomUUID();
          this.side = side;
          this.quantityOrdered = quantityOrdered;
          this.orderStatus = orderStatus;
@@ -100,12 +100,28 @@
          this.securityForOrder = securityForOrder;
      }
 
+     public UUID getClientRequestId() {
+         return clientRequestId;
+     }
+
+     public void setClientRequestId(UUID clientRequestId) {
+         this.clientRequestId = clientRequestId;
+     }
+
      public String getSide() {
          return side;
      }
 
      public void setSide(String side) {
          this.side = side;
+     }
+
+     public BigDecimal getRequestedAmount() {
+         return requestedAmount;
+     }
+
+     public void setRequestedAmount(BigDecimal requestedAmount) {
+         this.requestedAmount = requestedAmount;
      }
 
      public BigDecimal getQuantityOrdered() {
@@ -138,6 +154,38 @@
 
      public void setUpdatedDate(LocalDateTime updatedDate) {
          this.updatedDate = updatedDate;
+     }
+
+     public LocalDateTime getAcceptedAt() {
+         return acceptedAt;
+     }
+
+     public void setAcceptedAt(LocalDateTime acceptedAt) {
+         this.acceptedAt = acceptedAt;
+     }
+
+     public LocalDateTime getTerminalAt() {
+         return terminalAt;
+     }
+
+     public void setTerminalAt(LocalDateTime terminalAt) {
+         this.terminalAt = terminalAt;
+     }
+
+     public String getRejectionReason() {
+         return rejectionReason;
+     }
+
+     public void setRejectionReason(String rejectionReason) {
+         this.rejectionReason = rejectionReason;
+     }
+
+     public OrderReservationEntity getOrderReservation() {
+         return orderReservation;
+     }
+
+     public void setOrderReservation(OrderReservationEntity orderReservation) {
+         this.orderReservation = orderReservation;
      }
 
      public List<ExecutionEntity> getExecutions() {

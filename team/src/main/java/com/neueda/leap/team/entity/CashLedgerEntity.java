@@ -19,23 +19,29 @@ public class CashLedgerEntity {
     private AccountEntity accountForCashLedger;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "Transaction_ID")
+        @JoinColumns({
+            @JoinColumn(name = "Transaction_ID", referencedColumnName = "Transaction_ID"),
+            @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
+        })
     private TransactionEntity transactionForCashLedger;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "Trade_ID")
+        @JoinColumns({
+            @JoinColumn(name = "Trade_ID", referencedColumnName = "Trade_ID"),
+            @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
+        })
     private TradeEntity tradeForCashLedger;
 
     @Column(name = "Entry_Type", nullable = false, length = 16)
     private String entryType;
 
-    @Column(name = "Debit_Amount", nullable = false, precision = 18, scale = 4)
+    @Column(name = "Debit_Amount", nullable = false, precision = 20, scale = 2)
     private BigDecimal debitAmount;
 
-    @Column(name = "Credit_Amount", nullable = false, precision = 18, scale = 4)
+    @Column(name = "Credit_Amount", nullable = false, precision = 20, scale = 2)
     private BigDecimal creditAmount;
 
-    @Column(name = "Running_Balance", nullable = false, precision = 18, scale = 4)
+    @Column(name = "Running_Balance", nullable = false, precision = 20, scale = 2)
     private BigDecimal runningBalance;
 
     @Column(name = "Entry_Date", nullable = false)

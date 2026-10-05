@@ -22,24 +22,30 @@ import java.time.LocalDateTime;
      @Column(name = "Created_Date", nullable = false, updatable = false)
      private LocalDateTime dateCreated;
 
-     @Column(name = "Status", nullable = false)
-     private String accountStatus;
+    @Column(name = "Updated_Date", nullable = false)
+    private LocalDateTime updatedDate;
+
+    @Column(name = "Currency", nullable = false, length = 3)
+    private String currency;
+
+    @OneToOne(mappedBy = "accountForCashBalance", cascade = CascadeType.ALL, orphanRemoval = true)
+    private AccountCashBalanceEntity accountCashBalance;
 
 
     @OneToMany(mappedBy = "accountForPosition", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<AccountPositionEntity> accountPositionEntitiesList = new ArrayList<>();
+    private List<AccountPositionEntity> accountPositionEntityList = new ArrayList<>();
 
      @OneToMany(mappedBy = "accountForOrder", cascade = CascadeType.ALL, orphanRemoval = true)
-     private List<OrderEntity> orderEntitiesList = new ArrayList<>();
+     private List<OrderEntity> orderEntityList = new ArrayList<>();
 
      @OneToMany(mappedBy = "accountForTransaction", cascade = CascadeType.ALL, orphanRemoval = true)
-     private List<TransactionEntity> transaction = new ArrayList<>();
+     private List<TransactionEntity> transactionEntityList = new ArrayList<>();
 
     @OneToMany(mappedBy = "accountForCashLedger", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CashLedgerEntity> cashLedgerEntries = new ArrayList<>();
 
-     @OneToMany(mappedBy = "accountForDispute", cascade = CascadeType.ALL, orphanRemoval = true)
-     private List<DisputeEntity> dispute = new ArrayList<>();
+    @OneToMany(mappedBy = "accountForDispute", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DisputeEntity> disputeEntityList = new ArrayList<>();
 
      // Constructors
      public AccountEntity() {}
@@ -47,7 +53,8 @@ import java.time.LocalDateTime;
      public AccountEntity(UserEntity user) {
          this.user = user;
          this.dateCreated = LocalDateTime.now();
-         this.accountStatus = "ACTIVE";
+         this.updatedDate = this.dateCreated;
+         this.currency = "USD";
      }
 
      // Getters and Setters
@@ -72,13 +79,29 @@ import java.time.LocalDateTime;
          return dateCreated;
      }
 
-     public String getAccountStatus() {
-         return accountStatus;
+     public LocalDateTime getUpdatedDate() {
+         return updatedDate;
      }
 
-     public void setAccountStatus(String accountStatus) {
-         this.accountStatus = accountStatus;
+     public void setUpdatedDate(LocalDateTime updatedDate) {
+         this.updatedDate = updatedDate;
      }
+
+     public String getCurrency() {
+         return currency;
+     }
+
+     public void setCurrency(String currency) {
+         this.currency = currency;
+     }
+
+    //  public String getAccountStatus() {
+    //      return accountStatus;
+    //  }
+
+    //  public void setAccountStatus(String accountStatus) {
+    //      this.accountStatus = accountStatus;
+    //  }
      
 
 //     public List<AccountPositionEntity> getPositions() {

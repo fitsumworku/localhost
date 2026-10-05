@@ -23,30 +23,35 @@ public class UserEntity {
     @Column(name = "Email", nullable = false, unique = true)
     private String email;
 
-    @Column(name ="Password", nullable = false)
-    private String password;
+    @Column(name = "Password_Hash", nullable = false)
+    private String passwordHash;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "Role_ID", nullable = false)
+    private RoleEntity role;
+
+    @Column(name = "Status", nullable = false)
+    private String status;
 
     @Column(name = "Created_Date", nullable = false, updatable = false)
     private LocalDateTime dateCreated;
 
-    @Column(name = "Status", nullable = false)
-    private String status;  // ACTIVE, SUSPENDED
+    @Column(name = "Updated_Date", nullable = false)
+    private LocalDateTime updatedDate;
 
-     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-     private List<AccountEntity> accounts = new ArrayList<>();
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AccountEntity> accounts = new ArrayList<>();
 
-     @OneToMany(mappedBy = "userForAudit", cascade = CascadeType.ALL, orphanRemoval =true)
-     private List<AuditLogEntity> auditLog = new ArrayList<>();
+    @OneToMany(mappedBy = "userForAudit", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AuditLogEntity> actorAuditLogs = new ArrayList<>();
 
-     @OneToMany(mappedBy = "userForDispute", cascade = CascadeType.ALL, orphanRemoval =true)
+    @OneToMany(mappedBy = "subjectUser", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AuditLogEntity> subjectAuditLog = new ArrayList<>();
+
+    @OneToMany(mappedBy = "userForDispute", cascade = CascadeType.ALL, orphanRemoval =true)
     private List<DisputeEntity> disputes = new ArrayList<>();
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "User_Roles",
-        joinColumns = @JoinColumn(name = "User_ID"),
-        inverseJoinColumns = @JoinColumn(name = "Role_ID")
-    )
+    @Transient
     private Set<RoleEntity> roles = new HashSet<>();
 
     public UserEntity() {}
@@ -54,8 +59,9 @@ public class UserEntity {
     public UserEntity(String name, String email, String password) {
         this.name = name;
         this.email = email;
-        this.password = password;
+        this.passwordHash = password;
         this.dateCreated = LocalDateTime.now();
+        this.updatedDate = this.dateCreated;
         this.status = "ACTIVE";
     }
 
@@ -81,24 +87,40 @@ public class UserEntity {
     }
 
     public String getPassword() {
-        return password;
+        return passwordHash;
     }
 
     public void setPassword(String password) {
-        this.password = password;
+        this.passwordHash = password;
     }
 
     // Backward-compatible aliases used by older service/controller code.
     public String getPasswordHash() {
-        return password;
+        return passwordHash;
     }
 
     public void setPasswordHash(String passwordHash) {
-        this.password = passwordHash;
+        this.passwordHash = passwordHash;
+    }
+
+    public RoleEntity getRole() {
+        return role;
+    }
+
+    public void setRole(RoleEntity role) {
+        this.role = role;
     }
 
     public LocalDateTime getDateCreated() {
         return dateCreated;
+    }
+
+    public LocalDateTime getUpdatedDate() {
+        return updatedDate;
+    }
+
+    public void setUpdatedDate(LocalDateTime updatedDate) {
+        this.updatedDate = updatedDate;
     }
 
     public String getStatus() {
@@ -109,69 +131,26 @@ public class UserEntity {
         this.status = status;
     }
 
-//    public List<AccountEntity> getAccounts() {
-//        return accounts;
-//    }
-//
-//    public void setAccounts(List<AccountEntity> accounts) {
-//        this.accounts = accounts;
-//    }
-//
+    public List<AccountEntity> getAccounts() {
+        return accounts;
+    }
+
+    public void setAccounts(List<AccountEntity> accounts) {
+        this.accounts = accounts;
+    }
+
     public Set<RoleEntity> getRoles() {
+        if (role != null) {
+            roles.clear();
+            roles.add(role);
+        }
         return roles;
     }
 
     public void setRoles(Set<RoleEntity> roles) {
         this.roles = roles;
-    }
-//
-//    // Role management methods
-//    public boolean hasRole(String roleName) {
-//        return roles.stream().anyMatch(r -> r.getRoleName().equals(roleName));
-//    }
-//
-//    public void addRole(RoleEntity role) {
-//        roles.add(role);
-//        role.getUsers().add(this);
-//    }
-//
-//    public void removeRole(RoleEntity role) {
-//        roles.remove(role);
-//        role.getUsers().remove(this);
-//    }
-//
-//    public void addAccount(AccountEntity account) {
-//        accounts.add(account);
-//        account.setUser(this);
-//    }
-//
-//    public void removeAccount(AccountEntity account) {
-//        accounts.remove(account);
-//        account.setUser(null);
-//    }
-
-    // Authentication methods
-    public boolean login(String email, String password) {
-        if (!this.email.equals(email)) {
-            return false;
+        if (roles != null && !roles.isEmpty()) {
+            this.role = roles.iterator().next();
         }
-        if (!status.equals("ACTIVE")) {
-            return false;
-        }
-        return true;
-    }
-
-    public boolean logout() {
-        return true;
-    }
-
-    public boolean updateProfile(String name, String email) {
-        if (name != null && !name.isEmpty()) {
-            this.name = name;
-        }
-        if (email != null && !email.isEmpty()) {
-            this.email = email;
-        }
-        return true;
     }
 }

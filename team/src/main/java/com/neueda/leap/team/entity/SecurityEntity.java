@@ -8,20 +8,6 @@
  @Entity
  @Table(name = "Securities")
  public class SecurityEntity {
-     /**
-      * CREATE TABLE Securities (
-      *     Security_ID BIGSERIAL PRIMARY KEY,
-      *     Ticker VARCHAR(20) NOT NULL,
-      *     Name VARCHAR(255) NOT NULL,
-      *     Asset_Type VARCHAR(50) NOT NULL,
-      *     Exchange VARCHAR(50) NOT NULL,
-      *     Status VARCHAR(8) NOT NULL,
-      *     Sector VARCHAR(100) NOT NULL,
-      *     UNIQUE (Ticker, Exchange),
-      *     CONSTRAINT chk_security_status CHECK (Status IN ('ACTIVE','HALTED','DELISTED'))
-      * );
-      */
-
      @Id
      @GeneratedValue(strategy = GenerationType.IDENTITY)
      @Column(name = "Security_ID")
@@ -39,10 +25,16 @@
      @Column(name = "Exchange", nullable = false)
      private String exchange;
 
+    @Column(name = "Quote_Currency", nullable = false, length = 3)
+    private String quoteCurrency;
+
+    @Column(name = "Base_Currency", length = 3)
+    private String baseCurrency;
+
      @Column(name = "Status", nullable = false)
      private String status;
 
-     @Column(name = "Sector", nullable = false)
+    @Column(name = "Sector")
      private String sector;
 
      @OneToMany(mappedBy = "securityForAccountPosition", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -51,18 +43,24 @@
      @OneToMany(mappedBy = "securityForOrder", cascade = CascadeType.ALL, orphanRemoval = true)
      private List<OrderEntity> orders = new ArrayList<>();
 
-    @OneToMany(mappedBy = "securityForTrade", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TradeEntity> trade;
+    @OneToMany(mappedBy = "securityForExecution", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ExecutionEntity> trade = new ArrayList<>();
 
 
 
      public SecurityEntity() {}
 
      public SecurityEntity(String ticker, String name, String assetType, String exchange, String status, String sector) {
+         this(ticker, name, assetType, exchange, "USD", null, status, sector);
+     }
+
+     public SecurityEntity(String ticker, String name, String assetType, String exchange, String quoteCurrency, String baseCurrency, String status, String sector) {
          this.ticker = ticker;
          this.name = name;
          this.assetType = assetType;
          this.exchange = exchange;
+         this.quoteCurrency = quoteCurrency;
+         this.baseCurrency = baseCurrency;
          this.status = status;
          this.sector = sector;
      }
@@ -103,6 +101,22 @@
          this.exchange = exchange;
      }
 
+     public String getQuoteCurrency() {
+         return quoteCurrency;
+     }
+
+     public void setQuoteCurrency(String quoteCurrency) {
+         this.quoteCurrency = quoteCurrency;
+     }
+
+     public String getBaseCurrency() {
+         return baseCurrency;
+     }
+
+     public void setBaseCurrency(String baseCurrency) {
+         this.baseCurrency = baseCurrency;
+     }
+
      public String getStatus() {
          return status;
      }
@@ -137,16 +151,13 @@
          position.setSecurity(null);
      }
 
-//     public TradeEntity getTrade() {
-//         return trade;
-//     }
-//
-//     public void setTrade(TradeEntity trade) {
-//         this.trade = trade;
-//         if (trade != null) {
-//             trade.setSecurityForTrade(this);
-//         }
-//     }
+     public List<ExecutionEntity> getTrade() {
+         return trade;
+     }
+
+     public void setTrade(List<ExecutionEntity> trade) {
+         this.trade = trade;
+     }
 
     
  }

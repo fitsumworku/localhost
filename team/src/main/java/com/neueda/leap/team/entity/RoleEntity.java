@@ -5,7 +5,7 @@
  import java.util.Set;
 
  @Entity
- @Table(name = "roles")
+ @Table(name = "Roles")
  public class RoleEntity {
 
      @Id
@@ -14,9 +14,9 @@
      private Long roleId;
 
      @Column(name = "Name", nullable = false, unique = true)
-     private String roleName;  // TRADER, COMPLIANCE, USER_MANAGER, DISPUTE_REVIEWER, etc.
+    private String roleName;
 
-     @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "role", fetch = FetchType.LAZY)
      private Set<UserEntity> users = new HashSet<>();
 
      public RoleEntity() {}

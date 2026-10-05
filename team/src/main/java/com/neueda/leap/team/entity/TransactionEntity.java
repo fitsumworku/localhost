@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "Transactions")
@@ -33,7 +34,10 @@ public class TransactionEntity {
     @JoinColumn(name = "Account_ID", nullable = false)
     private AccountEntity accountForTransaction;
 
-    @Column(name = "Transaction_Amount", nullable = false, precision = 18, scale = 4)
+    @Column(name = "Client_Request_ID", nullable = false)
+    private UUID clientRequestId;
+
+    @Column(name = "Transaction_Amount", nullable = false, precision = 20, scale = 2)
     private BigDecimal transactionAmount;
 
     @Column(name = "Transaction_Type", nullable = false)
@@ -45,6 +49,12 @@ public class TransactionEntity {
     @Column(name = "Transaction_Status", nullable = false)
     private String transactionStatus;
 
+    @Column(name = "Completed_At")
+    private LocalDateTime completedAt;
+
+    @Column(name = "Failure_Reason")
+    private String failureReason;
+
     @OneToMany(mappedBy = "transactionForDispute", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DisputeEntity> disputesForTransaction = new ArrayList<>();
 
@@ -53,6 +63,7 @@ public class TransactionEntity {
 
     public TransactionEntity(AccountEntity accountForTransaction, BigDecimal transactionAmount, String transactionType, LocalDateTime transactionDate, String transactionStatus) {
         this.accountForTransaction = accountForTransaction;
+        this.clientRequestId = UUID.randomUUID();
         this.transactionAmount = transactionAmount;
         this.transactionType = transactionType;
         this.transactionDate = transactionDate;
@@ -77,6 +88,14 @@ public class TransactionEntity {
 
     public void setAccountForTransaction(AccountEntity accountForTransaction) {
         this.accountForTransaction = accountForTransaction;
+    }
+
+    public UUID getClientRequestId() {
+        return clientRequestId;
+    }
+
+    public void setClientRequestId(UUID clientRequestId) {
+        this.clientRequestId = clientRequestId;
     }
 
     public BigDecimal getTransactionAmount() {
@@ -109,5 +128,21 @@ public class TransactionEntity {
 
     public void setTransactionStatus(String transactionStatus) {
         this.transactionStatus = transactionStatus;
+    }
+
+    public LocalDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(LocalDateTime completedAt) {
+        this.completedAt = completedAt;
+    }
+
+    public String getFailureReason() {
+        return failureReason;
+    }
+
+    public void setFailureReason(String failureReason) {
+        this.failureReason = failureReason;
     }
 }

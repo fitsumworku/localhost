@@ -2,26 +2,14 @@ package com.neueda.leap.team.entity;
 
 import jakarta.persistence.*;
 
-// import java.beans.Transient;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
-@Table(name = "account_positions", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"account_id", "security_id"})
+@Table(name = "Account_Positions", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"Account_ID", "Security_ID"})
 })
 public class AccountPositionEntity {
-    // Position_ID BIGSERIAL PRIMARY KEY,
-    // Account_ID BIGINT NOT NULL,
-    // Security_ID BIGINT NOT NULL,
-    // Total_Shares NUMERIC(18,4),
-    // Average_Price NUMERIC(18,4),
-    // Updated_Date TIMESTAMP,
-    // FOREIGN KEY (Account_ID) REFERENCES Accounts(Account_ID),
-    // FOREIGN KEY (Security_ID) REFERENCES Securities(Security_ID),
-    // UNIQUE (Account_ID, Security_ID),
-    // CHECK (Total_Shares >= 0),
-    // CHECK (Average_Price >= 0)
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "Position_ID")
@@ -32,14 +20,14 @@ public class AccountPositionEntity {
     private AccountEntity accountForPosition;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "Security_Id", nullable = false)
+    @JoinColumn(name = "Security_ID", nullable = false)
     private SecurityEntity securityForAccountPosition;
 
-    @Column(name = "Total_Shares", nullable = false)
-    private double totalShares;
+    @Column(name = "Quantity", nullable = false, precision = 28, scale = 12)
+    private BigDecimal quantity;
 
-    @Column(name = "Average_Price", nullable = false)
-    private double averagePrice;
+    @Column(name = "Average_Price", nullable = false, precision = 28, scale = 12)
+    private BigDecimal averagePrice;
 
     @Column(name = "Updated_Date", nullable = false)
     private LocalDateTime updatedDate;
@@ -47,8 +35,8 @@ public class AccountPositionEntity {
     public AccountPositionEntity(AccountEntity accountForPosition, SecurityEntity securityForAccountPosition, double totalShares, double averagePrice, LocalDateTime updatedDate) {
         this.accountForPosition = accountForPosition;
         this.securityForAccountPosition = securityForAccountPosition;
-        this.totalShares = totalShares;
-        this.averagePrice = averagePrice;
+        this.quantity = BigDecimal.valueOf(totalShares);
+        this.averagePrice = BigDecimal.valueOf(averagePrice);
         this.updatedDate = updatedDate;
     }
 
@@ -88,19 +76,19 @@ public class AccountPositionEntity {
     }
 
     public double getTotalShares() {
-        return totalShares;
+        return quantity == null ? 0.0d : quantity.doubleValue();
     }
 
     public void setTotalShares(double totalShares) {
-        this.totalShares = totalShares;
+        this.quantity = BigDecimal.valueOf(totalShares);
     }
 
     public double getAveragePrice() {
-        return averagePrice;
+        return averagePrice == null ? 0.0d : averagePrice.doubleValue();
     }
 
     public void setAveragePrice(double averagePrice) {
-        this.averagePrice = averagePrice;
+        this.averagePrice = BigDecimal.valueOf(averagePrice);
     }
 
     public LocalDateTime getUpdatedDate() {
@@ -112,11 +100,11 @@ public class AccountPositionEntity {
     }
 
     public double getQuantity() {
-        return totalShares;
+        return quantity == null ? 0.0d : quantity.doubleValue();
     }
 
     public double getAverageCostPerShare() {
-        return averagePrice;
+        return averagePrice == null ? 0.0d : averagePrice.doubleValue();
     }
 }
 
