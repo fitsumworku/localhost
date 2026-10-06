@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -16,17 +15,38 @@ public class ExecutionEntity {
 	@Column(name = "Execution_ID")
 	private Long executionId;
 
+	@Column(name = "Order_ID", nullable = false)
+	private Long orderId;
+
+	@Column(name = "Account_ID", nullable = false)
+	private Long accountId;
+
+	@Column(name = "Security_ID", nullable = false)
+	private Long securityId;
+
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "Order_ID", nullable = false)
+	@JoinColumns({
+		@JoinColumn(name = "Order_ID", referencedColumnName = "Order_ID", insertable = false, updatable = false),
+		@JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false),
+		@JoinColumn(name = "Security_ID", referencedColumnName = "Security_ID", insertable = false, updatable = false),
+		@JoinColumn(name = "Side", referencedColumnName = "Side", insertable = false, updatable = false)
+	})
 	private OrderEntity orderForExecution;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "Account_ID", nullable = false)
+	@JoinColumn(name = "Account_ID", nullable = false, insertable = false, updatable = false)
 	private AccountEntity accountForExecution;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "Security_ID", nullable = false)
+	@JoinColumn(name = "Security_ID", nullable = false, insertable = false, updatable = false)
 	private SecurityEntity securityForExecution;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumns({
+		@JoinColumn(name = "Security_ID", referencedColumnName = "Security_ID", insertable = false, updatable = false),
+		@JoinColumn(name = "Quote_Currency", referencedColumnName = "Quote_Currency", insertable = false, updatable = false)
+	})
+	private SecurityEntity quotedSecurityForExecution;
 
 	@Column(name = "Side", nullable = false, length = 1)
 	private String side;
@@ -76,8 +96,8 @@ public class ExecutionEntity {
 	@Column(name = "Exchange_Trade_ID", unique = true, length = 100)
 	private String exchangeTradeId;
 
-	@OneToMany(mappedBy = "executionForTrade", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<TradeEntity> trades = new ArrayList<>();
+	@OneToOne(mappedBy = "executionForTrade", cascade = CascadeType.ALL, orphanRemoval = true)
+	private TradeEntity trade;
 
 	public ExecutionEntity() {
 	}
@@ -85,7 +105,7 @@ public class ExecutionEntity {
 	public ExecutionEntity(OrderEntity orderForExecution, BigDecimal quantityFilled, BigDecimal priceOfExecution,
 						   LocalDateTime dateOfExecution, LocalDateTime settlementDate,
 						   String statusOfExecution, String exchangeTradeId) {
-		this.orderForExecution = orderForExecution;
+		setOrderForExecution(orderForExecution);
 		this.quantityFilled = quantityFilled;
 		this.priceOfExecution = priceOfExecution;
 		this.startedAt = dateOfExecution;
@@ -104,11 +124,23 @@ public class ExecutionEntity {
 
 	public void setOrderForExecution(OrderEntity orderForExecution) {
 		this.orderForExecution = orderForExecution;
+		if (orderForExecution != null) {
+			this.orderId = orderForExecution.getId();
+			this.accountForExecution = orderForExecution.getAccountForOrder();
+			this.securityForExecution = orderForExecution.getSecurityForOrder();
+			this.accountId = this.accountForExecution == null ? null : this.accountForExecution.getAccountId();
+			this.securityId = this.securityForExecution == null ? null : this.securityForExecution.getSecurityId();
+			this.side = orderForExecution.getSide();
+		}
 	}
 
 	@Transient
 	public Long getOrderId() {
-		return orderForExecution == null ? null : orderForExecution.getId();
+		return orderId;
+	}
+
+	public void setOrderId(Long orderId) {
+		this.orderId = orderId;
 	}
 
 	public AccountEntity getAccountForExecution() {
@@ -117,6 +149,15 @@ public class ExecutionEntity {
 
 	public void setAccountForExecution(AccountEntity accountForExecution) {
 		this.accountForExecution = accountForExecution;
+		this.accountId = accountForExecution == null ? null : accountForExecution.getAccountId();
+	}
+
+	public Long getAccountId() {
+		return accountId;
+	}
+
+	public void setAccountId(Long accountId) {
+		this.accountId = accountId;
 	}
 
 	public SecurityEntity getSecurityForExecution() {
@@ -125,6 +166,23 @@ public class ExecutionEntity {
 
 	public void setSecurityForExecution(SecurityEntity securityForExecution) {
 		this.securityForExecution = securityForExecution;
+		this.securityId = securityForExecution == null ? null : securityForExecution.getSecurityId();
+	}
+
+	public Long getSecurityId() {
+		return securityId;
+	}
+
+	public void setSecurityId(Long securityId) {
+		this.securityId = securityId;
+	}
+
+	public SecurityEntity getQuotedSecurityForExecution() {
+		return quotedSecurityForExecution;
+	}
+
+	public void setQuotedSecurityForExecution(SecurityEntity quotedSecurityForExecution) {
+		this.quotedSecurityForExecution = quotedSecurityForExecution;
 	}
 
 	public String getSide() {
@@ -267,12 +325,20 @@ public class ExecutionEntity {
 		this.failureReason = failureReason;
 	}
 
+	public TradeEntity getTrade() {
+		return trade;
+	}
+
+	public void setTrade(TradeEntity trade) {
+		this.trade = trade;
+	}
+
 	public List<TradeEntity> getTrades() {
-		return trades;
+		return trade == null ? List.of() : List.of(trade);
 	}
 
 	public void setTrades(List<TradeEntity> trades) {
-		this.trades = trades;
+		this.trade = (trades == null || trades.isEmpty()) ? null : trades.get(0);
 	}
 
 }

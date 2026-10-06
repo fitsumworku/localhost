@@ -30,8 +30,11 @@ public class TransactionEntity {
     @Column(name = "Transaction_ID")
     private Long transactionId;
 
+    @Column(name = "Account_ID", nullable = false)
+    private Long accountId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "Account_ID", nullable = false)
+    @JoinColumn(name = "Account_ID", nullable = false, insertable = false, updatable = false)
     private AccountEntity accountForTransaction;
 
     @Column(name = "Client_Request_ID", nullable = false)
@@ -58,11 +61,11 @@ public class TransactionEntity {
     @OneToMany(mappedBy = "transactionForDispute", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DisputeEntity> disputesForTransaction = new ArrayList<>();
 
-    @OneToMany(mappedBy = "transactionForCashLedger", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<CashLedgerEntity> cashLedgerEntries = new ArrayList<>();
+    @OneToOne(mappedBy = "transactionForCashLedger", cascade = CascadeType.ALL, orphanRemoval = true)
+    private CashLedgerEntity cashLedgerEntry;
 
     public TransactionEntity(AccountEntity accountForTransaction, BigDecimal transactionAmount, String transactionType, LocalDateTime transactionDate, String transactionStatus) {
-        this.accountForTransaction = accountForTransaction;
+        setAccountForTransaction(accountForTransaction);
         this.clientRequestId = UUID.randomUUID();
         this.transactionAmount = transactionAmount;
         this.transactionType = transactionType;
@@ -88,6 +91,15 @@ public class TransactionEntity {
 
     public void setAccountForTransaction(AccountEntity accountForTransaction) {
         this.accountForTransaction = accountForTransaction;
+        this.accountId = accountForTransaction == null ? null : accountForTransaction.getAccountId();
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
     }
 
     public UUID getClientRequestId() {
@@ -144,5 +156,13 @@ public class TransactionEntity {
 
     public void setFailureReason(String failureReason) {
         this.failureReason = failureReason;
+    }
+
+    public CashLedgerEntity getCashLedgerEntry() {
+        return cashLedgerEntry;
+    }
+
+    public void setCashLedgerEntry(CashLedgerEntity cashLedgerEntry) {
+        this.cashLedgerEntry = cashLedgerEntry;
     }
 }

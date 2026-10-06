@@ -18,18 +18,24 @@ public class CashLedgerEntity {
     @JoinColumn(name = "Account_ID", nullable = false)
     private AccountEntity accountForCashLedger;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumns({
-            @JoinColumn(name = "Transaction_ID", referencedColumnName = "Transaction_ID"),
-            @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
-        })
+    @Column(name = "Transaction_ID", unique = true)
+    private Long transactionId;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+        @JoinColumn(name = "Transaction_ID", referencedColumnName = "Transaction_ID", insertable = false, updatable = false),
+        @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
+    })
     private TransactionEntity transactionForCashLedger;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumns({
-            @JoinColumn(name = "Trade_ID", referencedColumnName = "Trade_ID"),
-            @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
-        })
+    @Column(name = "Trade_ID", unique = true)
+    private Long tradeId;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+        @JoinColumn(name = "Trade_ID", referencedColumnName = "Trade_ID", insertable = false, updatable = false),
+        @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
+    })
     private TradeEntity tradeForCashLedger;
 
     @Column(name = "Entry_Type", nullable = false, length = 16)
@@ -60,7 +66,9 @@ public class CashLedgerEntity {
                             LocalDateTime entryDate) {
         this.accountForCashLedger = accountForCashLedger;
         this.transactionForCashLedger = transactionForCashLedger;
+        this.transactionId = transactionForCashLedger == null ? null : transactionForCashLedger.getTransactionId();
         this.tradeForCashLedger = tradeForCashLedger;
+        this.tradeId = tradeForCashLedger == null ? null : tradeForCashLedger.getTradeId();
         this.entryType = entryType;
         this.debitAmount = debitAmount;
         this.creditAmount = creditAmount;
@@ -86,6 +94,15 @@ public class CashLedgerEntity {
 
     public void setTransactionForCashLedger(TransactionEntity transactionForCashLedger) {
         this.transactionForCashLedger = transactionForCashLedger;
+        this.transactionId = transactionForCashLedger == null ? null : transactionForCashLedger.getTransactionId();
+    }
+
+    public Long getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(Long transactionId) {
+        this.transactionId = transactionId;
     }
 
     public TradeEntity getTradeForCashLedger() {
@@ -94,6 +111,15 @@ public class CashLedgerEntity {
 
     public void setTradeForCashLedger(TradeEntity tradeForCashLedger) {
         this.tradeForCashLedger = tradeForCashLedger;
+        this.tradeId = tradeForCashLedger == null ? null : tradeForCashLedger.getTradeId();
+    }
+
+    public Long getTradeId() {
+        return tradeId;
+    }
+
+    public void setTradeId(Long tradeId) {
+        this.tradeId = tradeId;
     }
 
     public String getEntryType() {

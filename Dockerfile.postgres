@@ -5,5 +5,6 @@ FROM postgres:16-alpine
 
 # place *.sql or *.sh files here to run them on first container start
 COPY ./initdb/ /docker-entrypoint-initdb.d/
+COPY ./data/securities_universe_insert.sql /docker-entrypoint-initdb.d/securities_universe_insert.sql
 
 EXPOSE 5432

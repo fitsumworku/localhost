@@ -15,12 +15,21 @@ public class TradeEntity {
 	@Column(name = "Trade_ID")
 	private Long tradeId;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "Execution_ID", nullable = false, unique = true)
+	@Column(name = "Execution_ID", nullable = false, unique = true)
+	private Long executionId;
+
+	@Column(name = "Account_ID", nullable = false)
+	private Long accountId;
+
+	@OneToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumns({
+		@JoinColumn(name = "Execution_ID", referencedColumnName = "Execution_ID", insertable = false, updatable = false),
+		@JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
+	})
 	private ExecutionEntity executionForTrade;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "Account_ID", nullable = false)
+	@JoinColumn(name = "Account_ID", nullable = false, insertable = false, updatable = false)
 	private AccountEntity accountForTrade;
 
 	@Column(name = "Trade_Date", nullable = false)
@@ -33,8 +42,8 @@ public class TradeEntity {
 	@OneToMany(mappedBy = "tradeForDispute", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<DisputeEntity> disputes = new ArrayList<>();
 
-	@OneToMany(mappedBy = "tradeForCashLedger", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<CashLedgerEntity> cashLedgerEntries = new ArrayList<>();
+	@OneToOne(mappedBy = "tradeForCashLedger", cascade = CascadeType.ALL, orphanRemoval = true)
+	private CashLedgerEntity cashLedgerEntry;
 
 	public TradeEntity() {
 	}
@@ -42,8 +51,7 @@ public class TradeEntity {
 	public TradeEntity(ExecutionEntity tradeForExecution,
 					   java.math.BigDecimal tradePrice, java.math.BigDecimal shares, String tradeStatus,
 					   LocalDateTime tradeDate) {
-		this.executionForTrade = tradeForExecution;
-		this.accountForTrade = null;
+		setTradeForExecution(tradeForExecution);
 		this.tradeDate = tradeDate;
 		this.settlementDate = tradeDate;
 	}
@@ -58,6 +66,22 @@ public class TradeEntity {
 
 	public void setTradeForExecution(ExecutionEntity tradeForExecution) {
 		this.executionForTrade = tradeForExecution;
+		if (tradeForExecution != null) {
+			this.executionId = tradeForExecution.getExecutionId();
+			AccountEntity executionAccount = tradeForExecution.getAccountForExecution();
+			if (this.accountForTrade == null) {
+				this.accountForTrade = executionAccount;
+			}
+			this.accountId = executionAccount == null ? null : executionAccount.getAccountId();
+		}
+	}
+
+	public Long getExecutionId() {
+		return executionId;
+	}
+
+	public void setExecutionId(Long executionId) {
+		this.executionId = executionId;
 	}
 
 	public AccountEntity getAccountForTrade() {
@@ -66,6 +90,15 @@ public class TradeEntity {
 
 	public void setAccountForTrade(AccountEntity accountForTrade) {
 		this.accountForTrade = accountForTrade;
+		this.accountId = accountForTrade == null ? null : accountForTrade.getAccountId();
+	}
+
+	public Long getAccountId() {
+		return accountId;
+	}
+
+	public void setAccountId(Long accountId) {
+		this.accountId = accountId;
 	}
 
 	public void setTradePrice(java.math.BigDecimal tradePrice) {
@@ -91,5 +124,13 @@ public class TradeEntity {
 
 	public void setSettlementDate(LocalDateTime settlementDate) {
 		this.settlementDate = settlementDate;
+	}
+
+	public CashLedgerEntity getCashLedgerEntry() {
+		return cashLedgerEntry;
+	}
+
+	public void setCashLedgerEntry(CashLedgerEntity cashLedgerEntry) {
+		this.cashLedgerEntry = cashLedgerEntry;
 	}
 }

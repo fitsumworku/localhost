@@ -41,6 +41,9 @@ import java.time.LocalDateTime;
      @OneToMany(mappedBy = "accountForTransaction", cascade = CascadeType.ALL, orphanRemoval = true)
      private List<TransactionEntity> transactionEntityList = new ArrayList<>();
 
+    @OneToMany(mappedBy = "accountForTrade", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TradeEntity> tradeEntityList = new ArrayList<>();
+
     @OneToMany(mappedBy = "accountForCashLedger", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CashLedgerEntity> cashLedgerEntries = new ArrayList<>();
 

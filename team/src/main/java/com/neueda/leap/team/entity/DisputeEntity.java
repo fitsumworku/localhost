@@ -44,16 +44,22 @@ public class DisputeEntity {
     @JoinColumn(name = "Admin_ID")
     private UserEntity userForDispute;
 
+    @Column(name = "Transaction_ID")
+    private Long transactionId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumns({
-        @JoinColumn(name = "Transaction_ID", referencedColumnName = "Transaction_ID"),
+        @JoinColumn(name = "Transaction_ID", referencedColumnName = "Transaction_ID", insertable = false, updatable = false),
         @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
     })
     private TransactionEntity transactionForDispute;
 
+    @Column(name = "Trade_ID")
+    private Long tradeId;
+
     @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumns({
-            @JoinColumn(name = "Trade_ID", referencedColumnName = "Trade_ID"),
+            @JoinColumn(name = "Trade_ID", referencedColumnName = "Trade_ID", insertable = false, updatable = false),
             @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false)
         })
     private TradeEntity tradeForDispute;
@@ -77,7 +83,9 @@ public class DisputeEntity {
         this.accountForDispute = accountForDispute;
         this.userForDispute = userForDispute;
         this.transactionForDispute = transactionForDispute;
+        this.transactionId = transactionForDispute == null ? null : transactionForDispute.getTransactionId();
         this.tradeForDispute = tradeForDispute;
+        this.tradeId = tradeForDispute == null ? null : tradeForDispute.getTradeId();
         this.disputeType = disputeType;
         this.description = description;
         this.status = status;
@@ -117,6 +125,15 @@ public class DisputeEntity {
 
     public void setTransactionForDispute(TransactionEntity transactionForDispute) {
         this.transactionForDispute = transactionForDispute;
+        this.transactionId = transactionForDispute == null ? null : transactionForDispute.getTransactionId();
+    }
+
+    public Long getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(Long transactionId) {
+        this.transactionId = transactionId;
     }
 
     public TradeEntity getTradeForDispute() {
@@ -125,6 +142,15 @@ public class DisputeEntity {
 
     public void setTradeForDispute(TradeEntity tradeForDispute) {
         this.tradeForDispute = tradeForDispute;
+        this.tradeId = tradeForDispute == null ? null : tradeForDispute.getTradeId();
+    }
+
+    public Long getTradeId() {
+        return tradeId;
+    }
+
+    public void setTradeId(Long tradeId) {
+        this.tradeId = tradeId;
     }
 
     public String getDisputeType() {

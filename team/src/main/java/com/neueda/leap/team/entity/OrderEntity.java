@@ -17,12 +17,18 @@
      @Column(name = "Order_ID")
      private Long id;
 
-     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-     @JoinColumn(name = "Account_ID", nullable = false)
-     private AccountEntity accountForOrder;
+    @Column(name = "Account_ID", nullable = false)
+    private Long accountId;
 
      @ManyToOne(fetch = FetchType.LAZY, optional = false)
-     @JoinColumn(name = "Security_ID", nullable = false)
+     @JoinColumn(name = "Account_ID", nullable = false, insertable = false, updatable = false)
+     private AccountEntity accountForOrder;
+
+    @Column(name = "Security_ID", nullable = false)
+    private Long securityId;
+
+     @ManyToOne(fetch = FetchType.LAZY, optional = false)
+     @JoinColumn(name = "Security_ID", nullable = false, insertable = false, updatable = false)
      private SecurityEntity securityForOrder;
 
     @Column(name = "Client_Request_ID", nullable = false)
@@ -62,8 +68,8 @@
     private List<ExecutionEntity> executions = new ArrayList<>();
 
      public OrderEntity(AccountEntity accountForOrder, SecurityEntity securityForOrder, String side, BigDecimal quantityOrdered, String orderStatus, LocalDateTime createdDate, LocalDateTime updatedDate) {
-         this.accountForOrder = accountForOrder;
-         this.securityForOrder = securityForOrder;
+         setAccountForOrder(accountForOrder);
+         setSecurityForOrder(securityForOrder);
          this.clientRequestId = UUID.randomUUID();
          this.side = side;
          this.quantityOrdered = quantityOrdered;
@@ -90,6 +96,15 @@
 
      public void setAccountForOrder(AccountEntity accountForOrder) {
          this.accountForOrder = accountForOrder;
+         this.accountId = accountForOrder == null ? null : accountForOrder.getAccountId();
+     }
+
+     public Long getAccountId() {
+         return accountId;
+     }
+
+     public void setAccountId(Long accountId) {
+         this.accountId = accountId;
      }
 
      public SecurityEntity getSecurityForOrder() {
@@ -98,6 +113,15 @@
 
      public void setSecurityForOrder(SecurityEntity securityForOrder) {
          this.securityForOrder = securityForOrder;
+         this.securityId = securityForOrder == null ? null : securityForOrder.getSecurityId();
+     }
+
+     public Long getSecurityId() {
+         return securityId;
+     }
+
+     public void setSecurityId(Long securityId) {
+         this.securityId = securityId;
      }
 
      public UUID getClientRequestId() {

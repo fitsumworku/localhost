@@ -14,21 +14,25 @@ public class OrderReservationEntity {
     private Long orderId;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @MapsId
-    @JoinColumn(name = "Order_ID", nullable = false)
+    @JoinColumns({
+        @JoinColumn(name = "Order_ID", referencedColumnName = "Order_ID", insertable = false, updatable = false),
+        @JoinColumn(name = "Account_ID", referencedColumnName = "Account_ID", insertable = false, updatable = false),
+        @JoinColumn(name = "Security_ID", referencedColumnName = "Security_ID", insertable = false, updatable = false),
+        @JoinColumn(name = "Side", referencedColumnName = "Side", insertable = false, updatable = false)
+    })
     private OrderEntity orderForReservation;
 
     @Column(name = "Account_ID", nullable = false)
     private Long accountId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "Account_ID", insertable = false, updatable = false)
     private AccountEntity accountForReservation;
 
     @Column(name = "Security_ID", nullable = false)
     private Long securityId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "Security_ID", insertable = false, updatable = false)
     private SecurityEntity securityForReservation;
 
@@ -57,12 +61,24 @@ public class OrderReservationEntity {
         return orderId;
     }
 
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
+    }
+
     public OrderEntity getOrderForReservation() {
         return orderForReservation;
     }
 
     public void setOrderForReservation(OrderEntity orderForReservation) {
         this.orderForReservation = orderForReservation;
+        if (orderForReservation != null) {
+            this.orderId = orderForReservation.getId();
+            this.accountForReservation = orderForReservation.getAccountForOrder();
+            this.securityForReservation = orderForReservation.getSecurityForOrder();
+            this.accountId = this.accountForReservation == null ? null : this.accountForReservation.getAccountId();
+            this.securityId = this.securityForReservation == null ? null : this.securityForReservation.getSecurityId();
+            this.side = orderForReservation.getSide();
+        }
     }
 
     public Long getAccountId() {
@@ -79,6 +95,7 @@ public class OrderReservationEntity {
 
     public void setAccountForReservation(AccountEntity accountForReservation) {
         this.accountForReservation = accountForReservation;
+        this.accountId = accountForReservation == null ? null : accountForReservation.getAccountId();
     }
 
     public Long getSecurityId() {
@@ -95,6 +112,7 @@ public class OrderReservationEntity {
 
     public void setSecurityForReservation(SecurityEntity securityForReservation) {
         this.securityForReservation = securityForReservation;
+        this.securityId = securityForReservation == null ? null : securityForReservation.getSecurityId();
     }
 
     public String getSide() {
