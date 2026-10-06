@@ -352,17 +352,9 @@ $error: #ff7a7a;
   &:hover { text-decoration: underline; }
 }
 
-// ============ Small screens & reduced motion ============
+// ============ Small screens ============
 
 @media (max-width: 480px) {
   .card { padding: 36px 24px 28px; border-radius: 16px; }
   .title { font-size: 24px; }
-}
-
-// Respect the OS "reduce motion" setting: show the finished chart, no floating
-@media (prefers-reduced-motion: reduce) {
-  .fog, .symbol, .chart-dot, .card { animation: none; }
-  .symbol { display: none; }
-  .chart-line { animation: none; stroke-dashoffset: 0; }
-  .chart-area, .chart-dot { animation: none; opacity: 1; }
 }
