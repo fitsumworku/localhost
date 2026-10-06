@@ -3,34 +3,47 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatCardModule } from '@angular/material/card';
 import { AuthService } from '../services/auth.service';
 import { LoginRequest } from '../models/auth.model';
+
+// A decorative symbol that drifts up the background
+interface FloatingSymbol {
+  text: string;
+  left: number;     // % from the left edge
+  size: number;     // font size in px
+  duration: number; // seconds for one full float
+  delay: number;    // seconds (negative = start mid-animation)
+  opacity: number;
+}
+
+const SYMBOLS = [
+  '$', '+2.4%', '{ }', 'AAPL ▲', '$', '0x1F', '▲ 1.8%', '</>', '€', 'BUY',
+  '$', '+12.7%', 'Σ', 'NVDA ▲', '1010', '£', '=>', '$', 'MSFT', '+0.9%', '¥', '[ ]'
+];
 
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatIconModule,
-    MatCardModule
-  ]
+  imports: [CommonModule, ReactiveFormsModule, MatIconModule]
 })
 export class LoginComponent implements OnInit {
   loginForm!: FormGroup;
   hidePassword = true;
   isLoading = false;
   errorMessage = '';
+
+  readonly floatingSymbols: FloatingSymbol[] = SYMBOLS.map((text, i) => ({
+    text,
+    // Spread symbols evenly but irregularly across the screen
+    left: (i * 47 + 5) % 96,
+    size: 14 + ((i * 7) % 4) * 6,
+    duration: 18 + ((i * 11) % 14),
+    delay: -((i * 13) % 30),
+    opacity: 0.12 + ((i * 5) % 4) * 0.06
+  }));
 
   constructor(
     private fb: FormBuilder,
@@ -55,6 +68,7 @@ export class LoginComponent implements OnInit {
 
   onSubmit(): void {
     if (this.loginForm.invalid) {
+      this.loginForm.markAllAsTouched();
       return;
     }
 
