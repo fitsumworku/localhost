@@ -3,9 +3,9 @@ ETL TECH STACK INTEGRATION GUIDE - PaySprint Wealth Platform
 Full Implementation Roadmap: Debezium + Kafka + Python + Airflow
 ================================================================================
 
-DOCUMENT VERSION: 1.0
+DOCUMENT VERSION: 2.0
 CREATED: 2026-09-28
-LAST UPDATED: 2026-09-28
+LAST UPDATED: 2026-10-6
 
 ================================================================================
 TABLE OF CONTENTS
@@ -102,12 +102,16 @@ Topic Creation Script (kafka-topics-init.sh):
   - Create topics for each OLTP table:
     * debezium.oltp.public.users
     * debezium.oltp.public.accounts
+    * debezium.oltp.public.account_cash_balances
+    * debezium.oltp.public.securities
     * debezium.oltp.public.orders
+    * debezium.oltp.public.order_reservations
     * debezium.oltp.public.executions
     * debezium.oltp.public.trades
     * debezium.oltp.public.transactions
-    * debezium.oltp.public.disputes
     * debezium.oltp.public.cash_ledger
+    * debezium.oltp.public.account_positions
+    * debezium.oltp.public.disputes
     
   - Topic-specific configurations:
     * Partitions: 6 (for parallelism)
@@ -145,7 +149,7 @@ Connector Configuration (connector-config.json):
       "database.password": "[SECURE_PASSWORD]",
       "database.dbname": "oltp_db",
       "database.server.name": "debezium.oltp",
-      "table.include.list": "public.users,public.accounts,public.orders,public.executions,public.trades,public.transactions,public.disputes,public.cash_ledger",
+      "table.include.list": "public.users,public.accounts,public.account_cash_balances,public.securities,public.orders,public.order_reservations,public.executions,public.trades,public.transactions,public.cash_ledger,public.account_positions,public.disputes",
       "publication.name": "debezium_pub",
       "plugin.name": "pgoutput",
       "slot.name": "debezium_slot",
@@ -351,13 +355,14 @@ Each Transformer Must:
 Transformation Rules by Table:
 
   Users → dim_user (SCD Type 2):
-    - On UPDATE: If status or email changed, close old record, add new record
-    - Keep history of all status changes
+    - On UPDATE: If status, email, or name changed, close old record, add new record
+    - Keep history of all status changes (ACTIVE → SUSPENDED, etc.)
     - Mark most recent as Is_Current = TRUE
+    - Role_ID is now direct on Users table (no User_Roles junction)
     
   Accounts → dim_account (SCD Type 2):
-    - Track account status changes
     - Link to user via User_ID (no need to re-fetch user)
+    - Track creation date changes
     
   Orders → fact_orders (grain: order):
     - Denormalize account, security info
@@ -375,9 +380,32 @@ Transformation Rules by Table:
     - Join transaction and trade if applicable
     - Calculate dispute aging metrics
     
+  Securities → dim_security (SCD Type 2):
+    - Track security status changes (ACTIVE, HALTED, DELISTED)
+    - Quote_Currency mandatory, Base_Currency for FOREX only
+    - Asset_Type: EQUITY, FOREX, CRYPTO
+    
+  Account_Cash_Balances → fact_cash_balance_snapshot:
+    - Daily snapshot of account cash balances
+    - Grain: date + account
+    - Tracks Updated_At timestamp
+    
+  Order_Reservations → fact_order_reservations:
+    - Track capital reservations for orders
+    - BUY: Reserved_Cash populated, Reserved_Quantity NULL
+    - SELL: Reserved_Quantity populated, Reserved_Cash NULL
+    - Status: ACTIVE, CONSUMED, RELEASED
+    
+  Account_Positions → fact_account_positions_snapshot:
+    - Daily snapshot of open positions
+    - Grain: date + account + security
+    - Quantity always > 0 (closed positions excluded)
+    - Average_Price for cost basis tracking
+    
   Cash_Ledger → fact_ledger (grain: ledger entry):
-    - Track running balance changes
+    - Track running balance changes (always >= 0)
     - Link to transaction and/or trade
+    - Entry_Type: DEPOSIT, WITHDRAWAL, FEE, BUY, SELL
 
 STEP 4.4: DATA LOADER IMPLEMENTATION
 ──────────────────────────────────────
@@ -794,10 +822,12 @@ Tables to Modify:
   4. Trades → Add denormalized order info + audit cols
   5. Cash_Ledger → Rename to fact_cash_ledger + audit cols
 
-Tables to Archive:
-  1. Roles (static, rarely accessed)
-  2. User_Roles (static, rarely accessed)
-  3. Account_Positions (move to bridge table)
+Schema Update Notes:
+  1. Roles table no longer has User_Roles junction - Role_ID is direct in Users
+  2. Accounts table no longer has Status field
+  3. Account_Positions in OLTP is a generated table (not pre-calculated)
+  4. Securities now requires Quote_Currency and conditional Base_Currency for FOREX
+  5. Order_Reservations table tracks capital locks separately from Orders
   4. Disputes (low volume, can stay or move to separate schema)
 
 STEP 6.2: INDEXING STRATEGY
