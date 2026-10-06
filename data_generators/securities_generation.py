@@ -113,7 +113,7 @@ def main():
     universes_dir = repo_root / "team" / "src" / "main" / "resources" / "universes"
     output_dir = repo_root / "data"
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_sql = output_dir / "securities_universe_insert.sql"
+    output_sql = output_dir / "securities_insert.sql"
 
     rows = load_universes(universes_dir)
     sql = generate_sql(rows)
