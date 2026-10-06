@@ -1,112 +1,69 @@
-<div class="login-page">
-  <!-- ===== Decorative background (hidden from screen readers) ===== -->
-  <div class="background" aria-hidden="true">
-    <!-- Green fog -->
-    <div class="fog fog-1"></div>
-    <div class="fog fog-2"></div>
-    <div class="fog fog-3"></div>
-
-    <!-- Profit chart -->
-    <svg class="chart" viewBox="0 0 1200 600" preserveAspectRatio="none">
-      <defs>
-        <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-          <path d="M60 0H0V60" fill="none" class="grid-line" />
-        </pattern>
-        <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#2ee59d" stop-opacity="0.35" />
-          <stop offset="100%" stop-color="#2ee59d" stop-opacity="0" />
-        </linearGradient>
-        <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#2ee59d" stop-opacity="0.2" />
-          <stop offset="100%" stop-color="#5dffc0" />
-        </linearGradient>
-      </defs>
-
-      <rect width="1200" height="600" fill="url(#grid)" />
-
-      <path class="chart-area" fill="url(#area)"
-        d="M0 520 L60 500 L120 510 L180 478 L240 488 L300 452 L360 466 L420 430 L480 442 L540 404 L600 388
-           L660 398 L720 356 L780 366 L840 322 L900 300 L960 314 L1020 262 L1080 240 L1140 196 L1170 150 L1200 118
-           L1200 600 L0 600 Z" />
-      <path class="chart-line" pathLength="1" stroke="url(#line)"
-        d="M0 520 L60 500 L120 510 L180 478 L240 488 L300 452 L360 466 L420 430 L480 442 L540 404 L600 388
-           L660 398 L720 356 L780 366 L840 322 L900 300 L960 314 L1020 262 L1080 240 L1140 196 L1170 150 L1200 118" />
-      <circle class="chart-dot" cx="1170" cy="150" r="6" />
-    </svg>
-
-    <!-- Floating symbols -->
-    <span
-      *ngFor="let s of floatingSymbols"
-      class="symbol"
-      [style.left.%]="s.left"
-      [style.font-size.px]="s.size"
-      [style.animation-duration.s]="s.duration"
-      [style.animation-delay.s]="s.delay"
-      [style.--symbol-opacity]="s.opacity"
-    >{{ s.text }}</span>
+<!-- Background is rendered by AuthLayoutComponent -->
+<main class="card">
+  <div class="brand">
+    <div class="brand-mark">
+      <mat-icon>trending_up</mat-icon>
+    </div>
+    <span class="brand-name">Localhost</span>
   </div>
 
-  <!-- ===== Login card ===== -->
-  <main class="card">
-    <div class="brand">
-      <div class="brand-mark">
-        <mat-icon>trending_up</mat-icon>
-      </div>
-      <span class="brand-name">PaySprint</span>
+  <h1 class="title">Welcome back</h1>
+  <p class="subtitle">Sign in to continue to your portfolio</p>
+
+  <div *ngIf="errorMessage()" class="error-message" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ errorMessage() }}</span>
+  </div>
+
+  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="form" novalidate>
+    <!-- Email -->
+    <div class="field" [class.invalid]="email?.invalid && email?.touched">
+      <mat-icon class="field-icon">mail_outline</mat-icon>
+      <input id="email" type="email" formControlName="email" placeholder=" " autocomplete="email" />
+      <label for="email">Email address</label>
     </div>
-
-    <h1 class="title">Welcome back</h1>
-    <p class="subtitle">Sign in to continue to your portfolio</p>
-
-    <div *ngIf="errorMessage" class="error-message" role="alert">
-      <mat-icon>error_outline</mat-icon>
-      <span>{{ errorMessage }}</span>
-    </div>
-
-    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="form" novalidate>
-      <!-- Email -->
-      <div class="field" [class.invalid]="email?.invalid && email?.touched">
-        <mat-icon class="field-icon">mail_outline</mat-icon>
-        <input id="email" type="email" formControlName="email" placeholder=" " autocomplete="email" />
-        <label for="email">Email address</label>
-      </div>
-      <p class="field-error" *ngIf="email?.touched && email?.hasError('required')">Email is required</p>
-      <p class="field-error" *ngIf="email?.touched && email?.hasError('email')">Please enter a valid email</p>
-
-      <!-- Password -->
-      <div class="field" [class.invalid]="password?.invalid && password?.touched">
-        <mat-icon class="field-icon">lock_outline</mat-icon>
-        <input
-          id="password"
-          [type]="hidePassword ? 'password' : 'text'"
-          formControlName="password"
-          placeholder=" "
-          autocomplete="current-password"
-        />
-        <label for="password">Password</label>
-        <button
-          type="button"
-          class="toggle-visibility"
-          (click)="togglePasswordVisibility()"
-          [attr.aria-label]="hidePassword ? 'Show password' : 'Hide password'"
-        >
-          <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
-        </button>
-      </div>
-      <p class="field-error" *ngIf="password?.touched && password?.hasError('required')">Password is required</p>
-      <p class="field-error" *ngIf="password?.touched && password?.hasError('minlength')">
-        Password must be at least 6 characters
-      </p>
-
-      <button type="submit" class="submit" [disabled]="isLoading">
-        <span *ngIf="!isLoading">Log in</span>
-        <span *ngIf="isLoading" class="spinner" aria-label="Logging in"></span>
-      </button>
-    </form>
-
-    <p class="signup">
-      Don't have an account?
-      <button type="button" class="link" (click)="navigateToSignup()">Create one</button>
+    <p class="field-error" *ngIf="email?.touched && email?.hasError('required')">
+      Email is required
     </p>
-  </main>
-</div>
+    <p class="field-error" *ngIf="email?.touched && email?.hasError('email')">
+      Please enter a valid email
+    </p>
+
+    <!-- Password -->
+    <div class="field" [class.invalid]="password?.invalid && password?.touched">
+      <mat-icon class="field-icon">lock_outline</mat-icon>
+      <input
+        id="password"
+        [type]="hidePassword ? 'password' : 'text'"
+        formControlName="password"
+        placeholder=" "
+        autocomplete="current-password"
+      />
+      <label for="password">Password</label>
+      <button
+        type="button"
+        class="toggle-visibility"
+        (click)="togglePasswordVisibility()"
+        [attr.aria-label]="hidePassword ? 'Show password' : 'Hide password'"
+      >
+        <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+      </button>
+    </div>
+    <p class="field-error" *ngIf="password?.touched && password?.hasError('required')">
+      Password is required
+    </p>
+    <p class="field-error" *ngIf="password?.touched && password?.hasError('minlength')">
+      Password must be at least 6 characters
+    </p>
+
+    <button type="submit" class="submit" [disabled]="isLoading()">
+      <span *ngIf="!isLoading()">Log in</span>
+      <span *ngIf="isLoading()" class="spinner" aria-label="Logging in"></span>
+    </button>
+  </form>
+
+  <p class="switch-auth">
+    Don't have an account?
+    <button type="button" class="link" (click)="navigateToSignup()">Create one</button>
+  </p>
+</main>
