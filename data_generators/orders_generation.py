@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 orders_generation.py - Generate trading orders with full lifecycle tracking.
 
 Orders represent client requests to buy/sell securities:
 - BUY orders: Requested_Amount (cash to spend) is provided, Quantity_Ordered is NULL
 - SELL orders: Quantity_Ordered (shares to sell) is provided, Requested_Amount is NULL
-- Status lifecycle: SUBMITTED → ACCEPTED → IN_EXECUTION → (FILLED|REJECTED|CANCELLED)
+- Status lifecycle: SUBMITTED â†’ ACCEPTED â†’ IN_EXECUTION â†’ (FILLED|REJECTED|CANCELLED)
 - Timestamps: Created_Date, Accepted_At (when status moves to ACCEPTED), Terminal_At (when status reaches terminal)
 """
 
@@ -16,18 +16,32 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 def parse_securities_file(filepath):
-    """Parse securities_insert.sql to extract active security IDs"""
+    """Parse securities_insert.sql to extract active security tickers with assigned IDs"""
     active_securities = []
+    security_counter = 1
     
     try:
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern to match: VALUES (security_id, ..., 'ACTIVE', ...)
-        pattern = r"VALUES\s*\((\d+),.*?'ACTIVE',"
+        # Pattern to match multi-line: INSERT ... VALUES ('TICKER', 'Name', 'ASSET_TYPE', 'EXCHANGE', 'QUOTE_CURRENCY', Base_Curr, 'STATUS', Sector)
+        pattern = r"VALUES\s*\('([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^,]*),\s*'([^']*)',\s*([^)]*)\)"
         
         matches = re.findall(pattern, content)
-        active_securities = [int(m) for m in matches]
+        
+        for match in matches:
+            ticker = match[0]
+            name = match[1]
+            asset_type = match[2]
+            exchange = match[3]
+            quote_curr = match[4]
+            base_curr = match[5].strip()
+            status = match[6]
+            
+            if status == 'ACTIVE':
+                active_securities.append((security_counter, ticker, asset_type, exchange))
+            
+            security_counter += 1
         
         print(f"Parsed {len(active_securities)} active securities from {filepath}")
         
@@ -80,7 +94,9 @@ def generate_orders(active_securities, account_ids):
         num_orders = random.randint(10, 20)
         
         for _ in range(num_orders):
-            security_id = random.choice(active_securities)
+            # Select a random security: tuple format (security_id, ticker, asset_type, exchange)
+            security = random.choice(active_securities)
+            security_id = security[0]  # Extract just the ID from the tuple
             
             # Determine side (70% BUY, 30% SELL)
             side = 'B' if random.random() < 0.70 else 'S'
@@ -189,8 +205,9 @@ def format_orders_sql(orders):
 if __name__ == "__main__":
     # Parse input files
     print("Parsing input files...")
-    securities_file = Path(__file__).parent / "securities_insert.sql"
-    accounts_file = Path(__file__).parent / "accounts_insert.sql"
+    data_folder = Path(__file__).parent.parent / "data"
+    securities_file = data_folder / "securities_insert.sql"
+    accounts_file = data_folder / "accounts_insert.sql"
     
     active_securities = parse_securities_file(securities_file)
     if active_securities is None:
@@ -210,13 +227,14 @@ if __name__ == "__main__":
     sql_content = format_orders_sql(orders)
     
     # Save to file
-    output_path = Path(__file__).parent / "orders_insert.sql"
+    data_folder = Path(__file__).parent.parent / "data"
+    output_path = data_folder / "orders_insert.sql"
     with open(output_path, "w") as f:
         f.write(sql_content)
     
     # Print summary
-    print(f"\n✓ Generated {len(orders)} orders")
-    print(f"✓ Average orders per account: {len(orders) / len(account_ids):.1f}")
+    print(f"\nâœ“ Generated {len(orders)} orders")
+    print(f"âœ“ Average orders per account: {len(orders) / len(account_ids):.1f}")
     
     buy_count = sum(1 for o in orders if o['side'] == 'B')
     sell_count = sum(1 for o in orders if o['side'] == 'S')
@@ -232,5 +250,6 @@ if __name__ == "__main__":
     for status, count in sorted(status_counts.items()):
         print(f"    - {status}: {count} ({count/len(orders)*100:.1f}%)")
     
-    print(f"\n✓ Saved to {output_path}")
-    print(f"✓ Note: Run AFTER securities_generation.py and accounts_generation.py")
+    print(f"\nâœ“ Saved to {output_path}")
+    print(f"âœ“ Note: Run AFTER securities_generation.py and accounts_generation.py")
+

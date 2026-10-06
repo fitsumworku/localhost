@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 COMPREHENSIVE DATA GENERATOR - Executes all remaining table generations
 Generates: Executions, Trades, Transactions, Cash_Ledger, Account_Positions, Disputes
@@ -13,6 +13,7 @@ print("COMPREHENSIVE DATA GENERATION SYSTEM")
 print("=" * 80)
 
 base_path = Path(__file__).parent
+data_folder = Path(__file__).parent.parent / "data"
 
 # ============================================================================
 # PARSE EXISTING DATA
@@ -20,42 +21,53 @@ base_path = Path(__file__).parent
 
 print("\n[PARSING EXISTING DATA]")
 
-# Parse securities
-securities_by_id = {}
+# Parse securities from data folder
+securities_by_ticker = {}
+securities_by_id = {}  # Map assigned ID to security data
 active_securities = []
+ticker_counter = 1
 try:
-    with open(base_path / "securities_insert.sql") as f:
-        for line in f:
-            if "INSERT INTO Securities" in line:
-                match = re.search(r"VALUES\s*\((\d+),\s*'([^']*)',.*?'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',.*?'([^']*)',\s*'([^']*)',\s*([^)]*)\)", line)
-                if match:
-                    sec_id = int(match.group(1))
-                    ticker = match.group(2)
-                    asset_type = match.group(4)
-                    exchange = match.group(5)
-                    status = match.group(6)
-                    quote_curr = match.group(8)
-                    base_curr = match.group(9).strip()
-                    base_curr = base_curr if base_curr != "NULL" else None
-                    
-                    securities_by_id[sec_id] = {
-                        'ticker': ticker,
-                        'asset_type': asset_type,
-                        'exchange': exchange,
-                        'quote_currency': quote_curr,
-                        'base_currency': base_curr
-                    }
-                    
-                    if status == 'ACTIVE':
-                        active_securities.append(sec_id)
-    print(f"✓ Parsed {len(securities_by_id)} securities ({len(active_securities)} ACTIVE)")
+    with open(data_folder / "securities_insert.sql") as f:
+        content = f.read()
+        # Pattern to match multi-line: INSERT ... VALUES ('TICKER', 'Name', ...)
+        pattern = r"VALUES\s*\('([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^,]*),\s*'([^']*)',\s*([^)]*)\)"
+        matches = re.findall(pattern, content)
+        
+        for match in matches:
+            ticker = match[0]
+            name = match[1]
+            asset_type = match[2]
+            exchange = match[3]
+            quote_curr = match[4]
+            base_curr = match[5].strip()
+            base_curr = base_curr if base_curr != "NULL" else None
+            status = match[6]
+            
+            sec_data = {
+                'id': ticker_counter,
+                'ticker': ticker,
+                'name': name,
+                'asset_type': asset_type,
+                'exchange': exchange,
+                'quote_currency': quote_curr,
+                'base_currency': base_curr
+            }
+            
+            securities_by_ticker[ticker] = sec_data
+            securities_by_id[ticker_counter] = sec_data  # Map by assigned ID
+            
+            if status == 'ACTIVE':
+                active_securities.append(ticker_counter)  # Store ID for active securities
+            
+            ticker_counter += 1
+    print(f"âœ“ Parsed {len(securities_by_ticker)} securities ({len(active_securities)} ACTIVE)")
 except Exception as e:
-    print(f"✗ Error parsing securities: {e}")
+    print(f"âœ— Error parsing securities: {e}")
 
-# Parse accounts
+# Parse accounts from data folder
 accounts_by_id = {}
 try:
-    with open(base_path / "accounts_insert.sql") as f:
+    with open(data_folder / "accounts_insert.sql") as f:
         for line in f:
             if "INSERT INTO Accounts" in line:
                 match = re.search(r"VALUES\s*\((\d+),\s*(\d+),\s*'([^']*)'", line)
@@ -64,14 +76,14 @@ try:
                     user_id = int(match.group(2))
                     created_date = match.group(3)
                     accounts_by_id[acc_id] = {'user_id': user_id, 'created_date': created_date}
-    print(f"✓ Parsed {len(accounts_by_id)} accounts")
+    print(f"âœ“ Parsed {len(accounts_by_id)} accounts")
 except Exception as e:
-    print(f"✗ Error parsing accounts: {e}")
+    print(f"âœ— Error parsing accounts: {e}")
 
-# Parse account cash balances
+# Parse account cash balances from data folder
 account_cash_balances = {}
 try:
-    with open(base_path / "account_cash_balances_insert.sql") as f:
+    with open(data_folder / "account_cash_balances_insert.sql") as f:
         for line in f:
             if "INSERT INTO Account_Cash_Balances" in line:
                 match = re.search(r"VALUES\s*\((\d+),\s*([^,]*),\s*'([^']*)'\)", line)
@@ -79,15 +91,15 @@ try:
                     acc_id = int(match.group(1))
                     balance = float(match.group(2))
                     account_cash_balances[acc_id] = balance
-    print(f"✓ Parsed {len(account_cash_balances)} account cash balances")
+    print(f"âœ“ Parsed {len(account_cash_balances)} account cash balances")
 except Exception as e:
-    print(f"✗ Error parsing cash balances: {e}")
+    print(f"âœ— Error parsing cash balances: {e}")
 
-# Parse users (for admin extraction)
+# Parse users (for admin extraction) from data folder
 users_by_id = {}
 admin_user_ids = []
 try:
-    with open(base_path / "users_insert.sql") as f:
+    with open(data_folder / "users_insert.sql") as f:
         for line in f:
             if "INSERT INTO Users" in line:
                 match = re.search(r"VALUES\s*\((\d+),.*?'([^']*)',.*?'([^']*)',\s*(\d+)", line)
@@ -99,14 +111,14 @@ try:
                     users_by_id[user_id] = {'name': name, 'email': email, 'role_id': role_id}
                     if role_id == 2:  # ADMIN
                         admin_user_ids.append(user_id)
-    print(f"✓ Parsed {len(users_by_id)} users ({len(admin_user_ids)} ADMIN)")
+    print(f"âœ“ Parsed {len(users_by_id)} users ({len(admin_user_ids)} ADMIN)")
 except Exception as e:
-    print(f"✗ Error parsing users: {e}")
+    print(f"âœ— Error parsing users: {e}")
 
-# Parse orders
+# Parse orders from data folder
 orders_by_id = {}
 try:
-    with open(base_path / "orders_insert.sql") as f:
+    with open(data_folder / "orders_insert.sql") as f:
         for line in f:
             if "INSERT INTO Orders" in line:
                 match = re.search(r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),.*?'([BS])',\s*([^,]*),\s*([^,]*),\s*'([^']*)',\s*'([^']*)',", line)
@@ -124,9 +136,9 @@ try:
                         'status': status,
                         'created_date': created_date
                     }
-    print(f"✓ Parsed {len(orders_by_id)} orders")
+    print(f"âœ“ Parsed {len(orders_by_id)} orders")
 except Exception as e:
-    print(f"✗ Error parsing orders: {e}")
+    print(f"âœ— Error parsing orders: {e}")
 
 # ============================================================================
 # GENERATE EXECUTIONS
@@ -211,7 +223,7 @@ for order_id, order in orders_by_id.items():
     
     execution_id += 1
 
-print(f"✓ Generated {len(executions)} executions")
+print(f"âœ“ Generated {len(executions)} executions")
 
 # ============================================================================
 # GENERATE TRADES (from FILLED executions)
@@ -237,7 +249,7 @@ for exe in filled_executions:
     
     trade_id += 1
 
-print(f"✓ Generated {len(trades)} trades from {len(filled_executions)} FILLED executions")
+print(f"âœ“ Generated {len(trades)} trades from {len(filled_executions)} FILLED executions")
 
 # ============================================================================
 # GENERATE TRANSACTIONS
@@ -307,7 +319,7 @@ for acc_id in accounts_by_id.keys():
         transaction_id += 1
         current_date += timedelta(days=random.randint(3, 15))
 
-print(f"✓ Generated {len(transactions)} transactions")
+print(f"âœ“ Generated {len(transactions)} transactions")
 
 # ============================================================================
 # SAVE ALL GENERATED DATA
@@ -316,7 +328,7 @@ print(f"✓ Generated {len(transactions)} transactions")
 print("\n[SAVING GENERATED DATA]")
 
 # Save executions
-with open(base_path / "executions_insert.sql", "w") as f:
+with open(data_folder / "executions_insert.sql", "w") as f:
     f.write("-- Executions generated by comprehensive_generator.py\n")
     f.write(f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     f.write(f"-- Total records: {len(executions)}\n\n")
@@ -335,10 +347,10 @@ with open(base_path / "executions_insert.sql", "w") as f:
         )
         f.write(sql)
 
-print(f"✓ Saved executions_insert.sql ({len(executions)} records)")
+print(f"âœ“ Saved executions_insert.sql ({len(executions)} records)")
 
 # Save trades
-with open(base_path / "trades_insert.sql", "w") as f:
+with open(data_folder / "trades_insert.sql", "w") as f:
     f.write("-- Trades generated by comprehensive_generator.py\n")
     f.write(f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     f.write(f"-- Total records: {len(trades)}\n\n")
@@ -351,10 +363,10 @@ with open(base_path / "trades_insert.sql", "w") as f:
         )
         f.write(sql)
 
-print(f"✓ Saved trades_insert.sql ({len(trades)} records)")
+print(f"âœ“ Saved trades_insert.sql ({len(trades)} records)")
 
 # Save transactions
-with open(base_path / "transactions_insert.sql", "w") as f:
+with open(data_folder / "transactions_insert.sql", "w") as f:
     f.write("-- Transactions generated by comprehensive_generator.py\n")
     f.write(f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     f.write(f"-- Total records: {len(transactions)}\n\n")
@@ -371,7 +383,7 @@ with open(base_path / "transactions_insert.sql", "w") as f:
         )
         f.write(sql)
 
-print(f"✓ Saved transactions_insert.sql ({len(transactions)} records)")
+print(f"âœ“ Saved transactions_insert.sql ({len(transactions)} records)")
 
 # ============================================================================
 # GENERATE CASH LEDGER
@@ -445,7 +457,7 @@ for trade in trades:
     })
 
 # Generate ledger entries sorted by date per account
-with open(base_path / "cash_ledger_insert.sql", "w") as f:
+with open(data_folder / "cash_ledger_insert.sql", "w") as f:
     f.write("-- Cash Ledger generated by comprehensive_generator.py\n")
     f.write(f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     f.write("-- Running_Balance maintained >= 0 for all accounts\n\n")
@@ -475,7 +487,7 @@ with open(base_path / "cash_ledger_insert.sql", "w") as f:
             f.write(sql)
             ledger_id += 1
 
-print(f"✓ Saved cash_ledger_insert.sql ({ledger_id - 1} records)")
+print(f"âœ“ Saved cash_ledger_insert.sql ({ledger_id - 1} records)")
 
 print("\n" + "=" * 80)
 print("DATA GENERATION COMPLETE")
@@ -485,3 +497,4 @@ print(f"Total Trades: {len(trades)}")
 print(f"Total Transactions: {len(transactions)}")
 print(f"Total Cash Ledger Entries: {ledger_id - 1}")
 print(f"\nAll SQL files saved to: {base_path}")
+

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 REMAINING GENERATORS - Account Positions and Disputes
 """
@@ -9,16 +9,17 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 base_path = Path(__file__).parent
+data_folder = Path(__file__).parent.parent / "data"
 
 print("=" * 80)
 print("GENERATING REMAINING TABLES: Account_Positions, Disputes")
 print("=" * 80)
 
-# Parse trades
+# Parse trades from data folder
 print("\n[PARSING TRADES]")
 trades_by_id = {}
 try:
-    with open(base_path / "trades_insert.sql") as f:
+    with open(data_folder / "trades_insert.sql") as f:
         for line in f:
             if "INSERT INTO Trades" in line:
                 match = re.search(r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),\s*'([^']*)',", line)
@@ -27,15 +28,15 @@ try:
                     exe_id = int(match.group(2))
                     acc_id = int(match.group(3))
                     trades_by_id[trade_id] = {'execution_id': exe_id, 'account_id': acc_id}
-    print(f"✓ Parsed {len(trades_by_id)} trades")
+    print(f"âœ“ Parsed {len(trades_by_id)} trades")
 except Exception as e:
-    print(f"✗ Error parsing trades: {e}")
+    print(f"âœ— Error parsing trades: {e}")
 
 # Parse executions for side and quantity
 print("[PARSING EXECUTIONS]")
 executions_by_id = {}
 try:
-    with open(base_path / "executions_insert.sql") as f:
+    with open(data_folder / "executions_insert.sql") as f:
         for line in f:
             if "INSERT INTO Executions" in line:
                 match = re.search(r"VALUES\s*\((\d+),.*?'([BS])',.*?'FILLED',.*?(\d+\.\d+),.*?(\d+\.\d+),", line)
@@ -45,74 +46,79 @@ try:
                     quantity = float(match.group(3))
                     price = float(match.group(4))
                     executions_by_id[exe_id] = {'side': side, 'quantity': quantity, 'price': price}
-    print(f"✓ Parsed {len(executions_by_id)} FILLED executions")
+    print(f"âœ“ Parsed {len(executions_by_id)} FILLED executions")
 except Exception as e:
-    print(f"✗ Error parsing executions: {e}")
+    print(f"âœ— Error parsing executions: {e}")
 
 # Parse securities
 print("[PARSING SECURITIES]")
 securities_by_id = {}
+ticker_counter = 1
 try:
-    with open(base_path / "securities_insert.sql") as f:
-        for line in f:
-            if "INSERT INTO Securities" in line:
-                match = re.search(r"VALUES\s*\((\d+),", line)
-                if match:
-                    sec_id = int(match.group(1))
-                    securities_by_id[sec_id] = True
-    print(f"✓ Parsed {len(securities_by_id)} securities")
+    with open(data_folder / "securities_insert.sql") as f:
+        content = f.read()
+        # Parse multi-line INSERT statements
+        pattern = r"VALUES\s*\('([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^,]*),\s*'([^']*)',\s*([^)]*)\)"
+        matches = re.findall(pattern, content)
+        for match in matches:
+            securities_by_id[ticker_counter] = match[0]  # Store ticker by assigned ID
+            ticker_counter += 1
+    print(f"âœ“ Parsed {len(securities_by_id)} securities")
 except Exception as e:
-    print(f"✗ Error parsing securities: {e}")
+    print(f"âœ— Error parsing securities: {e}")
 
 # Parse orders
 print("[PARSING ORDERS]")
 orders_by_id = {}
 try:
-    with open(base_path / "orders_insert.sql") as f:
-        for line in f:
-            if "INSERT INTO Orders" in line:
-                match = re.search(r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),", line)
-                if match:
-                    order_id = int(match.group(1))
-                    acc_id = int(match.group(2))
-                    sec_id = int(match.group(3))
-                    orders_by_id[order_id] = {'account_id': acc_id, 'security_id': sec_id}
-    print(f"✓ Parsed {len(orders_by_id)} orders")
+    with open(data_folder / "orders_insert.sql") as f:
+        content = f.read()
+        # Parse multi-line INSERT statements: VALUES (order_id, account_id, security_id, ...)
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),\s*(\d+),"
+        matches = re.findall(pattern, content)
+        for match in matches:
+            order_id = int(match[0])
+            acc_id = int(match[1])
+            sec_id = int(match[2])
+            orders_by_id[order_id] = {'account_id': acc_id, 'security_id': sec_id}
+    print(f"âœ“ Parsed {len(orders_by_id)} orders")
 except Exception as e:
-    print(f"✗ Error parsing orders: {e}")
+    print(f"âœ— Error parsing orders: {e}")
 
 # Parse transactions
 print("[PARSING TRANSACTIONS]")
 transactions_by_id = {}
 try:
-    with open(base_path / "transactions_insert.sql") as f:
-        for line in f:
-            if "INSERT INTO Transactions" in line:
-                match = re.search(r"VALUES\s*\((\d+),\s*(\d+),", line)
-                if match:
-                    trans_id = int(match.group(1))
-                    acc_id = int(match.group(2))
-                    transactions_by_id[trans_id] = {'account_id': acc_id}
-    print(f"✓ Parsed {len(transactions_by_id)} transactions")
+    with open(data_folder / "transactions_insert.sql") as f:
+        content = f.read()
+        # Parse multi-line INSERT statements: VALUES (trans_id, account_id, ...)
+        pattern = r"VALUES\s*\((\d+),\s*(\d+),"
+        matches = re.findall(pattern, content)
+        for match in matches:
+            trans_id = int(match[0])
+            acc_id = int(match[1])
+            transactions_by_id[trans_id] = {'account_id': acc_id}
+    print(f"âœ“ Parsed {len(transactions_by_id)} transactions")
 except Exception as e:
-    print(f"✗ Error parsing transactions: {e}")
+    print(f"âœ— Error parsing transactions: {e}")
 
 # Parse users
 print("[PARSING USERS]")
 admin_ids = []
 try:
-    with open(base_path / "users_insert.sql") as f:
-        for line in f:
-            if "INSERT INTO Users" in line:
-                match = re.search(r"VALUES\s*\((\d+),.*?,\s*(\d+)\);", line)
-                if match:
-                    user_id = int(match.group(1))
-                    role_id = int(match.group(2))
-                    if role_id == 2:  # ADMIN
-                        admin_ids.append(user_id)
-    print(f"✓ Parsed {len(admin_ids)} admin users")
+    with open(data_folder / "users_insert.sql") as f:
+        content = f.read()
+        # Parse multi-line INSERT statements: VALUES (user_id, ..., role_id)
+        pattern = r"VALUES\s*\((\d+),.*?(\d+)\)"
+        matches = re.findall(pattern, content)
+        for match in matches:
+            user_id = int(match[0])
+            role_id = int(match[1])
+            if role_id == 2:  # ADMIN
+                admin_ids.append(user_id)
+    print(f"âœ“ Parsed {len(admin_ids)} admin users")
 except Exception as e:
-    print(f"✗ Error parsing users: {e}")
+    print(f"âœ— Error parsing users: {e}")
 
 if not admin_ids:
     admin_ids = [1]  # fallback
@@ -165,7 +171,7 @@ for trade_id, trade_data in trades_by_id.items():
 
 # Write account positions (exclude positions with quantity <= 0)
 position_count = 0
-with open(base_path / "account_positions_insert.sql", "w") as f:
+with open(data_folder / "account_positions_insert.sql", "w") as f:
     f.write("-- Account Positions generated by remaining_generators.py\n")
     f.write(f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     f.write("-- Positions with Quantity > 0 only (closed positions excluded)\n\n")
@@ -185,7 +191,7 @@ with open(base_path / "account_positions_insert.sql", "w") as f:
                 f.write(sql)
                 position_count += 1
 
-print(f"✓ Generated {position_count} account positions (>0 quantity only)")
+print(f"âœ“ Generated {position_count} account positions (>0 quantity only)")
 
 # ============================================================================
 # GENERATE DISPUTES
@@ -260,7 +266,7 @@ for trade_id, trade_data in sampled_trades:
     dispute_id += 1
 
 # Write disputes
-with open(base_path / "disputes_insert.sql", "w") as f:
+with open(data_folder / "disputes_insert.sql", "w") as f:
     f.write("-- Disputes generated by remaining_generators.py\n")
     f.write(f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     f.write(f"-- Total records: {len(disputes)}\n\n")
@@ -279,10 +285,11 @@ with open(base_path / "disputes_insert.sql", "w") as f:
         )
         f.write(sql)
 
-print(f"✓ Generated {len(disputes)} disputes")
+print(f"âœ“ Generated {len(disputes)} disputes")
 
 print("\n" + "=" * 80)
 print("REMAINING GENERATORS COMPLETE")
 print("=" * 80)
 print(f"Account Positions: {position_count}")
 print(f"Disputes: {len(disputes)}")
+
