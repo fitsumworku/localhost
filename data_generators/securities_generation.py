@@ -1,188 +1,128 @@
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
+import json
+from datetime import datetime
 from pathlib import Path
 
-# Set random seed for reproducibility
-np.random.seed(42)
 
-# Define parameters
-SECTORS = [
-    'Technology', 'Healthcare', 'Financials', 'Energy', 'Consumer Discretionary',
-    'Consumer Staples', 'Industrials', 'Materials', 'Real Estate', 'Utilities',
-    'Communication Services', 'Information Technology'
-]
+def map_asset_type(symbol_type: str) -> str:
+    t = (symbol_type or "").strip().lower()
+    if t in {"equity", "etf"}:
+        return "EQUITY"
+    if t in {"fx", "forex"}:
+        return "FOREX"
+    if t == "crypto":
+        return "CRYPTO"
+    raise ValueError(f"Unsupported symbol type: {symbol_type}")
 
-ASSET_TYPES = ['EQUITY', 'FOREX', 'CRYPTO']
-STATUSES = ['ACTIVE', 'HALTED', 'DELISTED']
 
-# Asset type distribution: 85% EQUITY, 5% FOREX, 10% CRYPTO
-asset_type_weights = [0.85, 0.05, 0.10]
+def infer_base_currency_for_fx(ticker: str) -> str:
+    pair = ticker.split(":", 1)[-1]
+    pair = "".join(ch for ch in pair if ch.isalpha()).upper()
+    if len(pair) < 6:
+        raise ValueError(f"Cannot infer FX base currency from ticker: {ticker}")
+    return pair[:3]
 
-# Status distribution: 95% ACTIVE, 4% HALTED, 1% DELISTED
-status_weights = [0.95, 0.04, 0.01]
 
-# Common base currencies for FOREX pairs
-FOREX_PAIRS = [
-    ('EUR', 'USD'), ('GBP', 'USD'), ('JPY', 'USD'), ('CHF', 'USD'),
-    ('CAD', 'USD'), ('AUD', 'USD'), ('NZD', 'USD'), ('SGD', 'USD'),
-    ('HKD', 'USD'), ('SEK', 'USD'), ('NOK', 'USD'), ('INR', 'USD'),
-    ('BRL', 'USD'), ('RUB', 'USD'), ('ZAR', 'USD'), ('TRY', 'USD')
-]
+def sql_literal(value):
+    if value is None:
+        return "NULL"
+    if isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    return str(value)
 
-def generate_ticker(exchange, index):
-    """Generate a fake ticker symbol"""
-    vowels = 'AEIOU'
-    consonants = 'BCDFGHJKLMNPQRSTVWXYZ'
-    
-    # Create variety in ticker lengths (2-5 characters)
-    length = np.random.choice([2, 3, 4, 5], p=[0.1, 0.4, 0.35, 0.15])
-    ticker = ''.join(np.random.choice(list(consonants + vowels), length))
-    
-    return ticker.upper()
 
-def generate_securities(exchange, count):
-    """Generate fake securities for an exchange"""
-    securities = []
-    
-    for i in range(count):
-        asset_type = np.random.choice(ASSET_TYPES, p=asset_type_weights)
-        
-        if asset_type == 'FOREX':
-            # FOREX pair (e.g., EUR/USD)
-            base_currency, quote_currency = FOREX_PAIRS[i % len(FOREX_PAIRS)]
-            ticker = f"{base_currency}{quote_currency}"
-            name = f"{base_currency}/{quote_currency} Currency Pair"
-        else:
-            ticker = generate_ticker(exchange, i)
-            
-            # Ensure unique tickers
-            while any(s['Ticker'] == ticker for s in securities):
-                ticker = generate_ticker(exchange, i)
-            
-            name = f"{ticker} Corporation"
-            base_currency = None
-        
-        security = {
-            'Ticker': ticker,
-            'Exchange': exchange if asset_type != 'FOREX' else 'OTC',  # FOREX traded OTC
-            'Name': name,
-            'Asset_Type': asset_type,
-            'Status': np.random.choice(STATUSES, p=status_weights),
-            'Sector': np.random.choice(SECTORS) if asset_type != 'FOREX' else 'Foreign Exchange',
-            'Quote_Currency': 'USD',  # All quote in USD
-            'Base_Currency': base_currency  # Only for FOREX
-        }
-        
-        securities.append(security)
-    
-    return securities
+def build_security_row(symbol: dict) -> dict:
+    ticker = str(symbol.get("symbol", "")).strip()
+    name = str(symbol.get("name", "")).strip()
+    symbol_type = str(symbol.get("type", "")).strip()
+    exchange = str(symbol.get("exchange", "")).strip()
+    quote_currency = str(symbol.get("currency", "")).strip().upper()
 
-# Generate securities for both exchanges
-print("Generating NYSE securities...")
-nyse_securities = generate_securities('NYSE', 500)
+    if not ticker or not name or not symbol_type or not exchange or len(quote_currency) != 3:
+        raise ValueError(f"Invalid symbol record: {symbol}")
 
-print("Generating NASDAQ securities...")
-nasdaq_securities = generate_securities('NASDAQ', 500)
+    asset_type = map_asset_type(symbol_type)
+    base_currency = infer_base_currency_for_fx(ticker) if asset_type == "FOREX" else None
 
-# Combine all securities
-all_securities = nyse_securities + nasdaq_securities
+    return {
+        "Ticker": ticker,
+        "Name": name,
+        "Asset_Type": asset_type,
+        "Exchange": exchange,
+        "Quote_Currency": quote_currency,
+        "Base_Currency": base_currency,
+        "Status": "ACTIVE",
+        "Sector": None,
+    }
 
-# Create DataFrame
-df = pd.DataFrame(all_securities)
 
-# Verify distributions
-print("\n" + "="*70)
-print("VERIFICATION OF DISTRIBUTIONS")
-print("="*70)
+def load_universes(universes_dir: Path):
+    rows = []
+    seen = set()
 
-print("\n1. ASSET TYPE DISTRIBUTION (Target: 85% EQUITY, 5% FOREX, 10% CRYPTO):")
-asset_dist = df['Asset_Type'].value_counts()
-for asset_type, count in asset_dist.items():
-    pct = count / len(df) * 100
-    print(f"   {asset_type}: {pct:.2f}% ({count} securities)")
+    for json_file in sorted(universes_dir.glob("*.json")):
+        with json_file.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
 
-print("\n2. STATUS DISTRIBUTION (Target: 95% ACTIVE, 4% HALTED, 1% DELISTED):")
-status_dist = df['Status'].value_counts(normalize=True).sort_index()
-for status, pct in status_dist.items():
-    print(f"   {status}: {pct*100:.2f}%")
+        symbols = payload.get("symbols", [])
+        if not isinstance(symbols, list):
+            continue
 
-print("\n3. EXCHANGE DISTRIBUTION:")
-exchange_dist = df['Exchange'].value_counts()
-for exchange, count in exchange_dist.items():
-    print(f"   {exchange}: {count} securities")
+        for symbol in symbols:
+            row = build_security_row(symbol)
+            key = (row["Ticker"], row["Exchange"])
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(row)
 
-print("\n4. QUOTE CURRENCY DISTRIBUTION:")
-quote_dist = df['Quote_Currency'].value_counts()
-for currency, count in quote_dist.items():
-    print(f"   {currency}: {count} securities (all quote in {currency})")
+    return rows
 
-print("\n5. FOREX PAIRS (with Base_Currency):")
-forex_df = df[df['Asset_Type'] == 'FOREX']
-print(f"   Total FOREX pairs: {len(forex_df)}")
-for _, row in forex_df.head(10).iterrows():
-    print(f"   - {row['Ticker']} (Base: {row['Base_Currency']}, Quote: {row['Quote_Currency']})")
 
-print("\n6. SAMPLE SECURITIES:")
-print(df.head(10).to_string())
+def generate_sql(rows):
+    lines = [
+        "-- Securities seed generated from universes/*.json",
+        "-- Generator: data_generators/securities_universe_generator.py",
+        f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"-- Total records: {len(rows)}",
+        "-- Target table: Securities",
+        "",
+    ]
 
-# Generate SQL INSERT statements
-def generate_sql_inserts(dataframe, table_name='Securities'):
-    """Generate SQL INSERT statements from DataFrame"""
-    sql_statements = []
-    
-    # Add header comment
-    sql_statements.append("-- Securities generated by securities_generation.py")
-    sql_statements.append("-- Execute this file in PostgreSQL to populate the Securities table")
-    sql_statements.append(f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    sql_statements.append(f"-- Total records: {len(dataframe)}")
-    sql_statements.append("-- Asset Types: 85% EQUITY, 5% FOREX, 10% CRYPTO")
-    sql_statements.append("-- Quote_Currency: Always USD (all securities quote in USD)")
-    sql_statements.append("-- Base_Currency: Only for FOREX pairs (e.g., EUR for EUR/USD)\n")
-    
-    for idx, row in dataframe.iterrows():
-        security_id = idx + 1
-        # Escape single quotes in names
-        name = row['Name'].replace("'", "''")
-        sector = row['Sector'].replace("'", "''")
-        
-        # Handle nullable Base_Currency
-        base_currency = f"'{row['Base_Currency']}'" if pd.notna(row['Base_Currency']) else "NULL"
-        
-        insert_statement = (
-            f"INSERT INTO Securities (Security_ID, Ticker, Name, Asset_Type, Exchange, Status, Sector, Quote_Currency, Base_Currency) "
-            f"VALUES ({security_id}, '{row['Ticker']}', '{name}', '{row['Asset_Type']}', '{row['Exchange']}', '{row['Status']}', '{sector}', '{row['Quote_Currency']}', {base_currency});"
+    for row in rows:
+        lines.append(
+            "INSERT INTO Securities (Ticker, Name, Asset_Type, Exchange, Quote_Currency, Base_Currency, Status, Sector)"
         )
-        sql_statements.append(insert_statement)
-    
-    return '\n'.join(sql_statements)
+        lines.append(
+            "VALUES ("
+            f"{sql_literal(row['Ticker'])}, "
+            f"{sql_literal(row['Name'])}, "
+            f"{sql_literal(row['Asset_Type'])}, "
+            f"{sql_literal(row['Exchange'])}, "
+            f"{sql_literal(row['Quote_Currency'])}, "
+            f"{sql_literal(row['Base_Currency'])}, "
+            f"{sql_literal(row['Status'])}, "
+            f"{sql_literal(row['Sector'])}"
+            ");"
+        )
 
-# Save to SQL file
-output_path = Path(__file__).parent / 'securities_insert.sql'
-sql_content = generate_sql_inserts(df)
+    return "\n".join(lines) + "\n"
 
-with open(output_path, 'w', encoding='utf-8') as f:
-    f.write(sql_content)
 
-print(f"\n\n✓ Successfully generated 1000 fake securities!")
-print(f"✓ Saved to: {output_path}")
+def main():
+    repo_root = Path(__file__).resolve().parent.parent
+    universes_dir = repo_root / "team" / "src" / "main" / "resources" / "universes"
+    output_dir = repo_root / "data"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_sql = output_dir / "securities_universe_insert.sql"
 
-# Display summary statistics
-print("\n" + "="*70)
-print("SUMMARY STATISTICS")
-print("="*70)
-print(f"Total Securities: {len(df)}")
-print(f"NYSE Securities: {len(df[df['Exchange'] == 'NYSE'])}")
-print(f"NASDAQ Securities: {len(df[df['Exchange'] == 'NASDAQ'])}")
-print(f"OTC (FOREX) Securities: {len(df[df['Exchange'] == 'OTC'])}")
-print(f"EQUITY Securities: {len(df[df['Asset_Type'] == 'EQUITY'])}")
-print(f"FOREX Pairs: {len(df[df['Asset_Type'] == 'FOREX'])}")
-print(f"CRYPTO Assets: {len(df[df['Asset_Type'] == 'CRYPTO'])}")
+    rows = load_universes(universes_dir)
+    sql = generate_sql(rows)
 
-# Show sample SQL statements
-print("\n" + "="*70)
-print("SAMPLE SQL STATEMENTS (first 5)")
-print("="*70)
-lines = sql_content.split('\n')
-for line in lines[:10]:
-    print(line)
+    output_sql.write_text(sql, encoding="utf-8")
+
+    print(f"Loaded {len(rows)} unique securities from: {universes_dir}")
+    print(f"Wrote SQL seed file: {output_sql}")
+
+
+if __name__ == "__main__":
+    main()
