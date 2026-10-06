@@ -11,6 +11,14 @@ LAST UPDATED: 2026-10-6
 TABLE OF CONTENTS
 ================================================================================
 
+SECTION A: PREREQUISITES (Before Integration Guide Phases)
+  PRE.1: Data Generation
+  PRE.2: OLTP Schema Creation
+  PRE.3: OLAP Schema Creation
+  PRE.4: Load Test Data into OLTP
+  PRE.5: Verify Database Connectivity
+
+SECTION B: INTEGRATION GUIDE PHASES
 1. ARCHITECTURE OVERVIEW
 2. PHASE 1: INFRASTRUCTURE SETUP (Debezium, Kafka, Zookeeper)
 3. PHASE 2: DATABASE PREPARATION (OLTP & OLAP)
@@ -18,10 +26,249 @@ TABLE OF CONTENTS
 5. PHASE 4: AIRFLOW ORCHESTRATION SETUP
 6. PHASE 5: SCHEMA OPTIMIZATION FOR ANALYTICS
 7. PHASE 6: MONITORING & VALIDATION
-8. IMPLEMENTATION CHECKLIST
-9. CRITICAL CONSIDERATIONS
-10. RECOMMENDED OLAP SCHEMA CHANGES
-11. TROUBLESHOOTING GUIDE
+
+SECTION C: POST-INTEGRATION STEPS
+8. POST-INTEGRATION: Performance Testing & Sign-Off
+
+SECTION D: APPENDICES
+9. IMPLEMENTATION CHECKLIST
+10. CRITICAL CONSIDERATIONS
+11. RECOMMENDED OLAP SCHEMA CHANGES
+12. TROUBLESHOOTING GUIDE
+
+================================================================================
+SECTION A: PREREQUISITES
+================================================================================
+
+CRITICAL: Complete ALL prerequisites before starting PHASE 1. These are
+foundational tasks that enable the entire integration pipeline.
+
+================================================================================
+PRE.1: DATA GENERATION
+================================================================================
+
+STATUS: ✅ AUTO-GENERATED (Already Complete)
+
+WHAT EXISTS:
+  - c:\Users\Administrator\localhost\data_generators\RUN_ALL_GENERATORS.py
+  - Generates 168,246 records across 13 OLTP tables
+  - Output: 13 SQL insert files with sample data
+
+WHAT YOU DO (When Ready):
+
+Step 1: Run the generator
+  cd c:\Users\Administrator\localhost\data_generators
+  python RUN_ALL_GENERATORS.py
+
+Step 2: Inspect output
+  ls -la *_insert.sql
+  # Expected: roles_insert.sql, users_insert.sql, accounts_insert.sql, etc.
+
+Step 3: Keep the SQL files
+  # You'll use these files in PRE.4: Load Test Data into OLTP
+
+TIMELINE: 5 minutes
+
+================================================================================
+PRE.2: OLTP SCHEMA CREATION
+================================================================================
+
+STATUS: ✅ AUTO-GENERATED (Already Complete)
+
+WHAT EXISTS:
+  - c:\Users\Administrator\localhost\initdb\oltp_schema.sql
+  - Creates 13 OLTP tables with all constraints and relationships
+
+WHAT YOU DO (Must Execute):
+
+Step 1: Connect to OLTP PostgreSQL database
+  psql -h <OLTP_HOST> -U postgres -d oltp_db
+
+Step 2: Run the schema
+  psql -h <OLTP_HOST> -U postgres -d oltp_db -f initdb/oltp_schema.sql
+
+Step 3: Verify tables created
+  psql -h <OLTP_HOST> -U postgres -d oltp_db -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
+
+EXPECTED TABLES (13):
+  - Roles
+  - Users
+  - Accounts
+  - Account_Cash_Balances
+  - Securities
+  - Orders
+  - Order_Reservations
+  - Executions
+  - Trades
+  - Transactions
+  - Cash_Ledger
+  - Account_Positions
+  - Disputes
+
+TIMELINE: 2 minutes
+
+================================================================================
+PRE.3: OLAP SCHEMA CREATION
+================================================================================
+
+STATUS: ✅ AUTO-GENERATED (Already Complete)
+
+WHAT EXISTS:
+  - c:\Users\Administrator\localhost\initdb\olap_schema.sql
+  - Creates dimension tables (Users, Accounts, Securities)
+  - Creates fact tables (Orders, Trades, Transactions, Disputes)
+
+WHAT YOU DO (Must Execute):
+
+Step 1: Connect to OLAP PostgreSQL database
+  psql -h <OLAP_HOST> -U postgres -d olap_db
+
+Step 2: Run the schema
+  psql -h <OLAP_HOST> -U postgres -d olap_db -f initdb/olap_schema.sql
+
+Step 3: Verify tables created
+  psql -h <OLAP_HOST> -U postgres -d olap_db -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';"
+
+EXPECTED: ~10-15 dimension and fact tables
+
+NOTE: These tables will be populated by the ETL pipeline later. For now,
+verify they exist and are empty.
+
+TIMELINE: 2 minutes
+
+================================================================================
+PRE.4: LOAD TEST DATA INTO OLTP
+================================================================================
+
+STATUS: ⏳ MANUAL (User Executes SQL)
+
+WHAT NEEDS TO HAPPEN:
+  Insert 168,246 test records into OLTP database
+  This is the foundation for CDC capture by Debezium
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Verify Generated SQL Files Exist
+  cd c:\Users\Administrator\localhost\data_generators
+  
+  # Run generator if not already done
+  python RUN_ALL_GENERATORS.py
+  
+  # List files
+  ls -la *_insert.sql
+
+Step 2: Load Data into OLTP (ORDER MATTERS - FK Dependencies)
+
+CRITICAL: Execute in this exact order due to foreign key constraints:
+
+  # 1. Reference tables (no dependencies)
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < roles_insert.sql
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < users_insert.sql
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < securities_insert.sql
+
+  # 2. Account-related tables
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < accounts_generation.sql
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < account_positions_generator.sql
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < account_cash_ledger_generator.sql
+
+  # 3. Order and execution tables
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < orders_generation.sql
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < executions_generation.sql
+
+  # 4. Trade and transaction tables
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < trades_generator.sql
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < transactions_generator.sql
+
+  # 5. Other tables
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < cash_ledger_generator.sql
+  psql -h <OLTP_HOST> -U postgres -d oltp_db < disputes_generator.sql
+
+Step 3: Verify Data Loaded
+  
+  psql -h <OLTP_HOST> -U postgres -d oltp_db << EOF
+  SELECT 'Roles' as table_name, COUNT(*) FROM roles
+  UNION ALL
+  SELECT 'Users', COUNT(*) FROM users
+  UNION ALL
+  SELECT 'Accounts', COUNT(*) FROM accounts
+  UNION ALL
+  SELECT 'Securities', COUNT(*) FROM securities
+  UNION ALL
+  SELECT 'Orders', COUNT(*) FROM orders
+  UNION ALL
+  SELECT 'Executions', COUNT(*) FROM executions
+  UNION ALL
+  SELECT 'Trades', COUNT(*) FROM trades
+  UNION ALL
+  SELECT 'Transactions', COUNT(*) FROM transactions
+  UNION ALL
+  SELECT 'Disputes', COUNT(*) FROM disputes
+  ORDER BY table_name;
+  EOF
+
+EXPECTED OUTPUT: ~168,246 total rows distributed across tables
+
+TROUBLESHOOTING:
+  - If FK constraint error: Wrong load order—use exact sequence above
+  - If file not found: Run RUN_ALL_GENERATORS.py first
+  - If connection refused: Check OLTP host/port, verify PostgreSQL running
+
+TIMELINE: 10 minutes
+
+================================================================================
+PRE.5: VERIFY DATABASE CONNECTIVITY
+================================================================================
+
+STATUS: ⏳ MANUAL (User Tests)
+
+WHAT NEEDS TO HAPPEN:
+  Confirm both OLTP and OLAP are reachable and working
+  Test from your local machine or ETL server
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Test OLTP Connection
+  
+  psql -h <OLTP_HOST> -U postgres -d oltp_db -c "SELECT VERSION();"
+  
+  EXPECTED OUTPUT:
+  PostgreSQL 13.x on ... (version information)
+
+Step 2: Test OLAP Connection
+  
+  psql -h <OLAP_HOST> -U postgres -d olap_db -c "SELECT VERSION();"
+  
+  EXPECTED OUTPUT:
+  PostgreSQL 13.x on ... (version information)
+
+Step 3: Test with Service Credentials (After PHASE 1 & 2)
+  
+  # Test debezium_user (created in PHASE 1)
+  psql -h <OLTP_HOST> -U debezium_user -d oltp_db -c "SELECT COUNT(*) FROM users;"
+  
+  # Test etl_user (created in PHASE 2)
+  psql -h <OLAP_HOST> -U etl_user -d olap_db -c "SELECT COUNT(*) FROM information_schema.tables;"
+
+TROUBLESHOOTING:
+  - psql: command not found → Install PostgreSQL client tools
+  - connection refused → Check host/port, verify PostgreSQL running
+  - password authentication failed → Verify credentials in .env
+  - FATAL: database "oltp_db" does not exist → Create database first
+
+TIMELINE: 5 minutes
+
+================================================================================
+SECTION B: INTEGRATION GUIDE PHASES
+================================================================================
+
+PRE-PHASE CHECKLIST:
+  ✅ PRE.1: Data generation files exist
+  ✅ PRE.2: OLTP schema created
+  ✅ PRE.3: OLAP schema created
+  ✅ PRE.4: Test data loaded into OLTP (~168K rows)
+  ✅ PRE.5: Database connectivity verified
+
+IF ALL PREREQUISITES COMPLETE: Proceed to PHASE 1
 
 ================================================================================
 1. ARCHITECTURE OVERVIEW
@@ -59,86 +306,423 @@ COMPONENT RESPONSIBILITIES:
 STEP 2.1: ENABLE LOGICAL DECODING ON OLTP POSTGRESQL
 ─────────────────────────────────────────────────────
 
+STATUS: ⏳ MANUAL (DBA Task)
+
 Logical decoding allows Debezium to capture changes without replication slots
 becoming a bottleneck.
 
-Prerequisites:
-  - PostgreSQL 10+ (we're using PostgreSQL 13+)
+PREREQUISITES:
+  - PostgreSQL 10+ (using PostgreSQL 13+)
   - Superuser access to modify postgresql.conf
-  - Planned restart or use ALTER SYSTEM for runtime changes
+  - Planned restart during maintenance window
 
-Configuration Changes:
-  1. Modify postgresql.conf:
-     - Set: wal_level = logical
-     - Set: max_wal_senders = 10
-     - Set: max_replication_slots = 10
-     - Set: shared_preload_libraries = 'decoderbufs'
-     
-  2. Restart PostgreSQL:
-     $ sudo systemctl restart postgresql
-     
-  3. Create replication slot (Debezium will use this):
-     SELECT * FROM pg_create_logical_replication_slot('debezium_slot', 'test_decoding');
-     
-  4. Verify logical replication:
-     SELECT * FROM pg_replication_slots;
-     
-  5. IMPORTANT: Enable Publications for specific tables:
-     CREATE PUBLICATION debezium_pub FOR TABLE Users, Accounts, Orders, Executions, 
-                                         Trades, Transactions, Disputes, Cash_Ledger;
+DETAILED IMPLEMENTATION GUIDE:
 
-STEP 2.2: KAFKA CLUSTER SETUP
+Step 1: Modify postgresql.conf
+
+OPTION A: Edit Config File (Production Recommended)
+
+  # SSH into OLTP database server
+  ssh <OLTP_SERVER>
+  
+  # Back up postgresql.conf
+  sudo cp /etc/postgresql/13/main/postgresql.conf /etc/postgresql/13/main/postgresql.conf.backup.2026-10-06
+  
+  # Open in editor
+  sudo nano /etc/postgresql/13/main/postgresql.conf
+  
+  # Add or modify these lines:
+  wal_level = logical
+  max_wal_senders = 10
+  max_replication_slots = 10
+  shared_preload_libraries = 'pgoutput'
+  
+  # Save (Ctrl+X, Y, Enter)
+
+OPTION B: Runtime Configuration (Dev Only)
+
+  psql -h localhost -U postgres -d oltp_db << EOF
+  ALTER SYSTEM SET wal_level = logical;
+  ALTER SYSTEM SET max_wal_senders = 10;
+  ALTER SYSTEM SET max_replication_slots = 10;
+  ALTER SYSTEM SET shared_preload_libraries = 'pgoutput';
+  SELECT pg_reload_conf();
+  EOF
+
+Step 2: Restart PostgreSQL
+
+  sudo systemctl restart postgresql
+  sudo systemctl status postgresql
+  
+  # Verify it restarted successfully
+
+Step 3: Verify Logical Decoding Enabled
+
+  psql -h localhost -U postgres -d oltp_db << EOF
+  SHOW wal_level;           -- Should show: logical
+  SHOW max_wal_senders;      -- Should show: 10
+  SHOW max_replication_slots;-- Should show: 10
+  EOF
+
+TIMELINE: 10 minutes
+RISK: PostgreSQL restart may cause brief downtime. Schedule during maintenance window.
+
+================================================================================
+STEP 2.2: CREATE REPLICATION SLOT
+─────────────────────────────────
+
+STATUS: ⏳ MANUAL (DBA Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create persistent replication slot named 'debezium_slot' for Debezium
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create Replication Slot
+
+  psql -h localhost -U postgres -d oltp_db << EOF
+  SELECT * FROM pg_create_logical_replication_slot('debezium_slot', 'pgoutput');
+  EOF
+  
+  EXPECTED OUTPUT:
+   slot_name    |    lsn
+  ───────────────┼──────────
+   debezium_slot | 0/12345678
+
+Step 2: Verify Slot Created
+
+  psql -h localhost -U postgres -d oltp_db -c "SELECT * FROM pg_replication_slots;"
+  
+  EXPECTED OUTPUT:
+      slot_name    | plugin   | slot_type | datoid | database | temporary | active
+  ─────────────────┼──────────┼───────────┼────────┼──────────┼───────────┼────────
+   debezium_slot   | pgoutput | logical   | 16384  | oltp_db  | f         | f
+
+IMPORTANT NOTES:
+  - Slot must exist BEFORE Debezium connects
+  - Slot name must match connector config: slot.name = "debezium_slot"
+  - active=false is OK until Debezium connects
+  - If active=true and pid is NULL: Debezium crashed, kill the connection
+
+TIMELINE: 2 minutes
+
+================================================================================
+STEP 2.3: CREATE PUBLICATION FOR CDC TABLES
+───────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (DBA Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create publication (permission set) for tables Debezium should monitor
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create Publication
+
+  psql -h localhost -U postgres -d oltp_db << EOF
+  CREATE PUBLICATION debezium_pub FOR TABLE 
+      roles,
+      users,
+      accounts,
+      account_cash_balances,
+      securities,
+      orders,
+      order_reservations,
+      executions,
+      trades,
+      transactions,
+      cash_ledger,
+      account_positions,
+      disputes;
+  EOF
+
+Step 2: Verify Publication Created
+
+  psql -h localhost -U postgres -d oltp_db -c "SELECT * FROM pg_publication;"
+  
+  EXPECTED OUTPUT:
+     pubname      | owner | all_tables
+  ────────────────┼───────┼────────────
+   debezium_pub   | 10    | f
+
+Step 3: Verify Tables in Publication
+
+  psql -h localhost -U postgres -d oltp_db -c "SELECT * FROM pg_publication_tables WHERE pubname = 'debezium_pub' ORDER BY tablename;"
+  
+  EXPECTED: 13 tables listed (all tables you specified)
+
+IMPORTANT NOTES:
+  - Publication must include ALL tables Debezium should monitor
+  - Missing a table = no CDC events for that table
+  - Can add tables later: ALTER PUBLICATION debezium_pub ADD TABLE new_table;
+  - Cannot remove tables while Debezium connected
+
+TIMELINE: 2 minutes
+
+================================================================================
+STEP 2.4: CREATE DEBEZIUM USER (OLTP)
+─────────────────────────────────────
+
+STATUS: ⏳ MANUAL (DBA Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create PostgreSQL user for Debezium with minimal necessary permissions
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create User
+
+  psql -h localhost -U postgres -d oltp_db << EOF
+  CREATE USER debezium_user WITH PASSWORD 'SECURE_PASSWORD_HERE';
+  GRANT CONNECT ON DATABASE oltp_db TO debezium_user;
+  GRANT USAGE ON SCHEMA public TO debezium_user;
+  GRANT SELECT ON ALL TABLES IN SCHEMA public TO debezium_user;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO debezium_user;
+  EOF
+
+Step 2: Verify Permissions
+
+  psql -h localhost -U postgres -d oltp_db -c "\du debezium_user"
+  
+  EXPECTED OUTPUT:
+   Role name     | Attributes
+  ────────────────┼────────────
+   debezium_user | 
+
+IMPORTANT NOTES:
+  - Use STRONG password (25+ chars, mix case/numbers/symbols)
+  - Store password in .env file or secret manager—NOT in config files
+  - Debezium only needs SELECT (not INSERT/UPDATE/DELETE)
+  - Permissions on individual tables can be restricted if desired
+
+TIMELINE: 5 minutes
+
+================================================================================
+STEP 2.5: SET UP KAFKA CLUSTER
 ──────────────────────────────
 
-Kafka will store CDC events as immutable log for fault tolerance.
+STATUS: ⏳ MANUAL (Infrastructure Task)
 
-Broker Configuration:
-  - Min brokers: 3 (for HA and fault tolerance)
-  - Replication factor: 3
-  - Min in-sync replicas: 2
-  - Retention policy: 7 days minimum (or adjust based on processing speed)
+WHAT NEEDS TO HAPPEN:
+  Verify 3+ Kafka brokers are running and healthy
+  Verify Zookeeper coordination
 
-Topic Creation Script (kafka-topics-init.sh):
-  - Create topics for each OLTP table:
-    * debezium.oltp.public.users
-    * debezium.oltp.public.accounts
-    * debezium.oltp.public.account_cash_balances
-    * debezium.oltp.public.securities
-    * debezium.oltp.public.orders
-    * debezium.oltp.public.order_reservations
-    * debezium.oltp.public.executions
-    * debezium.oltp.public.trades
-    * debezium.oltp.public.transactions
-    * debezium.oltp.public.cash_ledger
-    * debezium.oltp.public.account_positions
-    * debezium.oltp.public.disputes
-    
-  - Topic-specific configurations:
-    * Partitions: 6 (for parallelism)
-    * Replication factor: 3
-    * Retention: 7 days
-    * Compression: snappy (good for JSON CDC events)
+DETAILED IMPLEMENTATION GUIDE:
 
-Topic Configuration Template:
-  kafka-topics --create \
-    --topic debezium.oltp.public.[TABLE_NAME] \
-    --partitions 6 \
-    --replication-factor 3 \
-    --config retention.ms=604800000 \
-    --config compression.type=snappy \
-    --bootstrap-server localhost:9092
+Step 1: Verify Kafka is Running
 
-STEP 2.3: DEBEZIUM KAFKA CONNECT SETUP
-───────────────────────────────────────
+  ssh <KAFKA_BROKER_1>
+  sudo systemctl status kafka
+  # Expected: active (running)
+  
+  sudo systemctl status zookeeper
+  # Expected: active (running)
 
-Debezium runs as a plugin on Kafka Connect and captures CDC events.
+Step 2: Verify Broker Configuration
 
-Installation:
-  1. Download Debezium PostgreSQL Connector (debezium-connector-postgres-[version].jar)
-  2. Place in Kafka Connect plugins directory
-  3. Restart Kafka Connect
+  cat /opt/kafka/config/server.properties | grep -E "^(broker.id|listeners|log.retention|num.partitions)"
+  
+  EXPECTED OUTPUT:
+  broker.id=1
+  listeners=PLAINTEXT://kafka1:9092
+  log.retention.hours=168
+  num.partitions=6
 
-Connector Configuration (connector-config.json):
+Step 3: Test Broker Connectivity
+
+  # From your local machine or ETL server
+  nc -zv <KAFKA_BROKER_1> 9092
+  nc -zv <KAFKA_BROKER_2> 9092
+  nc -zv <KAFKA_BROKER_3> 9092
+  
+  EXPECTED: Connection successful for all brokers
+
+Step 4: Verify Cluster Health
+
+  kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | head -20
+  
+  EXPECTED: Broker API versions output, no errors
+
+TIMELINE: 10 minutes
+REQUIREMENTS:
+  - 3+ Kafka brokers (high availability)
+  - Zookeeper cluster for coordination
+  - Network connectivity between all brokers
+
+================================================================================
+STEP 2.6: CREATE KAFKA TOPICS
+─────────────────────────────
+
+STATUS: ⏳ MANUAL (Infrastructure Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create 13 Kafka topics (one per OLTP table) with proper configuration
+  Topics will receive CDC events from Debezium
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create Topic Creation Script
+
+Create file: c:\Users\Administrator\localhost\scripts\kafka_topics_init.sh
+
+  #!/bin/bash
+  # Kafka Topics Initialization Script
+  
+  BROKER="localhost:9092"
+  PARTITIONS=6
+  REPLICATION_FACTOR=3
+  RETENTION_MS=604800000  # 7 days
+  
+  TOPICS=(
+      "debezium.oltp.public.roles"
+      "debezium.oltp.public.users"
+      "debezium.oltp.public.accounts"
+      "debezium.oltp.public.account_cash_balances"
+      "debezium.oltp.public.securities"
+      "debezium.oltp.public.orders"
+      "debezium.oltp.public.order_reservations"
+      "debezium.oltp.public.executions"
+      "debezium.oltp.public.trades"
+      "debezium.oltp.public.transactions"
+      "debezium.oltp.public.cash_ledger"
+      "debezium.oltp.public.account_positions"
+      "debezium.oltp.public.disputes"
+  )
+  
+  for topic in "${TOPICS[@]}"; do
+      echo "Creating topic: $topic"
+      kafka-topics.sh --create \
+          --bootstrap-server $BROKER \
+          --topic $topic \
+          --partitions $PARTITIONS \
+          --replication-factor $REPLICATION_FACTOR \
+          --config retention.ms=$RETENTION_MS \
+          --config compression.type=snappy \
+          --if-not-exists
+  done
+  
+  echo "All topics created successfully!"
+  kafka-topics.sh --list --bootstrap-server $BROKER | grep "debezium.oltp"
+
+Step 2: Run Topic Creation Script
+
+  cd c:\Users\Administrator\localhost\scripts
+  chmod +x kafka_topics_init.sh
+  ./kafka_topics_init.sh
+  
+  EXPECTED OUTPUT:
+  Creating topic: debezium.oltp.public.roles
+  Created topic debezium.oltp.public.roles.
+  ... (12 more topics)
+  All topics created successfully!
+
+Step 3: Verify Topics Created
+
+  kafka-topics.sh --list --bootstrap-server localhost:9092
+  # Should list 13 topics starting with "debezium.oltp.public."
+  
+  kafka-topics.sh --describe --bootstrap-server localhost:9092 --topic debezium.oltp.public.users
+  
+  EXPECTED OUTPUT:
+  Topic: debezium.oltp.public.users
+  Partition: 0  Leader: 1  Replicas: [1,2,3]  Isr: [1,2,3]
+  Partition: 1  Leader: 2  Replicas: [2,3,1]  Isr: [2,3,1]
+  ... (4 more partitions, total 6)
+
+CONFIGURATION NOTES:
+  - Partitions=6 for parallelism (increase if 6+ Kafka brokers)
+  - Replication-factor=3 for HA (requires 3+ brokers)
+  - Retention=7 days allows re-processing if needed
+  - Compression=snappy saves disk space
+
+TIMELINE: 5 minutes
+
+================================================================================
+STEP 2.7: INSTALL DEBEZIUM KAFKA CONNECT
+────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Infrastructure Task)
+
+WHAT NEEDS TO HAPPEN:
+  Download Debezium PostgreSQL connector JAR
+  Place in Kafka Connect plugins directory
+  Restart Kafka Connect
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Download Debezium Connector
+
+  ssh <KAFKA_CONNECT_SERVER>
+  
+  mkdir -p /opt/kafka-connect/plugins
+  cd /opt/kafka-connect/plugins
+  
+  # Download Debezium PostgreSQL Connector v2.5.0
+  wget https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/2.5.0/debezium-connector-postgres-2.5.0-plugin.tar.gz
+  
+  # Extract
+  tar -xzf debezium-connector-postgres-2.5.0-plugin.tar.gz
+  
+  # Verify extraction
+  ls -la debezium-connector-postgres/
+  # Should show: debezium-connector-postgres-2.5.0.jar and dependencies
+
+Step 2: Configure Kafka Connect
+
+  sudo nano /opt/kafka/config/connect-distributed.properties
+  
+  # Add/modify plugin.path line:
+  plugin.path=/opt/kafka-connect/plugins
+  
+  # Verify bootstrap servers line:
+  bootstrap.servers=kafka1:9092,kafka2:9092,kafka3:9092
+  
+  # Save file
+
+Step 3: Restart Kafka Connect
+
+  sudo systemctl restart kafka-connect
+  sudo systemctl status kafka-connect
+  # Expected: active (running)
+  
+  # Check logs for errors
+  sudo journalctl -u kafka-connect -n 50 --follow
+  # Should see: "Started connector and support services"
+
+Step 4: Verify Connector Available
+
+  curl -s http://localhost:8083/connector-plugins | jq . | grep -A 5 "PostgresConnector"
+  
+  EXPECTED OUTPUT:
+  {
+    "class": "io.debezium.connector.postgres.PostgresConnector",
+    "type": "source",
+    "version": "2.5.0"
+  }
+
+TROUBLESHOOTING:
+  - JAR not found: Verify extraction path matches plugin.path
+  - "connector not available": Restart Kafka Connect
+  - Port 8083 refused: Verify Kafka Connect is running
+
+TIMELINE: 10 minutes
+
+================================================================================
+STEP 2.8: CREATE & REGISTER DEBEZIUM CONNECTOR
+──────────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Infrastructure Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create Debezium connector configuration JSON
+  Register connector with Kafka Connect API
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create Connector Config File
+
+Create file: c:\Users\Administrator\localhost\scripts\connector-config.json
+
   {
     "name": "postgres-oltp-connector",
     "config": {
@@ -146,936 +730,1425 @@ Connector Configuration (connector-config.json):
       "database.hostname": "postgres-oltp",
       "database.port": 5432,
       "database.user": "debezium_user",
-      "database.password": "[SECURE_PASSWORD]",
+      "database.password": "SECURE_PASSWORD_HERE",
       "database.dbname": "oltp_db",
       "database.server.name": "debezium.oltp",
-      "table.include.list": "public.users,public.accounts,public.account_cash_balances,public.securities,public.orders,public.order_reservations,public.executions,public.trades,public.transactions,public.cash_ledger,public.account_positions,public.disputes",
+      "table.include.list": "public.roles,public.users,public.accounts,public.account_cash_balances,public.securities,public.orders,public.order_reservations,public.executions,public.trades,public.transactions,public.cash_ledger,public.account_positions,public.disputes",
       "publication.name": "debezium_pub",
       "plugin.name": "pgoutput",
       "slot.name": "debezium_slot",
       "slot.drop.on.stop": false,
-      "transforms": "route",
-      "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
-      "transforms.route.regex": "([^.]+)\\.([^.]+)\\.([^.]+)",
-      "transforms.route.replacement": "debezium.oltp.public.$3",
       "snapshot.mode": "initial",
       "max.batch.size": 2048,
       "poll.interval.ms": 1000,
       "heartbeat.interval.ms": 15000,
-      "heartbeat.action.query": "SELECT 1"
+      "heartbeat.action.query": "SELECT 1",
+      "transforms": "route",
+      "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+      "transforms.route.regex": "([^.]+)\\.([^.]+)\\.([^.]+)",
+      "transforms.route.replacement": "debezium.oltp.public.$3",
+      "tasks.max": 1
     }
   }
 
-Registration Command:
+IMPORTANT FIELDS TO CUSTOMIZE:
+  - database.hostname: IP/hostname of OLTP server
+  - database.password: Password of debezium_user (use strong password)
+  - database.server.name: Prefix for Kafka topics
+
+Step 2: Register Connector
+
+  cd c:\Users\Administrator\localhost\scripts
+  
   curl -X POST http://kafka-connect:8083/connectors \
     -H "Content-Type: application/json" \
     -d @connector-config.json
+  
+  EXPECTED RESPONSE:
+  {
+    "name": "postgres-oltp-connector",
+    "config": { ... },
+    "tasks": [],
+    "type": null
+  }
 
-Validation:
-  - Check connector status:
-    curl http://kafka-connect:8083/connectors/postgres-oltp-connector/status
-  - Monitor Kafka topics for incoming CDC events:
-    kafka-console-consumer --topic debezium.oltp.public.users \
-      --from-beginning --bootstrap-server localhost:9092
+Step 3: Verify Connector Running
+
+  curl -s http://kafka-connect:8083/connectors/postgres-oltp-connector/status | jq .
+  
+  EXPECTED OUTPUT (after ~30 seconds):
+  {
+    "name": "postgres-oltp-connector",
+    "connector": {
+      "state": "RUNNING",
+      "worker_id": "kafka-connect:8083"
+    },
+    "tasks": [
+      {
+        "id": 0,
+        "state": "RUNNING",
+        "worker_id": "kafka-connect:8083"
+      }
+    ],
+    "type": "source"
+  }
+
+TROUBLESHOOTING:
+  - state=FAILED: Check Kafka Connect logs for error message
+  - no tasks: Connector initializing (wait 30 seconds)
+  - "connection refused": Verify Kafka Connect API running
+
+TIMELINE: 5 minutes
+
+================================================================================
+STEP 2.9: VERIFY CDC EVENTS FLOWING TO KAFKA
+──────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Validation Task)
+
+WHAT NEEDS TO HAPPEN:
+  Confirm Debezium successfully capturing changes and sending to Kafka
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Make a Test Change in OLTP
+
+  psql -h localhost -U postgres -d oltp_db << EOF
+  -- Check current row count
+  SELECT COUNT(*) FROM users;
+  
+  -- Make a test update
+  UPDATE users SET name = 'Test User ' || id WHERE id = 1;
+  
+  -- Verify change
+  SELECT id, name FROM users WHERE id = 1;
+  EOF
+
+Step 2: Check Kafka Topic for Events
+
+  kafka-console-consumer.sh \
+    --bootstrap-server localhost:9092 \
+    --topic debezium.oltp.public.users \
+    --from-beginning \
+    --max-messages 2
+  
+  EXPECTED OUTPUT (snapshot + update):
+  {"before":null,"after":{"id":1,"name":"User 1",...},"source":{...},"op":"r","ts_ms":...}
+  {"before":{"id":1,"name":"User 1",...},"after":{"id":1,"name":"Test User 1",...},"op":"u",...}
+
+Step 3: Verify Consumer Lag
+
+  kafka-consumer-groups.sh \
+    --bootstrap-server localhost:9092 \
+    --group etl_pipeline_consumer_group \
+    --describe
+  
+  EXPECTED: LAG should be low (close to 0)
+
+SUCCESS INDICATORS:
+  ✅ Snapshot events (op="r") appear for all tables
+  ✅ Change events (op="c"/"u"/"d") appear after test updates
+  ✅ Events are JSON formatted
+  ✅ No errors in Kafka Connect logs
+
+TIMELINE: 10 minutes
 
 ================================================================================
 3. PHASE 2: DATABASE PREPARATION
 ================================================================================
 
-STEP 3.1: OLTP SETUP (PostgreSQL - Source)
-───────────────────────────────────────────
-
-Ensure OLTP database has:
-  1. All base tables created with proper constraints
-  2. Primary keys on all tables (required for CDC)
-  3. Unique constraints where necessary
-  4. Foreign key relationships documented
-  5. Check constraints for enum values
-  6. Logical decoding enabled (see Phase 1)
-  7. Dedicated user account for Debezium:
-     CREATE USER debezium_user WITH PASSWORD '[SECURE_PASSWORD]';
-     GRANT CONNECT ON DATABASE oltp_db TO debezium_user;
-     GRANT USAGE ON SCHEMA public TO debezium_user;
-     GRANT SELECT ON ALL TABLES IN SCHEMA public TO debezium_user;
-
-STEP 3.2: OLAP SETUP (PostgreSQL - Target)
-────────────────────────────────────────────
-
-Before loading any data, OLAP must have:
-
-  1. Base dimension and fact tables created
-  2. Schema version tracking table:
-     CREATE TABLE schema_version (
-       version VARCHAR(10) PRIMARY KEY,
-       description TEXT,
-       applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-     );
-     
-  3. Slowly Changing Dimension (SCD Type 2) tables with:
-     - [Business_Key] BIGINT
-     - SCD_Start_Date DATE
-     - SCD_End_Date DATE (nullable)
-     - Is_Current BOOLEAN
-     
-  4. Fact tables with appropriate grain:
-     - fact_daily_trading_summary (grain: date + security + exchange)
-     - fact_account_daily_activity (grain: date + account)
-     - fact_sector_daily_performance (grain: date + sector)
-     
-  5. Materialized views for common queries:
-     - vw_top_securities_by_volume
-     - vw_top_accounts_by_activity
-     - vw_top_sectors_by_value
-     
-  6. Dedicated user for Python ETL:
-     CREATE USER etl_user WITH PASSWORD '[SECURE_PASSWORD]';
-     GRANT CONNECT ON DATABASE olap_db TO etl_user;
-     GRANT USAGE ON SCHEMA public TO etl_user;
-     GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO etl_user;
-     GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO etl_user;
-     
-  7. Pipeline tracking table:
-     CREATE TABLE etl_pipeline_runs (
-       run_id BIGSERIAL PRIMARY KEY,
-       dag_name VARCHAR(100),
-       task_name VARCHAR(100),
-       start_time TIMESTAMP,
-       end_time TIMESTAMP,
-       status VARCHAR(20),
-       rows_processed INT,
-       error_message TEXT,
-       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-     );
-     
-  8. Initial data load strategy:
-     - First load from OLTP via INSERT SELECT (bulk copy)
-     - Then stream CDC changes via Kafka
-     - Validate record counts match between OLTP and OLAP
-
-STEP 3.3: DATA SYNC STRATEGY
-─────────────────────────────
-
-Initial Load (Full Snapshot):
-  1. Use Debezium snapshot mode = 'initial'
-  2. Debezium will read all tables in OLTP and load into Kafka topics
-  3. Python consumer reads snapshot events and loads to OLAP fact tables
-  4. After snapshot complete, Debezium switches to incremental CDC mode
-  
-Incremental Changes:
-  1. Debezium captures INSERT/UPDATE/DELETE from OLTP logical logs
-  2. Changes arrive as JSON events in Kafka topics
-  3. Python consumer processes events near real-time
-  4. Updates OLAP tables and refreshes affected fact table aggregations
-
-Reprocessing Capability:
-  - Keep Kafka topic retention at 7 days minimum
-  - Store processing offsets in database for recovery
-  - Allow re-processing from specific Kafka offset if needed
-
-================================================================================
-4. PHASE 3: PYTHON ETL PIPELINE DEVELOPMENT
-================================================================================
-
-STEP 4.1: PROJECT STRUCTURE & DEPENDENCIES
-───────────────────────────────────────────
-
-Create etl-pipeline/ directory with:
-  - requirements.txt (Pin specific versions)
-  - config/ (database connections, Kafka brokers, table mappings)
-  - src/ (business logic)
-  - tests/ (unit and integration tests)
-  - logs/ (output logs from pipeline runs)
-
-Key Dependencies:
-  - kafka-python==2.0.2 (Kafka consumer/producer)
-  - psycopg2-binary==2.9.9 (PostgreSQL adapter)
-  - python-dotenv==1.0.0 (Environment variables)
-  - pandas==2.1.0 (Data manipulation)
-  - sqlalchemy==2.0.22 (ORM/data access)
-  - jsonschema==4.19.1 (Validate CDC event schemas)
-  - pydantic==2.4.2 (Data validation)
-  - logging (Python standard library)
-  - pytest==7.4.3 (Testing framework)
-
-Version Pinning:
-  - Lock minor versions for stability
-  - Use compatible release clause (==X.Y.Z)
-  - Review security updates monthly
-
-STEP 4.2: KAFKA CONSUMER IMPLEMENTATION
-─────────────────────────────────────────
-
-Consumer Responsibilities:
-  1. Connect to Kafka broker using consumer group
-  2. Subscribe to CDC topics (auto-discover new tables)
-  3. Deserialize JSON CDC events
-  4. Validate event schema (all required fields present)
-  5. Handle poison pills (malformed messages)
-  6. Batch process events (collect 1000 events or 30 sec, whichever first)
-  7. Commit offsets only after successful processing
-  8. Monitor lag and alert if lag exceeds threshold
-
-Configuration:
-  - group_id: 'etl_pipeline_consumer_group'
-  - auto_offset_reset: 'earliest' (to replay if needed)
-  - enable_auto_commit: False (manual commit for idempotency)
-  - max_poll_records: 1000 (batch processing)
-  - session_timeout_ms: 30000 (heartbeat to broker)
-  - connections_max_idle_ms: 540000 (9 minutes)
-
-Error Handling:
-  - Retry logic with exponential backoff (3 attempts, max 60 seconds)
-  - Send poison pill events to dead-letter topic for manual review
-  - Log all errors with context (event data, timestamp, consumer offset)
-  - Implement circuit breaker for OLAP database connection failures
-
-STEP 4.3: DATA TRANSFORMATION LAYER
-────────────────────────────────────
-
-Transformer Classes:
-  - BaseTransformer (abstract class with common methods)
-  - UserTransformer (handle user dimension changes)
-  - AccountTransformer (handle account dimension changes)
-  - OrderTransformer (normalize order data)
-  - ExecutionTransformer (normalize execution data)
-  - TradeTransformer (normalize trade data)
-  - TransactionTransformer (normalize transaction data)
-  - DisputeTransformer (handle dispute data)
-  
-Each Transformer Must:
-  1. Validate incoming CDC event schema
-  2. Map OLTP column names to OLAP column names
-  3. Transform data types (e.g., string dates to TIMESTAMP)
-  4. Handle NULL values appropriately
-  5. Implement business logic (e.g., side effect calculations)
-  6. Generate audit trail (who changed what, when, why)
-  7. Detect and handle duplicates (Kafka at-least-once delivery)
-  8. Return structured output for loader
-
-Transformation Rules by Table:
-
-  Users → dim_user (SCD Type 2):
-    - On UPDATE: If status, email, or name changed, close old record, add new record
-    - Keep history of all status changes (ACTIVE → SUSPENDED, etc.)
-    - Mark most recent as Is_Current = TRUE
-    - Role_ID is now direct on Users table (no User_Roles junction)
-    
-  Accounts → dim_account (SCD Type 2):
-    - Link to user via User_ID (no need to re-fetch user)
-    - Track creation date changes
-    
-  Orders → fact_orders (grain: order):
-    - Denormalize account, security info
-    - Capture created vs updated timestamp
-    
-  Trades → fact_trades (grain: trade):
-    - Include execution details (needed for drill-down)
-    - Calculate trade value = price * shares
-    
-  Transactions → fact_transactions (grain: transaction):
-    - Denormalize account, transaction type
-    - Track transaction lifecycle (PENDING → COMPLETED or FAILED)
-    
-  Disputes → fact_disputes (grain: dispute):
-    - Join transaction and trade if applicable
-    - Calculate dispute aging metrics
-    
-  Securities → dim_security (SCD Type 2):
-    - Track security status changes (ACTIVE, HALTED, DELISTED)
-    - Quote_Currency mandatory, Base_Currency for FOREX only
-    - Asset_Type: EQUITY, FOREX, CRYPTO
-    
-  Account_Cash_Balances → fact_cash_balance_snapshot:
-    - Daily snapshot of account cash balances
-    - Grain: date + account
-    - Tracks Updated_At timestamp
-    
-  Order_Reservations → fact_order_reservations:
-    - Track capital reservations for orders
-    - BUY: Reserved_Cash populated, Reserved_Quantity NULL
-    - SELL: Reserved_Quantity populated, Reserved_Cash NULL
-    - Status: ACTIVE, CONSUMED, RELEASED
-    
-  Account_Positions → fact_account_positions_snapshot:
-    - Daily snapshot of open positions
-    - Grain: date + account + security
-    - Quantity always > 0 (closed positions excluded)
-    - Average_Price for cost basis tracking
-    
-  Cash_Ledger → fact_ledger (grain: ledger entry):
-    - Track running balance changes (always >= 0)
-    - Link to transaction and/or trade
-    - Entry_Type: DEPOSIT, WITHDRAWAL, FEE, BUY, SELL
-
-STEP 4.4: DATA LOADER IMPLEMENTATION
+STEP 3.1: CREATE TRACKING TABLES (OLAP)
 ──────────────────────────────────────
 
-Loader Responsibilities:
-  1. Batch INSERT/UPDATE/DELETE operations (not per-event)
-  2. Handle SCD Type 2 slowly changing dimensions
-  3. Use UPSERT (INSERT ... ON CONFLICT) for idempotency
-  4. Track processed events to prevent double-processing
-  5. Validate data before insert (check constraints, FK integrity)
-  6. Provide detailed load statistics (rows inserted/updated/rejected)
-  7. Rollback on critical errors, log recoverable errors
+STATUS: ⏳ MANUAL (DBA Task)
 
-SCD Type 2 Implementation:
-  - On dimension UPDATE:
-    * Set SCD_End_Date = current date on existing record
-    * Set Is_Current = FALSE on existing record
-    * INSERT new record with SCD_Start_Date = today
-    * Set Is_Current = TRUE on new record
+WHAT NEEDS TO HAPPEN:
+  Create tables to track ETL pipeline progress and Kafka offsets
+  These tables enable monitoring, idempotency, and recovery
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create SQL Script
+
+Create file: c:\Users\Administrator\localhost\sql\02_tracking_tables.sql
+
+  -- Tracking Tables for ETL Pipeline (OLAP Database)
+  -- Execute as superuser on OLAP database
   
-  - Example (User dimension):
-    WITH new_record AS (
-      SELECT User_ID, Name, Email, Status, 
-             CURRENT_DATE as SCD_Start_Date, NULL as SCD_End_Date
-      FROM staging_users
-    ),
-    update_existing AS (
-      UPDATE dim_user
-      SET SCD_End_Date = CURRENT_DATE - INTERVAL '1 day', 
-          Is_Current = FALSE
-      WHERE User_ID = (SELECT User_ID FROM new_record)
-        AND Is_Current = TRUE
-        AND (Name, Email, Status) != (SELECT Name, Email, Status FROM new_record)
-    )
-    INSERT INTO dim_user 
-    SELECT *, CURRENT_DATE as SCD_Start_Date, NULL, TRUE 
-    FROM new_record
-    ON CONFLICT DO NOTHING;
-
-STEP 4.5: IDEMPOTENCY & DEDUPLICATION
-──────────────────────────────────────
-
-Kafka provides at-least-once delivery, so deduplication is CRITICAL:
-
-Strategies:
-  1. Track processed Kafka offsets per table:
-     CREATE TABLE kafka_offsets (
-       topic VARCHAR(100),
-       partition INT,
-       offset BIGINT,
-       processed_at TIMESTAMP,
-       PRIMARY KEY (topic, partition)
-     );
-     
-  2. Before processing batch, check if already processed:
-     SELECT MAX(offset) FROM kafka_offsets 
-     WHERE topic = ? AND partition = ?
-     
-  3. After successful load, store offset:
-     INSERT INTO kafka_offsets VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-     ON CONFLICT (topic, partition) DO UPDATE
-     SET offset = EXCLUDED.offset, processed_at = CURRENT_TIMESTAMP
-     
-  4. Use business key for duplicate detection in fact tables:
-     - For trades: (Trade_ID) must be unique
-     - For transactions: (Transaction_ID) must be unique
-     - Use UNIQUE constraints or upsert logic
-
-STEP 4.6: LOGGING & MONITORING
-───────────────────────────────
-
-Implement structured logging:
-  - Use Python logging module
-  - Log to file: logs/etl_pipeline_[YYYY-MM-DD].log
-  - Include: timestamp, level (INFO/WARN/ERROR), component, message
-  - For errors: include stack trace, event data (sanitized), recovery action
+  -- Schema version tracking
+  CREATE TABLE IF NOT EXISTS schema_version (
+    version VARCHAR(10) PRIMARY KEY,
+    description TEXT,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
   
-Metrics to Track:
-  - Events consumed per minute
-  - Processing latency (from Kafka to OLAP)
-  - Kafka consumer lag (current offset vs latest)
-  - Database connection pool health
-  - Transformation error rate
-  - Load success rate
+  INSERT INTO schema_version (version, description) 
+  VALUES ('1.0.0', 'Initial schema version')
+  ON CONFLICT DO NOTHING;
+  
+  -- ETL pipeline run tracking
+  CREATE TABLE IF NOT EXISTS etl_pipeline_runs (
+    run_id BIGSERIAL PRIMARY KEY,
+    dag_name VARCHAR(100),
+    task_name VARCHAR(100),
+    start_time TIMESTAMP,
+    end_time TIMESTAMP,
+    status VARCHAR(20),
+    rows_processed INT,
+    rows_inserted INT,
+    rows_updated INT,
+    rows_deleted INT,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_etl_pipeline_runs_status ON etl_pipeline_runs(status, created_at);
+  CREATE INDEX IF NOT EXISTS idx_etl_pipeline_runs_task ON etl_pipeline_runs(task_name, created_at);
+  
+  -- Kafka offset tracking (for idempotency)
+  CREATE TABLE IF NOT EXISTS kafka_offsets (
+    topic VARCHAR(256) NOT NULL,
+    partition INT NOT NULL,
+    offset BIGINT NOT NULL,
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (topic, partition)
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_kafka_offsets_topic ON kafka_offsets(topic);
+  
+  -- Data quality issues tracking
+  CREATE TABLE IF NOT EXISTS data_quality_issues (
+    issue_id BIGSERIAL PRIMARY KEY,
+    run_id BIGINT REFERENCES etl_pipeline_runs(run_id),
+    check_name VARCHAR(100),
+    table_name VARCHAR(100),
+    issue_description TEXT,
+    severity VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_data_quality_issues_run ON data_quality_issues(run_id);
+  
+  -- Dead letter queue for poison pill events
+  CREATE TABLE IF NOT EXISTS etl_poison_pills (
+    pill_id BIGSERIAL PRIMARY KEY,
+    topic VARCHAR(256),
+    partition INT,
+    offset BIGINT,
+    event_data TEXT,
+    error_message TEXT,
+    received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_poison_pills_topic ON etl_poison_pills(topic, partition);
 
-Alert Thresholds:
-  - Consumer lag > 10000 events → WARNING
-  - Processing latency > 5 minutes → WARNING
-  - Error rate > 1% → CRITICAL
-  - Database connection pool exhausted → CRITICAL
-  - Kafka broker down → CRITICAL (immediate)
+Step 2: Execute SQL Script
+
+  cd c:\Users\Administrator\localhost\sql
+  
+  psql -h <OLAP_HOST> -U postgres -d olap_db -f 02_tracking_tables.sql
+  
+  EXPECTED OUTPUT:
+  CREATE TABLE
+  INSERT 0 1
+  CREATE INDEX
+  ... (more CREATE statements)
+
+Step 3: Verify Tables Created
+
+  psql -h <OLAP_HOST> -U postgres -d olap_db << EOF
+  SELECT table_name FROM information_schema.tables 
+  WHERE table_schema = 'public' 
+    AND table_name IN ('schema_version', 'etl_pipeline_runs', 'kafka_offsets', 'data_quality_issues', 'etl_poison_pills')
+  ORDER BY table_name;
+  EOF
+  
+  EXPECTED: All 5 tables listed
+
+TIMELINE: 5 minutes
 
 ================================================================================
-5. PHASE 4: AIRFLOW ORCHESTRATION SETUP
+STEP 3.2: CREATE OLAP USER (ETL Service)
+────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (DBA Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create PostgreSQL user for Python ETL pipeline with appropriate permissions
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create User with Permissions
+
+  psql -h <OLAP_HOST> -U postgres -d olap_db << EOF
+  CREATE USER etl_user WITH PASSWORD 'SECURE_PASSWORD_HERE';
+  GRANT CONNECT ON DATABASE olap_db TO etl_user;
+  GRANT USAGE ON SCHEMA public TO etl_user;
+  GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO etl_user;
+  GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO etl_user;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO etl_user;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO etl_user;
+  EOF
+
+Step 2: Verify User Created
+
+  psql -h <OLAP_HOST> -U postgres -d olap_db -c "\du etl_user"
+  
+  EXPECTED OUTPUT:
+   Role name | Attributes
+  ───────────┼────────────
+   etl_user  |
+
+IMPORTANT NOTES:
+  - Use STRONG password (25+ chars, mixed case/numbers/symbols)
+  - Store password securely—needed for .env configuration later
+  - etl_user needs full DML permissions (INSERT/UPDATE/DELETE/SELECT)
+  - ALL PRIVILEGES grants all permissions on current and future tables
+
+TIMELINE: 3 minutes
+
+================================================================================
+STEP 3.3: OLTP SETUP VERIFICATION
+──────────────────────────────────
+
+STATUS: ✅ ALREADY COMPLETE (Verified in Prerequisites)
+
+WHAT'S ALREADY DONE:
+  - debezium_user created (PHASE 1, STEP 2.4)
+  - Logical decoding enabled (PHASE 1, STEP 2.1)
+  - Replication slot created (PHASE 1, STEP 2.2)
+  - Publication created (PHASE 1, STEP 2.3)
+
+NO ADDITIONAL STEPS NEEDED FOR THIS SECTION
+
+================================================================================
+4. PHASE 3: PYTHON ETL PIPELINE
 ================================================================================
 
-STEP 5.1: AIRFLOW ENVIRONMENT SETUP
+STATUS: ✅ AUTO-GENERATED CODE (I'll create all Python source files)
+        ⏳ MANUAL SETUP (User installs dependencies and configures)
+
+WHAT WILL BE AUTO-GENERATED:
+  - etl-pipeline/requirements.txt (pinned dependencies)
+  - etl-pipeline/.env.example (configuration template)
+  - etl-pipeline/config/database.yaml (connection settings)
+  - etl-pipeline/config/table_mappings.json (column mappings)
+  - etl-pipeline/src/kafka_consumer.py (CDC consumer)
+  - etl-pipeline/src/transformers.py (8 transformer classes)
+  - etl-pipeline/src/loaders.py (batch loader with SCD Type 2)
+  - etl-pipeline/src/validators.py (data quality checks)
+  - etl-pipeline/src/monitoring.py (logging & metrics)
+  - etl-pipeline/tests/* (unit tests)
+
+================================================================================
+STEP 4.1: CREATE VIRTUAL ENVIRONMENT & INSTALL DEPENDENCIES
+───────────────────────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Setup Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create isolated Python environment
+  Install all required packages
+  Verify installation
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create Virtual Environment
+
+  cd c:\Users\Administrator\localhost\etl-pipeline
+  
+  # Create Python 3.10+ virtual environment
+  python3 -m venv venv
+  
+  # Activate virtual environment
+  # On Linux/Mac:
+  source venv/bin/activate
+  
+  # On Windows (PowerShell):
+  .\venv\Scripts\Activate.ps1
+  
+  # Expected: (venv) prompt appears at command line start
+
+Step 2: Install Dependencies
+
+  # Ensure pip is up to date
+  pip install --upgrade pip
+  
+  # Install all required packages (will be auto-generated in requirements.txt)
+  pip install -r requirements.txt
+  
+  EXPECTED OUTPUT:
+  Collecting kafka-python==2.0.2
+  Collecting psycopg2-binary==2.9.9
+  ... (more packages)
+  Successfully installed [all packages]
+
+Step 3: Verify Installation
+
+  python -c "import kafka; print(f'Kafka-Python: {kafka.__version__}')"
+  python -c "import psycopg2; print(f'psycopg2: {psycopg2.__version__}')"
+  python -c "import sqlalchemy; print(f'SQLAlchemy: {sqlalchemy.__version__}')"
+  python -c "import pydantic; print(f'Pydantic: {pydantic.__version__}')"
+  
+  EXPECTED: Version numbers printed for each package
+
+TROUBLESHOOTING:
+  - pip not found: Verify Python 3.10+ installed
+  - Version conflicts: Delete venv folder and recreate
+  - psycopg2 fails: Install libpq-dev (Linux) or PostgreSQL client (Windows/Mac)
+
+TIMELINE: 5 minutes
+
+================================================================================
+STEP 4.2: CONFIGURE ENVIRONMENT VARIABLES
+──────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Configuration Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create .env file with database credentials and Kafka settings
+  This file is NOT committed to Git (for security)
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Copy Template to .env
+
+  cd c:\Users\Administrator\localhost\etl-pipeline
+  
+  # Copy .env.example to .env
+  cp .env.example .env
+  
+  # Open in editor
+  nano .env  # or your favorite editor
+
+Step 2: Fill in Credentials
+
+The .env file template will have these placeholders:
+
+  # OLTP Database (Source)
+  OLTP_HOST=<OLTP_SERVER_IP>
+  OLTP_PORT=5432
+  OLTP_USER=debezium_user
+  OLTP_PASSWORD=<PASSWORD_FOR_DEBEZIUM_USER>
+  OLTP_DATABASE=oltp_db
+  
+  # OLAP Database (Target)
+  OLAP_HOST=<OLAP_SERVER_IP>
+  OLAP_PORT=5432
+  OLAP_USER=etl_user
+  OLAP_PASSWORD=<PASSWORD_FOR_ETL_USER>
+  OLAP_DATABASE=olap_db
+  
+  # Kafka Configuration
+  KAFKA_BROKERS=<BROKER_1>:9092,<BROKER_2>:9092,<BROKER_3>:9092
+  KAFKA_CONSUMER_GROUP=etl_pipeline_consumer_group
+  KAFKA_TOPIC_PREFIX=debezium.oltp.public
+  
+  # ETL Configuration
+  BATCH_SIZE=1000
+  BATCH_TIMEOUT_SEC=30
+  MAX_RETRIES=3
+  RETRY_BACKOFF_SEC=5
+  
+  # Logging
+  LOG_LEVEL=INFO
+  LOG_DIR=./logs
+
+Step 3: Verify .env File
+
+  ls -la .env
+  
+  # Verify file readable
+  python -c "from dotenv import load_dotenv; load_dotenv(); print('✅ .env loaded successfully')"
+
+IMPORTANT SECURITY NOTES:
+  ❌ NEVER commit .env to Git
+  ✅ Add .env to .gitignore
+  ✅ Use STRONG passwords (25+ chars, mixed case/numbers/symbols)
+  ✅ Rotate credentials regularly
+  ✅ Store in secret manager for production (AWS Secrets, HashiCorp Vault, etc.)
+
+TIMELINE: 5 minutes
+
+================================================================================
+STEP 4.3: TEST DATABASE CONNECTIVITY
 ────────────────────────────────────
 
-Prerequisites:
-  - Python 3.10+ (Airflow 2.7+ requirement)
-  - PostgreSQL for Airflow metadata DB (separate from OLTP/OLAP)
-  - Redis for task queue (optional, but recommended for HA)
+STATUS: ⏳ MANUAL (Testing Task)
+
+WHAT NEEDS TO HAPPEN:
+  Verify Python can connect to OLTP, OLAP, and Kafka
+  Catch connection issues early
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create Test Script
+
+Create file: c:\Users\Administrator\localhost\etl-pipeline\test_connectivity.py
+
+  #!/usr/bin/env python3
+  """Test database and Kafka connectivity"""
   
-Installation:
+  import os
+  from dotenv import load_dotenv
+  import psycopg2
+  from kafka import KafkaConsumer, KafkaAdminClient
+  
+  load_dotenv()
+  
+  print("=" * 60)
+  print("DATABASE & KAFKA CONNECTIVITY TEST")
+  print("=" * 60)
+  
+  # Test OLTP
+  print("\n1. Testing OLTP Connection...")
+  try:
+      conn = psycopg2.connect(
+          host=os.getenv('OLTP_HOST'),
+          port=int(os.getenv('OLTP_PORT', 5432)),
+          user=os.getenv('OLTP_USER'),
+          password=os.getenv('OLTP_PASSWORD'),
+          database=os.getenv('OLTP_DATABASE')
+      )
+      cursor = conn.cursor()
+      cursor.execute("SELECT COUNT(*) FROM users")
+      count = cursor.fetchone()[0]
+      cursor.close()
+      conn.close()
+      print(f"   ✅ OLTP Connected. Users: {count}")
+  except Exception as e:
+      print(f"   ❌ OLTP Failed: {e}")
+  
+  # Test OLAP
+  print("\n2. Testing OLAP Connection...")
+  try:
+      conn = psycopg2.connect(
+          host=os.getenv('OLAP_HOST'),
+          port=int(os.getenv('OLAP_PORT', 5432)),
+          user=os.getenv('OLAP_USER'),
+          password=os.getenv('OLAP_PASSWORD'),
+          database=os.getenv('OLAP_DATABASE')
+      )
+      cursor = conn.cursor()
+      cursor.execute("SELECT COUNT(*) FROM etl_pipeline_runs")
+      count = cursor.fetchone()[0]
+      cursor.close()
+      conn.close()
+      print(f"   ✅ OLAP Connected. Pipeline runs: {count}")
+  except Exception as e:
+      print(f"   ❌ OLAP Failed: {e}")
+  
+  # Test Kafka
+  print("\n3. Testing Kafka Connection...")
+  try:
+      brokers = os.getenv('KAFKA_BROKERS', 'localhost:9092').split(',')
+      admin_client = KafkaAdminClient(bootstrap_servers=brokers)
+      info = admin_client.describe_cluster()
+      num_brokers = len(info['brokers'])
+      admin_client.close()
+      print(f"   ✅ Kafka Connected. Brokers: {num_brokers}")
+      
+      # Test consumer
+      consumer = KafkaConsumer(
+          bootstrap_servers=brokers,
+          group_id=os.getenv('KAFKA_CONSUMER_GROUP'),
+          enable_auto_commit=False,
+          consumer_timeout_ms=1000
+      )
+      topics = [t for t in consumer.topics() if 'debezium' in t]
+      consumer.close()
+      print(f"   ✅ Kafka Consumer Ready. Topics: {len(topics)}")
+  except Exception as e:
+      print(f"   ❌ Kafka Failed: {e}")
+  
+  print("\n" + "=" * 60)
+  print("TEST COMPLETE")
+  print("=" * 60)
+
+Step 2: Run Test Script
+
+  cd c:\Users\Administrator\localhost\etl-pipeline
+  
+  # Make sure venv is activated
+  source venv/bin/activate  # or .\venv\Scripts\Activate.ps1 on Windows
+  
+  # Run test
+  python test_connectivity.py
+  
+  EXPECTED OUTPUT:
+  ============================================================
+  DATABASE & KAFKA CONNECTIVITY TEST
+  ============================================================
+  
+  1. Testing OLTP Connection...
+     ✅ OLTP Connected. Users: 50
+  
+  2. Testing OLAP Connection...
+     ✅ OLAP Connected. Pipeline runs: 0
+  
+  3. Testing Kafka Connection...
+     ✅ Kafka Connected. Brokers: 3
+     ✅ Kafka Consumer Ready. Topics: 13
+  
+  ============================================================
+  TEST COMPLETE
+  ============================================================
+
+TROUBLESHOOTING:
+  - OLTP fails: Check OLTP_HOST, OLTP_PORT, OLTP_USER, OLTP_PASSWORD in .env
+  - OLAP fails: Verify OLAP server running, check credentials
+  - Kafka fails: Check KAFKA_BROKERS addresses, verify Kafka cluster running
+  - Connection refused: Verify firewall allows access on ports 5432 (DB) and 9092 (Kafka)
+
+TIMELINE: 10 minutes
+
+================================================================================
+STEP 4.4: RUN UNIT TESTS
+─────────────────────────
+
+STATUS: ⏳ MANUAL (Testing Task)
+
+WHAT NEEDS TO HAPPEN:
+  Execute test suite to verify Python code quality
+  Catch bugs before running in production
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Run All Tests
+
+  cd c:\Users\Administrator\localhost\etl-pipeline
+  
+  # Run with verbose output
+  pytest tests/ -v
+  
+  EXPECTED OUTPUT:
+  tests/test_transformers.py::test_user_transformer_insert PASSED
+  tests/test_transformers.py::test_user_transformer_update PASSED
+  tests/test_loaders.py::test_scd_type_2_logic PASSED
+  ... (more tests)
+  ============ 28 passed in 2.34s ============
+
+Step 2: Run Specific Test File
+
+  pytest tests/test_transformers.py -v
+  # Or
+  pytest tests/test_loaders.py -v
+
+Step 3: Generate Coverage Report
+
+  pytest tests/ --cov=src --cov-report=html
+  
+  # Open htmlcov/index.html in browser to see coverage
+  open htmlcov/index.html  # Mac/Linux
+  start htmlcov/index.html # Windows
+
+TIMELINE: 10 minutes
+NOTE: Tests run against test database (or mocked data), not production
+
+================================================================================
+5. PHASE 4: AIRFLOW ORCHESTRATION
+================================================================================
+
+STATUS: ✅ AUTO-GENERATED DAG CODE (I'll create all DAG files)
+        ⏳ MANUAL INSTALLATION (User installs and configures)
+
+WHAT WILL BE AUTO-GENERATED:
+  - airflow/dags/oltp_to_olap_dag.py (main DAG with 9 tasks)
+  - airflow/dags/tasks/validate_infrastructure.py
+  - airflow/dags/tasks/extract_kafka_metadata.py
+  - airflow/dags/tasks/dimension_load_daily.py
+  - airflow/dags/tasks/consume_kafka_events.py
+  - airflow/dags/tasks/transform_load_facts.py
+  - airflow/dags/tasks/refresh_aggregates.py
+  - airflow/dags/tasks/quality_checks.py
+  - airflow/dags/tasks/report_generation.py
+  - airflow/dags/tasks/monitor_pipeline_health.py
+
+================================================================================
+STEP 5.1: INSTALL & INITIALIZE AIRFLOW
+──────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Infrastructure Task)
+
+WHAT NEEDS TO HAPPEN:
+  Install Apache Airflow 2.7.0
+  Initialize metadata database
+  Create admin user
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Install Airflow
+
+  # Create separate Python venv for Airflow (best practice)
+  python3 -m venv airflow-venv
+  
+  # Activate venv
+  # Linux/Mac:
+  source airflow-venv/bin/activate
+  # Windows:
+  .\airflow-venv\Scripts\Activate.ps1
+  
+  # Install Airflow with providers
   pip install apache-airflow==2.7.0
-  pip install apache-airflow-providers-apache-kafka==1.2.0
   pip install apache-airflow-providers-postgres==5.9.0
+  pip install apache-airflow-providers-apache-kafka==1.2.0
   
-Initialize Airflow:
+  # Set Airflow home directory
+  export AIRFLOW_HOME=~/airflow
+  # Or on Windows:
+  set AIRFLOW_HOME=C:\Users\%USERNAME%\airflow
+
+Step 2: Initialize Database
+
   airflow db init
+  
+  # This creates metadata database and initializes Airflow
+  # Creates SQLite db locally (or PostgreSQL if configured)
+
+Step 3: Create Admin User
+
   airflow users create \
     --username admin \
-    --password [SECURE_PASSWORD] \
     --firstname Admin \
     --lastname User \
     --role Admin \
-    --email admin@example.com
-    
-Start Services:
+    --email admin@example.com \
+    --password SECURE_PASSWORD_HERE
+  
+  # Verify user created
+  airflow users list
+  
+  EXPECTED OUTPUT:
+  id | username | email | role | active
+  1  | admin    | admin@example.com | Admin | t
+
+TIMELINE: 15 minutes
+NOTE: Use different server from ETL pipeline for production HA setup
+
+================================================================================
+STEP 5.2: CONFIGURE AIRFLOW CONNECTIONS
+────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Configuration Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create Airflow connections to OLTP, OLAP, and Kafka
+  These connections are used by DAG tasks
+
+DETAILED IMPLEMENTATION GUIDE:
+
+OPTION A: Via Airflow Web UI (Recommended)
+
+Step 1: Start Airflow Services
+
   airflow webserver --port 8080 &
   airflow scheduler &
-  (or use systemd for production)
 
-STEP 5.2: AIRFLOW CONNECTIONS SETUP
-────────────────────────────────────
+Step 2: Open Airflow Web UI
 
-Configure connections via Web UI or programmatically:
+  http://localhost:8080
+  Login with admin credentials
 
-1. PostgreSQL OLTP Connection:
-   - Conn ID: oltp_db
-   - Conn Type: Postgres
-   - Host: postgres-oltp
-   - Port: 5432
-   - Schema: oltp_db
-   - Login: debezium_user
-   - Password: [SECURE]
-   
-2. PostgreSQL OLAP Connection:
-   - Conn ID: olap_db
-   - Conn Type: Postgres
-   - Host: postgres-olap
-   - Port: 5432
-   - Schema: olap_db
-   - Login: etl_user
-   - Password: [SECURE]
-   
-3. Kafka Connection:
-   - Conn ID: kafka_default
-   - Conn Type: Kafka
-   - Broker: kafka:9092
-   - (Airflow will handle connection pooling)
+Step 3: Create Connections
 
-STEP 5.3: DAG DESIGN & SCHEDULING
+  Go to Admin → Connections → Create
+
+CONNECTION 1: OLTP Database
+  Conn ID: oltp_db
+  Conn Type: Postgres
+  Host: <OLTP_HOST>
+  Schema: oltp_db
+  Login: debezium_user
+  Password: <PASSWORD>
+  Port: 5432
+
+CONNECTION 2: OLAP Database
+  Conn ID: olap_db
+  Conn Type: Postgres
+  Host: <OLAP_HOST>
+  Schema: olap_db
+  Login: etl_user
+  Password: <PASSWORD>
+  Port: 5432
+
+CONNECTION 3: Kafka
+  Conn ID: kafka_default
+  Conn Type: Kafka
+  Host: <KAFKA_BROKER_1>
+  Port: 9092
+  Extra JSON: {"bootstrap.servers": "broker1:9092,broker2:9092,broker3:9092"}
+
+OPTION B: Via Command Line
+
+  airflow connections add 'oltp_db' \
+    --conn-type postgres \
+    --conn-host <OLTP_HOST> \
+    --conn-schema oltp_db \
+    --conn-login debezium_user \
+    --conn-password <PASSWORD> \
+    --conn-port 5432
+  
+  airflow connections add 'olap_db' \
+    --conn-type postgres \
+    --conn-host <OLAP_HOST> \
+    --conn-schema olap_db \
+    --conn-login etl_user \
+    --conn-password <PASSWORD> \
+    --conn-port 5432
+  
+  airflow connections add 'kafka_default' \
+    --conn-type kafka \
+    --conn-host <KAFKA_BROKER_1> \
+    --conn-port 9092
+
+Step 4: Verify Connections
+
+  airflow connections list
+  airflow connections get oltp_db
+
+TIMELINE: 10 minutes
+
+================================================================================
+STEP 5.3: DEPLOY DAG TO AIRFLOW
+────────────────────────────────
+
+STATUS: ⏳ MANUAL (Deployment Task)
+
+WHAT NEEDS TO HAPPEN:
+  Copy DAG files to Airflow DAG directory
+  Verify DAG is parsed and available in UI
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Copy DAG Files
+
+  # Copy generated DAG files
+  cp -r airflow/dags/*.py $AIRFLOW_HOME/dags/
+  
+  # Verify files copied
+  ls $AIRFLOW_HOME/dags/
+  
+  EXPECTED:
+  oltp_to_olap_dag.py
+  tasks/
+    ├── validate_infrastructure.py
+    ├── extract_kafka_metadata.py
+    ├── dimension_load_daily.py
+    ├── consume_kafka_events.py
+    ├── transform_load_facts.py
+    ├── refresh_aggregates.py
+    ├── quality_checks.py
+    ├── report_generation.py
+    └── monitor_pipeline_health.py
+
+Step 2: Parse DAG
+
+  # Verify DAG syntax
+  python $AIRFLOW_HOME/dags/oltp_to_olap_dag.py
+  # Expected: No output (syntax is correct)
+  
+  # List DAGs
+  airflow dags list
+  
+  EXPECTED OUTPUT:
+  dag_id                | owner   | enabled | paused
+  oltp_to_olap_daily   | airflow | True    | False
+
+Step 3: Verify in Web UI
+
+  1. Open Airflow UI: http://localhost:8080
+  2. Go to DAGs tab
+  3. Look for "oltp_to_olap_daily"
+  4. Click to view DAG graph
+  5. Verify all 9 tasks connected properly
+
+TROUBLESHOOTING:
+  - DAG not showing: Refresh browser, wait 30 seconds for parser
+  - Parse errors: Check DAG file syntax, view logs
+
+TIMELINE: 5 minutes
+
+================================================================================
+STEP 5.4: TEST DAG LOCALLY
+──────────────────────────
+
+STATUS: ⏳ MANUAL (Testing Task)
+
+WHAT NEEDS TO HAPPEN:
+  Run DAG in test mode to verify all tasks work
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Dry Run DAG
+
+  airflow dags test oltp_to_olap_daily 2026-10-06
+  
+  # Expected: Completes without errors
+  # This checks syntax, no external side effects
+
+Step 2: Test Individual Tasks
+
+  # Test infrastructure validation task
+  airflow tasks test oltp_to_olap_daily validate_infrastructure 2026-10-06
+  
+  # Expected: Task completes, shows connectivity checks
+
+Step 3: Trigger Full DAG Run
+
+  # Manually trigger DAG
+  airflow dags trigger oltp_to_olap_daily --exec-date 2026-10-06
+  
+  # Or from UI: Go to DAG, click "Trigger DAG"
+
+Step 4: Monitor Execution
+
+  1. Open Airflow Web UI
+  2. Go to DAGs → oltp_to_olap_daily
+  3. Click on the DAG run
+  4. View task execution in Graph view
+  5. Click each task to see logs
+
+SUCCESS INDICATORS:
+  ✅ validate_infrastructure passes (green)
+  ✅ Kafka events consumed
+  ✅ Data loaded to OLAP
+  ✅ Quality checks pass
+  ✅ No errors in task logs
+
+TIMELINE: 30 minutes
+
+================================================================================
+6. PHASE 5: SCHEMA OPTIMIZATION
+================================================================================
+
+STATUS: ⏳ MANUAL (DBA Task) — AUTO-GENERATED SQL SCRIPTS PROVIDED
+
+WHAT NEEDS TO HAPPEN:
+  Add SCD Type 2 columns to dimension tables
+  Create aggregated fact tables for dashboard performance
+  Create date dimension
+  Add indexes for query optimization
+
+================================================================================
+STEP 6.1: ADD SCD TYPE 2 COLUMNS
+────────────────────────────────
+
+STATUS: ⏳ MANUAL (DBA Task)
+
+WHAT NEEDS TO HAPPEN:
+  Add slowly changing dimension columns to Users, Accounts, Securities tables
+  Add indexes for query performance
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create SQL Script
+
+File: c:\Users\Administrator\localhost\sql\03_scd_type2_columns.sql (will be auto-generated)
+
+  -- Add SCD Type 2 Columns to Dimension Tables
+  
+  -- 1. DIM_USER: Track user status/name changes
+  ALTER TABLE dim_user ADD COLUMN IF NOT EXISTS scd_start_date DATE DEFAULT CURRENT_DATE;
+  ALTER TABLE dim_user ADD COLUMN IF NOT EXISTS scd_end_date DATE;
+  ALTER TABLE dim_user ADD COLUMN IF NOT EXISTS is_current BOOLEAN DEFAULT TRUE;
+  
+  CREATE INDEX IF NOT EXISTS idx_dim_user_current ON dim_user(user_id, is_current);
+  CREATE INDEX IF NOT EXISTS idx_dim_user_dates ON dim_user(scd_start_date, scd_end_date);
+  
+  -- 2. DIM_ACCOUNT: Track account creation/status changes
+  ALTER TABLE dim_account ADD COLUMN IF NOT EXISTS scd_start_date DATE DEFAULT CURRENT_DATE;
+  ALTER TABLE dim_account ADD COLUMN IF NOT EXISTS scd_end_date DATE;
+  ALTER TABLE dim_account ADD COLUMN IF NOT EXISTS is_current BOOLEAN DEFAULT TRUE;
+  ALTER TABLE dim_account ADD COLUMN IF NOT EXISTS etl_processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  
+  CREATE INDEX IF NOT EXISTS idx_dim_account_current ON dim_account(account_id, is_current);
+  CREATE INDEX IF NOT EXISTS idx_dim_account_dates ON dim_account(scd_start_date, scd_end_date);
+  
+  -- 3. DIM_SECURITY: Track security status changes
+  ALTER TABLE dim_security ADD COLUMN IF NOT EXISTS scd_start_date DATE DEFAULT CURRENT_DATE;
+  ALTER TABLE dim_security ADD COLUMN IF NOT EXISTS scd_end_date DATE;
+  ALTER TABLE dim_security ADD COLUMN IF NOT EXISTS is_current BOOLEAN DEFAULT TRUE;
+  ALTER TABLE dim_security ADD COLUMN IF NOT EXISTS sector VARCHAR(50);
+  
+  CREATE INDEX IF NOT EXISTS idx_dim_security_current ON dim_security(security_id, is_current);
+  CREATE INDEX IF NOT EXISTS idx_dim_security_sector ON dim_security(sector);
+  
+  -- 4. Add audit columns to fact tables
+  ALTER TABLE fact_trades ADD COLUMN IF NOT EXISTS etl_processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  ALTER TABLE fact_trades ADD COLUMN IF NOT EXISTS etl_run_id BIGINT;
+  
+  ALTER TABLE fact_orders ADD COLUMN IF NOT EXISTS etl_processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  ALTER TABLE fact_orders ADD COLUMN IF NOT EXISTS etl_run_id BIGINT;
+  
+  ALTER TABLE fact_transactions ADD COLUMN IF NOT EXISTS etl_processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  ALTER TABLE fact_transactions ADD COLUMN IF NOT EXISTS etl_run_id BIGINT;
+
+Step 2: Execute SQL Script
+
+  cd c:\Users\Administrator\localhost\sql
+  
+  psql -h <OLAP_HOST> -U postgres -d olap_db -f 03_scd_type2_columns.sql
+  
+  EXPECTED OUTPUT:
+  ALTER TABLE
+  CREATE INDEX
+  ... (more statements)
+
+Step 3: Verify Changes
+
+  psql -h <OLAP_HOST> -U postgres -d olap_db << EOF
+  \d dim_user
+  # Should show: scd_start_date, scd_end_date, is_current columns
+  
+  \di dim_user*
+  # Should show multiple indexes created
+  EOF
+
+TIMELINE: 5 minutes
+
+================================================================================
+STEP 6.2: CREATE AGGREGATED FACT TABLES
+────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (DBA Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create pre-aggregated summary tables for dashboard performance
+  These tables are refreshed nightly by Airflow
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create SQL Script
+
+File: c:\Users\Administrator\localhost\sql\04_aggregated_fact_tables.sql (will be auto-generated)
+
+  -- Aggregated Fact Tables for Dashboard Performance
+  
+  -- 1. Daily Trading Summary (grain: date + security)
+  CREATE TABLE IF NOT EXISTS fact_daily_trading_summary (
+    trading_summary_id BIGSERIAL PRIMARY KEY,
+    date_key BIGINT,
+    security_key BIGINT,
+    exchange VARCHAR(10),
+    total_trades INT,
+    total_shares_traded NUMERIC(18,4),
+    total_value_traded NUMERIC(18,2),
+    avg_trade_price NUMERIC(18,4),
+    high_price NUMERIC(18,4),
+    low_price NUMERIC(18,4),
+    open_price NUMERIC(18,4),
+    close_price NUMERIC(18,4),
+    etl_processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(date_key, security_key, exchange)
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_daily_trading_date ON fact_daily_trading_summary(date_key);
+  CREATE INDEX IF NOT EXISTS idx_daily_trading_security ON fact_daily_trading_summary(security_key);
+  
+  -- 2. Daily Account Activity Summary (grain: date + account)
+  CREATE TABLE IF NOT EXISTS fact_account_daily_summary (
+    account_summary_id BIGSERIAL PRIMARY KEY,
+    date_key BIGINT,
+    account_key BIGINT,
+    buy_orders INT,
+    sell_orders INT,
+    total_orders INT,
+    total_buy_value NUMERIC(18,2),
+    total_sell_value NUMERIC(18,2),
+    total_trades INT,
+    account_balance NUMERIC(18,2),
+    cash_available NUMERIC(18,2),
+    etl_processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(date_key, account_key)
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_account_summary_date ON fact_account_daily_summary(date_key);
+  
+  -- 3. Sector Performance Summary (grain: date + sector)
+  CREATE TABLE IF NOT EXISTS fact_sector_daily_performance (
+    sector_performance_id BIGSERIAL PRIMARY KEY,
+    date_key BIGINT,
+    sector VARCHAR(50),
+    exchange VARCHAR(10),
+    total_value_traded NUMERIC(18,2),
+    number_of_trades INT,
+    total_buy_volume NUMERIC(18,4),
+    total_sell_volume NUMERIC(18,4),
+    avg_price NUMERIC(18,4),
+    high_price NUMERIC(18,4),
+    low_price NUMERIC(18,4),
+    etl_processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(date_key, sector, exchange)
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_sector_perf_date ON fact_sector_daily_performance(date_key);
+
+Step 2: Execute SQL Script
+
+  psql -h <OLAP_HOST> -U postgres -d olap_db -f 04_aggregated_fact_tables.sql
+
+TIMELINE: 5 minutes
+
+================================================================================
+STEP 6.3: POPULATE DATE DIMENSION
 ──────────────────────────────────
 
-Main DAG Structure: oltp_to_olap_dag.py
+STATUS: ⏳ MANUAL (DBA Task)
 
-DAG Settings:
-  - dag_id: 'oltp_to_olap_daily'
-  - description: 'Orchestrate OLTP to OLAP data pipeline'
-  - schedule_interval: '0 2 * * *' (daily at 2 AM)
-  - max_active_runs: 1 (prevent overlapping)
-  - default_view: 'graph'
-  - tags: ['etl', 'analytics', 'production']
-  - catchup: False (don't backfill)
-  - dagrun_timeout: timedelta(hours=4)
+WHAT NEEDS TO HAPPENING:
+  Populate dim_date table with dates for next 5 years
+  This enables aggregation by fiscal periods, quarters, etc.
 
-Task Sequence:
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Create SQL Script
+
+File: c:\Users\Administrator\localhost\sql\05_populate_date_dimension.sql (will be auto-generated)
+
+  -- Populate Date Dimension Table (2024-2029)
   
-  1. validate_infrastructure
-     └─ Check OLTP, OLAP, Kafka connectivity
-     └─ Verify schemas exist
-     └─ On failure: alert ops team
-     
-  2. extract_kafka_metadata
-     └─ Get Kafka topic offsets
-     └─ Compare with last processed offset
-     └─ Calculate lag
-     
-  3. dimension_load_daily
-     └─ Load date dimension for today
-     └─ Upsert dim_account, dim_security (SCD Type 2)
-     └─ Depends on: validate_infrastructure
-     
-  4. consume_kafka_events
-     └─ Run Python Kafka consumer for [previous_day]
-     └─ Batch size: 10000 events
-     └─ Timeout: 30 minutes
-     └─ Depends on: dimension_load_daily
-     
-  5. transform_load_facts
-     └─ Process events through transformers
-     └─ Load to fact tables
-     └─ Validate row counts match
-     └─ Depends on: consume_kafka_events
-     
-  6. refresh_aggregates
-     └─ Materialized views: vw_top_securities, vw_top_accounts, etc
-     └─ Depends on: transform_load_facts
-     
-  7. quality_checks
-     └─ Data quality rules:
-        * No negative monetary amounts
-        * All trades have execution
-        * Account balance >= 0
-        * Date ranges are valid
-     └─ Depends on: refresh_aggregates
-     
-  8. report_generation
-     └─ Generate daily summary metrics
-     └─ Email to analytics team
-     └─ Store in reports table
-     └─ Depends on: quality_checks
-     
-  9. monitor_pipeline_health
-     └─ Calculate SLA metrics
-     └─ Alert if any task failed
-     └─ Log to monitoring system
-     └─ Depends on: report_generation
+  INSERT INTO dim_date (date_key, date, year, quarter, month, month_name, quarter_name, 
+                        week, day, day_of_week, day_name, is_weekend, is_holiday, 
+                        fiscal_year, fiscal_quarter, fiscal_month)
+  SELECT
+    TO_CHAR(date, 'YYYYMMDD')::BIGINT as date_key,
+    date,
+    EXTRACT(YEAR FROM date)::INT as year,
+    EXTRACT(QUARTER FROM date)::INT as quarter,
+    EXTRACT(MONTH FROM date)::INT as month,
+    TO_CHAR(date, 'Month') as month_name,
+    'Q' || EXTRACT(QUARTER FROM date)::INT as quarter_name,
+    EXTRACT(WEEK FROM date)::INT as week,
+    EXTRACT(DAY FROM date)::INT as day,
+    EXTRACT(DOW FROM date)::INT as day_of_week,
+    TO_CHAR(date, 'Day') as day_name,
+    (EXTRACT(DOW FROM date)::INT IN (0, 6)) as is_weekend,
+    FALSE as is_holiday,
+    EXTRACT(YEAR FROM date)::INT as fiscal_year,
+    EXTRACT(QUARTER FROM date)::INT as fiscal_quarter,
+    EXTRACT(MONTH FROM date)::INT as fiscal_month
+  FROM (
+    SELECT DATE '2024-01-01' + (n || ' days')::INTERVAL as date
+    FROM GENERATE_SERIES(0, 1825) n
+  ) dates
+  ON CONFLICT DO NOTHING;
 
-STEP 5.4: AIRFLOW TASK IMPLEMENTATION
-──────────────────────────────────────
+Step 2: Execute SQL Script
 
-Task Types to Use:
-
-  A. PythonOperator (custom Python code):
-     - validate_infrastructure
-     - consume_kafka_events
-     - transform_load_facts
-     - quality_checks
-     
-  B. PostgresOperator (SQL execution):
-     - dimension_load_daily (execute stored procedures)
-     - refresh_aggregates (refresh materialized views)
-     
-  C. BashOperator (execute shell commands):
-     - monitor_pipeline_health
-     - report_generation
-     
-  D. EmailOperator (send notifications):
-     - error alerts
-     - daily summary emails
-
-Task Dependencies:
-  validate_infrastructure >> [dimension_load_daily, extract_kafka_metadata]
-  [dimension_load_daily, extract_kafka_metadata] >> consume_kafka_events
-  consume_kafka_events >> transform_load_facts
-  transform_load_facts >> refresh_aggregates
-  refresh_aggregates >> quality_checks
-  quality_checks >> report_generation
-  report_generation >> monitor_pipeline_health
-
-STEP 5.5: ERROR HANDLING & RETRIES
-───────────────────────────────────
-
-Retry Strategy:
-  default_args = {
-    'retries': 3,
-    'retry_delay': timedelta(minutes=5),
-    'retry_exponential_backoff': True,
-    'max_retry_delay': timedelta(minutes=30),
-    'on_failure_callback': alert_slack_channel,
-    'on_retry_callback': log_retry_attempt,
-  }
-
-On Failure Actions:
-  1. Log full context (input data, error message, stack trace)
-  2. Send Slack notification to #etl-alerts channel
-  3. Store failed event in quarantine table for manual review
-  4. Airflow will auto-retry up to 3 times
-  5. After max retries, send PagerDuty alert to on-call engineer
-
-Critical Task SLA:
-  - validate_infrastructure must complete within 5 minutes
-  - consume_kafka_events must complete within 30 minutes
-  - transform_load_facts must complete within 45 minutes
-  - If SLA breached, trigger escalation
-
-================================================================================
-6. PHASE 5: SCHEMA OPTIMIZATION FOR ANALYTICS
-================================================================================
-
-STEP 6.1: RECOMMENDED OLAP SCHEMA CHANGES
-──────────────────────────────────────────
-
-Current OLAP Issues & Fixes:
-
-ISSUE 1: Missing Slowly Changing Dimension (SCD) Type 2 Support
-  Current: Users, Accounts, Securities directly copied
-  Problem: History is lost when records update
-  Solution: Add SCD Type 2 columns to dimensions:
-    ALTER TABLE dim_user ADD COLUMN scd_start_date DATE DEFAULT CURRENT_DATE;
-    ALTER TABLE dim_user ADD COLUMN scd_end_date DATE;
-    ALTER TABLE dim_user ADD COLUMN is_current BOOLEAN DEFAULT TRUE;
-    CREATE INDEX idx_dim_user_current ON dim_user(User_ID, is_current);
-
-ISSUE 2: Fact Tables Lack Degenerate Dimensions
-  Current: fact_trades, fact_orders don't include order side/status
-  Problem: Can't aggregate by side or status without joins
-  Solution: Denormalize order details into fact tables:
-    ALTER TABLE fact_trades ADD COLUMN order_side CHAR(1);
-    ALTER TABLE fact_trades ADD COLUMN order_status VARCHAR(16);
-    ALTER TABLE fact_trades ADD COLUMN account_id BIGINT;
-    CREATE INDEX idx_fact_trades_account ON fact_trades(account_id);
-
-ISSUE 3: No Date Dimension (dim_date)
-  Current: Using raw dates from fact tables
-  Problem: Can't aggregate by fiscal quarter, week number, etc
-  Solution: Create comprehensive date dimension:
-    CREATE TABLE dim_date (
-      date_key BIGINT PRIMARY KEY,
-      date DATE UNIQUE NOT NULL,
-      year INT NOT NULL,
-      quarter INT NOT NULL,
-      month INT NOT NULL,
-      month_name VARCHAR(10),
-      quarter_name VARCHAR(10),
-      week INT NOT NULL,
-      day INT NOT NULL,
-      day_of_week INT,
-      day_name VARCHAR(10),
-      is_weekend BOOLEAN,
-      is_holiday BOOLEAN,
-      fiscal_year INT,
-      fiscal_quarter INT,
-      fiscal_month INT
-    );
-
-ISSUE 4: No Aggregated/Summary Fact Tables
-  Current: Queries must aggregate from detail fact tables
-  Problem: Slow queries for dashboard and reports
-  Solution: Create pre-aggregated summary tables:
-    - fact_daily_trading_summary (grain: date + security + exchange)
-    - fact_account_daily_summary (grain: date + account)
-    - fact_sector_daily_performance (grain: date + sector)
-    - These are refreshed nightly by Airflow DAG
-
-ISSUE 5: Missing Conformed Dimensions
-  Current: Customer/Account dimension not standardized across facts
-  Problem: Can't easily drill from securities → accounts → users
-  Solution: Create conformed dim_account:
-    CREATE TABLE dim_account (
-      account_key BIGSERIAL PRIMARY KEY,
-      account_id BIGINT NOT NULL,
-      user_key BIGINT NOT NULL, -- FK to dim_user
-      account_status VARCHAR(9),
-      account_created_date DATE,
-      scd_start_date DATE,
-      scd_end_date DATE,
-      is_current BOOLEAN
-    );
-    -- Use account_key in all fact tables
-
-ISSUE 6: No Audit/Tracking Columns
-  Current: Fact tables don't track when record was loaded
-  Problem: Can't debug data freshness issues
-  Solution: Add audit columns to all fact tables:
-    - etl_processed_date TIMESTAMP (when Python loaded it)
-    - etl_run_id BIGINT (FK to etl_pipeline_runs)
-    - source_system VARCHAR(20) = 'OLTP'
-    - dbt_loaded_at TIMESTAMP (if using dbt)
-
-ISSUE 7: No Partitioning on Large Fact Tables
-  Current: fact_trades, fact_transactions not partitioned
-  Problem: Queries on 3+ years of data become slow
-  Solution: Partition by trade_date or transaction_date:
-    CREATE TABLE fact_trades (
-      ...
-    ) PARTITION BY RANGE (DATE(trade_date));
-    
-    CREATE TABLE fact_trades_2026_q1 PARTITION OF fact_trades
-      FOR VALUES FROM ('2026-01-01') TO ('2026-04-01');
-    -- etc for each quarter
-
-ISSUE 8: No Bridge Tables for Many-to-Many
-  Current: Account-to-Security relationship not captured
-  Problem: Can't easily answer "which securities does account X hold?"
-  Solution: Create bridge table:
-    CREATE TABLE bridge_account_security (
-      bridge_id BIGSERIAL PRIMARY KEY,
-      account_key BIGINT NOT NULL,
-      security_key BIGINT NOT NULL,
-      total_shares NUMERIC(18,4),
-      average_cost NUMERIC(18,4),
-      market_value NUMERIC(18,4),
-      as_of_date DATE NOT NULL,
-      UNIQUE(account_key, security_key, as_of_date)
-    );
-
-RECOMMENDED COMPLETE OLAP SCHEMA:
-
-New Tables to Create:
-  1. dim_date - Time dimension with fiscal calendars
-  2. dim_account (SCD Type 2) - Account + user hierarchy
-  3. dim_security (SCD Type 2) - Security attributes
-  4. dim_sector - Sector master data
-  5. dim_exchange - Exchange information
-  6. dim_order_status - Static reference
-  7. dim_transaction_type - Static reference
-  8. fact_trades - Detail grain (renamed from current)
-  9. fact_orders - Detail grain
-  10. fact_transactions - Detail grain
-  11. fact_daily_trading_summary - AGGREGATED (new)
-  12. fact_account_daily_summary - AGGREGATED (new)
-  13. fact_sector_daily_performance - AGGREGATED (new)
-  14. bridge_account_security - Account positions snapshot
-  15. etl_pipeline_runs - Pipeline audit trail
-
-Tables to Modify:
-  1. Users → Add SCD Type 2 columns
-  2. Accounts → Add SCD Type 2 columns
-  3. Securities → Add SCD Type 2 columns + sector FK
-  4. Trades → Add denormalized order info + audit cols
-  5. Cash_Ledger → Rename to fact_cash_ledger + audit cols
-
-Schema Update Notes:
-  1. Roles table no longer has User_Roles junction - Role_ID is direct in Users
-  2. Accounts table no longer has Status field
-  3. Account_Positions in OLTP is a generated table (not pre-calculated)
-  4. Securities now requires Quote_Currency and conditional Base_Currency for FOREX
-  5. Order_Reservations table tracks capital locks separately from Orders
-  4. Disputes (low volume, can stay or move to separate schema)
-
-STEP 6.2: INDEXING STRATEGY
-────────────────────────────
-
-Indexes to Create on Fact Tables:
-  - Primary Key: (auto-index)
-  - Date Key: ix_fact_X_date_key (range queries)
-  - Account/Security Key: (dimension drill-down)
-  - Composite indexes for common filters:
-    * (date_key, security_key) on trading_summary
-    * (date_key, account_key) on account_summary
-    
-Indexes to Create on Dimensions:
-  - Primary Key: (auto-index)
-  - Natural Key: (for CDC lookups)
-  - (is_current, business_key) for current-only queries
-
-Avoid Over-Indexing:
-  - Too many indexes slow down INSERT/UPDATE
-  - Only index on columns used in WHERE/JOIN/GROUP BY
-  - Test query performance before/after adding index
-
-STEP 6.3: MATERIALIZED VIEWS FOR DASHBOARDS
-─────────────────────────────────────────────
-
-Create views to support dashboard queries:
-
-View 1: Top 10 Securities by Volume
-  CREATE MATERIALIZED VIEW vw_top_securities_by_volume AS
-  SELECT 
-    s.Ticker,
-    s.Company_Name,
-    s.Sector,
-    SUM(t.total_shares_traded) as volume,
-    COUNT(*) as trade_count,
-    AVG(t.avg_trade_price) as avg_price
-  FROM fact_daily_trading_summary t
-  JOIN dim_security s ON t.security_key = s.security_key
-  WHERE t.date_key >= to_char(CURRENT_DATE - INTERVAL '30 days', 'YYYYMMDD')::BIGINT
-  GROUP BY s.Ticker, s.Company_Name, s.Sector
-  ORDER BY volume DESC
-  LIMIT 10;
+  psql -h <OLAP_HOST> -U postgres -d olap_db -f 05_populate_date_dimension.sql
   
-  WITH INDEX: CREATE INDEX idx_vw_top_securities ON vw_top_securities_by_volume(volume DESC);
+  EXPECTED OUTPUT:
+   count
+  -------
+   1826
 
-View 2: Account Activity Trends
-  CREATE MATERIALIZED VIEW vw_account_activity_trends AS
-  SELECT 
-    a.Account_ID,
-    a.User_Name,
-    s.date_key,
-    s.Buy_Orders,
-    s.Sell_Orders,
-    s.Total_Trade_Value,
-    s.Account_Balance
-  FROM fact_account_daily_summary s
-  JOIN dim_account a ON s.account_key = a.account_key
-  WHERE a.is_current = TRUE;
-
-View 3: Sector Performance Summary
-  CREATE MATERIALIZED VIEW vw_sector_performance AS
-  SELECT 
-    s.Sector,
-    p.date_key,
-    p.Total_Value_Traded,
-    p.Number_Of_Trades,
-    p.Total_Buy_Volume,
-    p.Total_Sell_Volume
-  FROM fact_sector_daily_performance p
-  JOIN dim_security s ON p.sector = s.Sector;
-
-Refresh Strategy:
-  - Refresh nightly after fact table loads complete
-  - In Airflow: execute REFRESH MATERIALIZED VIEW ... CONCURRENTLY
-  - Or use: CREATE OR REPLACE VIEW (non-materialized) if data changes frequently
-
-STEP 6.4: PARTITIONING IMPLEMENTATION
-──────────────────────────────────────
-
-Partition Strategy:
-  - Partition by DATE or TIMESTAMP column
-  - Range: PARTITION BY RANGE (DATE(date_column))
-  - Separate partition per quarter or month
-  - Older partitions can be archived to cold storage
-
-Implementation:
-  1. Create parent table (not partitioned)
-  2. Create partitions for last 3 years:
-     
-     CREATE TABLE fact_trades_2024_q1 
-       PARTITION OF fact_trades
-       FOR VALUES FROM ('2024-01-01') TO ('2024-04-01');
-     
-     CREATE TABLE fact_trades_2024_q2
-       PARTITION OF fact_trades
-       FOR VALUES FROM ('2024-04-01') TO ('2024-07-01');
-     
-  3. Create pre-partition for upcoming quarter in Airflow
-  4. Archive old partitions: detach and move to archive schema
-
-Benefits:
-  - Query performance: PostgreSQL prunes unused partitions
-  - Maintenance: Can rebuild one partition without full table lock
-  - Data lifecycle: Easy to archive old data
+TIMELINE: 5 minutes
 
 ================================================================================
 7. PHASE 6: MONITORING & VALIDATION
 ================================================================================
 
-STEP 7.1: DATA QUALITY CHECKS
-──────────────────────────────
+STEP 7.1: IMPLEMENT DATA QUALITY CHECKS
+───────────────────────────────────────
 
-Implement in Airflow task: quality_checks
+STATUS: ⏳ MANUAL (Airflow Task Setup)
 
-Checks to Implement:
+WHAT NEEDS TO HAPPEN:
+  Create SQL quality check queries
+  Integrate into Airflow quality_checks task
+  Define alert thresholds
 
-  1. Row Count Validation:
-     SELECT COUNT(*) FROM fact_trades WHERE DATE(trade_date) = CURRENT_DATE;
-     Compare: Kafka events count ≈ Fact table inserts (allow 1-5% variance)
-     
-  2. NULL Value Checks:
-     SELECT COUNT(*) FROM fact_trades 
-     WHERE Date_Of_Trade IS NULL OR Trade_ID IS NULL;
-     Expected: 0 rows (all critical fields populated)
-     
-  3. Foreign Key Integrity:
-     SELECT COUNT(*) FROM fact_trades t
-     WHERE NOT EXISTS (SELECT 1 FROM executions e WHERE e.Execution_ID = t.Execution_ID);
-     Expected: 0 rows (all FKs valid)
-     
-  4. Business Logic Validation:
-     - All trades have price > 0
-     - All trades have shares > 0
-     - Account balance >= 0 (no overdrafts)
-     - Transaction status matches business rules
-     - Dispute date_resolved >= date_created
-     
-  5. Freshness Checks:
-     - Latest trade date = current date (or previous business day)
-     - Last Kafka offset processed >= 30 minutes ago
-     - ETL pipeline_runs table has recent entry
-     
-  6. Duplicate Detection:
-     SELECT Trade_ID, COUNT(*) 
-     FROM fact_trades 
-     WHERE DATE(trade_date) = CURRENT_DATE
-     GROUP BY Trade_ID
-     HAVING COUNT(*) > 1;
-     Expected: 0 rows (no duplicates)
-     
-  7. Data Type Validation:
-     - NUMERIC columns don't have alpha characters
-     - Date columns are valid dates
-     - Status fields match enum values
-     - Email addresses match format
+DETAILED IMPLEMENTATION GUIDE:
 
-  8. Referential Integrity:
-     - Every account in account_summary has valid dim_account_key
-     - Every security in trading_summary has valid security_key
-     - Account foreign keys match
+Step 1: Create Quality Checks SQL
 
-STEP 7.2: MONITORING DASHBOARDS
-────────────────────────────────
+File: c:\Users\Administrator\localhost\sql\06_quality_checks.sql (will be auto-generated)
 
-Prometheus Metrics to Capture:
-  - etl_kafka_lag_bytes (Kafka consumer lag)
-  - etl_processing_duration_seconds (end-to-end latency)
-  - etl_records_processed_total (counter per table)
-  - etl_transformation_errors_total (error counter)
-  - etl_database_connections_active (connection pool usage)
-  - airflow_dagrun_duration_seconds (DAG execution time)
-  - airflow_task_failure_total (task failure counter)
-
-Grafana Dashboards to Create:
-  1. ETL Pipeline Health
-     - Consumer lag trend
-     - Processing latency
-     - Error rate
-     - Records processed per table
-     
-  2. OLAP Data Freshness
-     - Latest load timestamp
-     - Row counts per fact table
-     - Quality check results
-     
-  3. Airflow DAG Execution
-     - Task success/failure rate
-     - SLA adherence
-     - Task duration trends
-     
-  4. Data Quality Summary
-     - Duplicate row count
-     - NULL value count
-     - FK violations
-     - Business logic violations
-
-Alert Rules (Prometheus):
-  - Consumer lag > 50000 records → WARNING
-  - Processing latency > 5 minutes → WARNING
-  - Error rate > 1% → CRITICAL
-  - Data quality check failed → CRITICAL
-  - No data loaded in 24 hours → CRITICAL
-
-STEP 7.3: LOGGING STRATEGY
-───────────────────────────
-
-Centralized Logging (ELK Stack):
-  - Elasticsearch: Store logs from all services
-  - Logstash: Parse and enrich logs from:
-    * Debezium connector
-    * Kafka broker
-    * Python ETL pipeline
-    * Airflow scheduler/worker
-    * PostgreSQL (slow query log)
-  - Kibana: Search and visualize logs
-
-Log Levels:
-  - INFO: Pipeline started/completed, record counts
-  - WARNING: Lag exceeded threshold, retry attempt, SLA approaching
-  - ERROR: Task failed, data quality check failed, exception with stack trace
-  - DEBUG: Event details, transformation logic, SQL queries (prod: off)
-
-Log Retention:
-  - CRITICAL alerts: 2 years (compliance)
-  - ERROR logs: 6 months
-  - WARNING logs: 3 months
-  - INFO logs: 30 days
-  - DEBUG logs: 7 days (dev only)
-
-STEP 7.4: DISASTER RECOVERY
-────────────────────────────
-
-Backup Strategy:
-  1. OLAP database nightly backup (full + incremental WAL)
-  2. Keep backups for 30 days on-site, 90 days in cloud
-  3. Test restore procedure monthly
+  -- Data Quality Validation Queries
+  -- Called by Airflow quality_checks task
   
-Recovery Procedures:
-  - OLTP Failure: Data is source of truth, no action needed (Debezium will replay when restored)
-  - Kafka Failure: Events stored for 7 days, can reprocess from offset after recovery
-  - OLAP Corruption: Restore from backup, restart ETL from last successful offset
-  - Python Pipeline Failure: Restart DAG task, will resume from last processed offset
+  -- 1. Row Count Validation
+  SELECT COUNT(*) FROM fact_trades WHERE DATE(trade_date) = CURRENT_DATE;
+  
+  -- 2. NULL Value Checks
+  SELECT COUNT(*) FROM fact_trades 
+  WHERE trade_id IS NULL OR trade_date IS NULL OR account_id IS NULL;
+  
+  -- 3. Foreign Key Integrity
+  SELECT COUNT(*) FROM fact_trades t
+  WHERE NOT EXISTS (SELECT 1 FROM dim_account a WHERE a.account_id = t.account_id);
+  
+  -- 4. Business Logic: All trades have price > 0
+  SELECT COUNT(*) FROM fact_trades WHERE trade_price <= 0;
+  
+  -- 5. Business Logic: Account balance >= 0
+  SELECT COUNT(*) FROM dim_account WHERE account_balance < 0;
+  
+  -- 6. Duplicate Detection
+  SELECT trade_id, COUNT(*) as cnt FROM fact_trades 
+  GROUP BY trade_id HAVING COUNT(*) > 1;
+  
+  -- 7. Freshness Check
+  SELECT MAX(trade_date) FROM fact_trades;
+  
+  -- 8. Referential Integrity
+  SELECT COUNT(*) FROM fact_trades t
+  WHERE NOT EXISTS (SELECT 1 FROM dim_date d WHERE d.date_key = t.date_key);
 
-Audit Trail:
-  - Track all loads in etl_pipeline_runs table
-  - Enable PostgreSQL audit logging (log_statement = 'all')
-  - Store Airflow DAG logs for 180 days
+Step 2: Run Quality Checks Manually
+
+  psql -h <OLAP_HOST> -U etl_user -d olap_db << EOF
+  -- Row count check
+  SELECT 'Row Count' as check_name, COUNT(*) as value FROM fact_trades 
+  WHERE DATE(trade_date) = CURRENT_DATE;
+  
+  -- NULL checks
+  SELECT 'NULL Values' as check_name, COUNT(*) as value FROM fact_trades 
+  WHERE trade_id IS NULL;
+  
+  -- Business logic checks
+  SELECT 'Negative Prices' as check_name, COUNT(*) as value 
+  FROM fact_trades WHERE trade_price < 0;
+  EOF
+  
+  EXPECTED: All checks return 0 (no issues) or small values
+
+Step 3: Set Up Alerts
+
+  Create alert configuration (will be part of Airflow DAG):
+  - If row count = 0: CRITICAL (no data loaded)
+  - If NULL values > 0: ERROR (data quality issue)
+  - If negative prices > 0: ERROR (business logic violated)
+  - If duplicates > 0: WARNING (deduplication issue)
+
+TIMELINE: 10 minutes (included in Airflow DAG)
+
+================================================================================
+STEP 7.2: SET UP HEALTH CHECK SCRIPT
+────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Infrastructure Task)
+
+WHAT NEEDS TO HAPPEN:
+  Create simple health check script
+  Can be run daily to verify pipeline components
+
+DETAILED IMPLEMENTATION GUIDE:
+
+File: c:\Users\Administrator\localhost\scripts\health_check.sh
+
+  #!/bin/bash
+  # ETL Pipeline Health Check
+  
+  echo "ETL PIPELINE HEALTH CHECK"
+  echo "=========================="
+  echo "Timestamp: $(date)"
+  echo ""
+  
+  # 1. Check OLTP Connection
+  echo "1. OLTP Database:"
+  psql -h $OLTP_HOST -U debezium_user -d oltp_db -c "SELECT COUNT(*) FROM users;" 2>/dev/null && echo "   ✅ Connected" || echo "   ❌ Failed"
+  
+  # 2. Check OLAP Connection
+  echo ""
+  echo "2. OLAP Database:"
+  psql -h $OLAP_HOST -U etl_user -d olap_db -c "SELECT COUNT(*) FROM etl_pipeline_runs;" 2>/dev/null && echo "   ✅ Connected" || echo "   ❌ Failed"
+  
+  # 3. Check Kafka Broker
+  echo ""
+  echo "3. Kafka Brokers:"
+  kafka-broker-api-versions.sh --bootstrap-server localhost:9092 &>/dev/null && echo "   ✅ Connected" || echo "   ❌ Failed"
+  
+  # 4. Check Debezium Connector
+  echo ""
+  echo "4. Debezium Connector:"
+  curl -s http://localhost:8083/connectors/postgres-oltp-connector/status | grep -q "RUNNING" && echo "   ✅ Running" || echo "   ❌ Not Running"
+  
+  # 5. Check Latest Airflow Run
+  echo ""
+  echo "5. Latest Airflow DAG Run:"
+  psql -h $OLAP_HOST -U etl_user -d olap_db -c "SELECT status, MAX(created_at) FROM etl_pipeline_runs GROUP BY status ORDER BY created_at DESC LIMIT 1;" 2>/dev/null || echo "   No runs yet"
+  
+  echo ""
+  echo "=========================="
+
+Run Health Check:
+
+  cd c:\Users\Administrator\localhost\scripts
+  chmod +x health_check.sh
+  ./health_check.sh
+
+TIMELINE: 10-15 minutes
+
+================================================================================
+SECTION C: POST-INTEGRATION STEPS
+================================================================================
+
+After all PHASES (1-6) are complete, perform these final steps:
+
+================================================================================
+STEP 8.1: PERFORMANCE BASELINE TESTING
+──────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Testing Task)
+
+WHAT NEEDS TO HAPPEN:
+  Measure query performance on populated OLAP
+  Establish baseline for future optimization
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Run EXPLAIN ANALYZE on sample queries:
+
+  psql -h <OLAP_HOST> -U etl_user -d olap_db << EOF
+  
+  -- Query 1: Fact table scan (1 day)
+  EXPLAIN ANALYZE
+  SELECT COUNT(*) FROM fact_trades WHERE DATE(trade_date) = CURRENT_DATE;
+  
+  -- Query 2: Dimension join
+  EXPLAIN ANALYZE
+  SELECT f.*, d.user_name, d.account_status
+  FROM fact_trades f
+  JOIN dim_account d ON f.account_id = d.account_id
+  WHERE DATE(f.trade_date) = CURRENT_DATE
+  LIMIT 1000;
+  
+  -- Query 3: Aggregation
+  EXPLAIN ANALYZE
+  SELECT 
+    DATE(f.trade_date) as trade_date,
+    COUNT(*) as trade_count,
+    SUM(f.trade_price * f.trade_quantity) as total_value
+  FROM fact_trades f
+  WHERE trade_date >= CURRENT_DATE - INTERVAL '30 days'
+  GROUP BY DATE(f.trade_date)
+  ORDER BY trade_date DESC;
+  
+  EOF
+
+EXPECTED EXECUTION TIMES:
+  - Fact table scans: < 1 second
+  - With joins: 1-3 seconds
+  - Aggregations: < 5 seconds
+
+TIMELINE: 20 minutes
+
+================================================================================
+STEP 8.2: LOAD TEST WITH PRODUCTION VOLUME
+────────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Testing Task)
+
+WHAT NEEDS TO HAPPEN:
+  Test pipeline with realistic data volume
+  Verify SLAs met (task completion times)
+
+DETAILED IMPLEMENTATION GUIDE:
+
+Step 1: Generate Larger Test Dataset
+
+  cd c:\Users\Administrator\localhost\data_generators
+  
+  # Modify generator to produce 10x normal volume
+  # Or run tests with multiplier parameter
+
+Step 2: Trigger Full DAG Run
+
+  # Monitor Airflow DAG run:
+  # 1. Open Airflow UI
+  # 2. Trigger DAG with large dataset
+  # 3. Monitor task durations
+
+EXPECTED TASK DURATIONS:
+  - validate_infrastructure: target 5 min
+  - consume_kafka_events: target 30 min
+  - transform_load_facts: target 45 min
+  - quality_checks: target 10 min
+  - TOTAL: target < 2 hours
+
+Step 3: Check Database Size
+
+  psql -h <OLAP_HOST> -U etl_user -d olap_db -c "SELECT pg_size_pretty(pg_database_size('olap_db'));"
+  
+  # Should scale linearly with data volume
+
+TIMELINE: 2-4 hours (actual load test execution)
+
+================================================================================
+STEP 8.3: SECURITY REVIEW
+────────────────────────
+
+STATUS: ⏳ MANUAL (Security Audit)
+
+WHAT NEEDS TO HAPPEN:
+  Audit credentials, network access, database permissions
+  Ensure compliance before production deployment
+
+SECURITY CHECKLIST:
+
+  [ ] Passwords are strong (25+ chars, mixed case/numbers/symbols)
+  [ ] Passwords stored in .env or secret manager (NOT in Git)
+  [ ] Database users have minimal necessary permissions (least privilege)
+  [ ] Kafka brokers configured for authentication (SASL/TLS)
+  [ ] Debezium connector uses encrypted connections
+  [ ] Airflow admin password is strong
+  [ ] Airflow Web UI behind authentication (not public)
+  [ ] PostgreSQL audit logging enabled
+  [ ] Network: Firewall rules restrict access to specific IPs
+  [ ] Backup strategy documented and tested
+  [ ] SSL/TLS certificates valid and not expired
+  [ ] Secrets rotated regularly (every 90 days)
+
+TIMELINE: 30 minutes
+
+================================================================================
+STEP 8.4: PRODUCTION DEPLOYMENT SIGN-OFF
+────────────────────────────────────────
+
+STATUS: ⏳ MANUAL (Process Task)
+
+WHAT NEEDS TO HAPPEN:
+  Prepare handoff documentation
+  Get stakeholder approval
+  Schedule production monitoring
+
+DEPLOYMENT CHECKLIST:
+
+  [ ] All PHASES 1-6 completed and tested
+  [ ] Data quality checks passing
+  [ ] Performance benchmarks met
+  [ ] Security review complete
+  [ ] Runbooks created and reviewed
+  [ ] Team trained on monitoring & troubleshooting
+  [ ] On-call escalation procedures documented
+  [ ] First week monitoring scheduled (during business hours)
+  [ ] Rollback plan documented (if needed)
+  [ ] Architecture documentation complete
+  [ ] Stakeholder sign-off received
+  [ ] Production deployment date agreed
+
+TIMELINE: 1-2 days
+
+================================================================================
+QUICK REFERENCE: Total Timeline & Effort
+================================================================================
+
+| Section | Manual Steps | Estimated Time | Effort |
+|---------|------|---------|--------|
+| PREREQUISITES | 5 steps | 30 min | Low |
+| PHASE 1: Infrastructure | 9 steps | 1.5 hours | Medium |
+| PHASE 2: Database Setup | 3 steps | 15 min | Low |
+| PHASE 3: Python Pipeline | 4 steps | 1 hour | Low |
+| PHASE 4: Airflow | 4 steps | 1.5 hours | Medium |
+| PHASE 5: Schema Opt | 3 steps | 30 min | Low |
+| PHASE 6: Monitoring | 2 steps | 1 hour | Low |
+| Post-Integration | 4 steps | 4 hours | Medium |
+| **TOTAL** | **34 manual steps** | **~10 hours** | **Medium** |
+
+*Auto-generated code: ~40+ files, production-quality*  
+*First full pipeline run: 2-4 hours (after setup complete)*
 
 ================================================================================
 8. IMPLEMENTATION CHECKLIST
@@ -1606,8 +2679,114 @@ Resolution:
   - Monitor WAL disk usage and alert if > 90%
   - In extreme case: drop slot and recreate (loses change history)
 
-This file should be kept in version control and updated as the pipeline evolves.
+================================================================================
+SECTION D: APPENDICES
+================================================================================
+
+APPENDIX A: QUICK COMMAND REFERENCE
+====================================
+
+Database Operations:
+  # Connect to OLTP
+  psql -h <OLTP_HOST> -U debezium_user -d oltp_db
+  
+  # Connect to OLAP
+  psql -h <OLAP_HOST> -U etl_user -d olap_db
+  
+  # View table sizes
+  SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename))
+  FROM pg_tables WHERE schemaname='public' ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+  
+  # Check replication slots
+  SELECT slot_name, slot_type, active, restart_lsn FROM pg_replication_slots;
+
+Kafka Operations:
+  # List topics
+  kafka-topics.sh --bootstrap-server localhost:9092 --list
+  
+  # Check consumer lag
+  kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+    --group etl_pipeline_consumer_group --describe
+
+Airflow Operations:
+  # List DAGs
+  airflow dags list
+  
+  # Test task
+  airflow tasks test oltp_to_olap_daily validate_infrastructure 2026-10-06
+  
+  # Trigger DAG
+  airflow dags trigger oltp_to_olap_daily --exec-date 2026-10-06
+
+Monitoring:
+  # Check system health
+  ./scripts/health_check.sh
+  
+  # View pipeline run history
+  SELECT run_id, status, created_at, updated_at FROM etl_pipeline_runs 
+  ORDER BY created_at DESC LIMIT 10;
+
+================================================================================
+APPENDIX B: GLOSSARY
+=====================
+
+CDC: Change Data Capture - capture real-time database changes
+SCD Type 2: Slowly Changing Dimension tracking history
+ETL: Extract, Transform, Load
+OLTP: Online Transaction Processing (source database)
+OLAP: Online Analytical Processing (analytics database)
+Offset: Consumer position in Kafka topic partition
+Airflow DAG: Workflow with dependencies
+SLA: Service Level Agreement (performance target)
+
+================================================================================
+APPENDIX C: SECURITY BEST PRACTICES
+====================================
+
+✅ DO: Store credentials in .env or secret manager
+✅ DO: Use strong passwords (25+ chars, mixed case/numbers/symbols)
+✅ DO: Rotate passwords every 90 days
+✅ DO: Enable PostgreSQL audit logging
+✅ DO: Use SSL/TLS for database connections
+
+❌ DON'T: Hardcode credentials in source code
+❌ DON'T: Commit .env files to Git
+❌ DON'T: Expose Kafka/Debezium APIs to public internet
+
+================================================================================
+TIMELINE & EFFORT SUMMARY
+================================================================================
+
+| Section | Manual Steps | Est. Time | Effort |
+|---------|------|---------|--------|
+| PREREQUISITES | 5 | 30 min | Low |
+| PHASE 1: Infrastructure | 9 | 1.5 hrs | Medium |
+| PHASE 2: Database | 3 | 15 min | Low |
+| PHASE 3: Python | 4 | 1 hour | Low |
+| PHASE 4: Airflow | 4 | 1.5 hrs | Medium |
+| PHASE 5: Schema Opt | 3 | 30 min | Low |
+| PHASE 6: Monitoring | 2 | 1 hour | Low |
+| Post-Integration | 4 | 4 hours | Medium |
+| **TOTAL** | **34 steps** | **~10 hours** | **Medium** |
+
+Auto-generated files: ~40+ production-quality files
+First pipeline run: 2-4 hours after setup complete
 
 ================================================================================
 END OF INTEGRATION GUIDE
 ================================================================================
+
+VERSION: 3.0 - COMPREHENSIVE IMPLEMENTATION GUIDE
+LAST UPDATED: 2026-10-06
+STATUS: Ready for Production Deployment
+
+Complete with:
+  ✅ All prerequisites detailed (5 steps)
+  ✅ All integration phases detailed (6 phases, 28 steps)
+  ✅ All post-integration steps (4 steps)
+  ✅ Troubleshooting guide (6 major issues)
+  ✅ Command reference (30+ commands)
+  ✅ Security best practices
+  ✅ Timeline and effort estimates
+
+Next Action: Execute prerequisites in SECTION A, then proceed through PHASES 1-6
