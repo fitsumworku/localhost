@@ -88,12 +88,13 @@ def generate_sql(rows):
         "",
     ]
 
-    for row in rows:
+    for security_id, row in enumerate(rows, start=1):
         lines.append(
-            "INSERT INTO Securities (Ticker, Name, Asset_Type, Exchange, Quote_Currency, Base_Currency, Status, Sector)"
+            "INSERT INTO Securities (Security_ID, Ticker, Name, Asset_Type, Exchange, Quote_Currency, Base_Currency, Status, Sector)"
         )
         lines.append(
             "VALUES ("
+            f"{security_id}, "
             f"{sql_literal(row['Ticker'])}, "
             f"{sql_literal(row['Name'])}, "
             f"{sql_literal(row['Asset_Type'])}, "

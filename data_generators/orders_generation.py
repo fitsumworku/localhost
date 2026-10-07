@@ -16,32 +16,27 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 def parse_securities_file(filepath):
-    """Parse securities_insert.sql to extract active security tickers with assigned IDs"""
+    """Parse securities_insert.sql to extract active security IDs"""
     active_securities = []
-    security_counter = 1
     
     try:
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Pattern to match multi-line: INSERT ... VALUES ('TICKER', 'Name', 'ASSET_TYPE', 'EXCHANGE', 'QUOTE_CURRENCY', Base_Curr, 'STATUS', Sector)
-        pattern = r"VALUES\s*\('([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^,]*),\s*'([^']*)',\s*([^)]*)\)"
+        # Pattern to match: VALUES (security_id, 'TICKER', 'Name', 'ASSET_TYPE', ..., 'STATUS', ...)
+        pattern = r"VALUES\s*\((\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([^,]*),\s*'([^']*)',\s*([^)]*)\)"
         
         matches = re.findall(pattern, content)
         
         for match in matches:
-            ticker = match[0]
-            name = match[1]
-            asset_type = match[2]
-            exchange = match[3]
-            quote_curr = match[4]
-            base_curr = match[5].strip()
-            status = match[6]
+            security_id = int(match[0])
+            ticker = match[1]
+            asset_type = match[3]
+            exchange = match[4]
+            status = match[7]
             
             if status == 'ACTIVE':
-                active_securities.append((security_counter, ticker, asset_type, exchange))
-            
-            security_counter += 1
+                active_securities.append((security_id, ticker, asset_type, exchange))
         
         print(f"Parsed {len(active_securities)} active securities from {filepath}")
         
