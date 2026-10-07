@@ -25,15 +25,13 @@ public class OrderReservationEntity {
     @Column(name = "Account_ID", nullable = false)
     private Long accountId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "Account_ID", insertable = false, updatable = false)
+    @Transient
     private AccountEntity accountForReservation;
 
     @Column(name = "Security_ID", nullable = false)
     private Long securityId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "Security_ID", insertable = false, updatable = false)
+    @Transient
     private SecurityEntity securityForReservation;
 
     @Column(name = "Side", nullable = false, length = 1)
@@ -73,10 +71,10 @@ public class OrderReservationEntity {
         this.orderForReservation = orderForReservation;
         if (orderForReservation != null) {
             this.orderId = orderForReservation.getId();
-            this.accountForReservation = orderForReservation.getAccountForOrder();
-            this.securityForReservation = orderForReservation.getSecurityForOrder();
-            this.accountId = this.accountForReservation == null ? null : this.accountForReservation.getAccountId();
-            this.securityId = this.securityForReservation == null ? null : this.securityForReservation.getSecurityId();
+            AccountEntity account = orderForReservation.getAccountForOrder();
+            SecurityEntity security = orderForReservation.getSecurityForOrder();
+            this.accountId = account == null ? null : account.getAccountId();
+            this.securityId = security == null ? null : security.getSecurityId();
             this.side = orderForReservation.getSide();
         }
     }
@@ -90,11 +88,12 @@ public class OrderReservationEntity {
     }
 
     public AccountEntity getAccountForReservation() {
-        return accountForReservation;
+        // Derive from the composite order relationship to avoid dual mapping
+        return orderForReservation == null ? null : orderForReservation.getAccountForOrder();
     }
 
     public void setAccountForReservation(AccountEntity accountForReservation) {
-        this.accountForReservation = accountForReservation;
+        // Not used; account is set through setOrderForReservation()
         this.accountId = accountForReservation == null ? null : accountForReservation.getAccountId();
     }
 
@@ -107,11 +106,12 @@ public class OrderReservationEntity {
     }
 
     public SecurityEntity getSecurityForReservation() {
-        return securityForReservation;
+        // Derive from the composite order relationship to avoid dual mapping
+        return orderForReservation == null ? null : orderForReservation.getSecurityForOrder();
     }
 
     public void setSecurityForReservation(SecurityEntity securityForReservation) {
-        this.securityForReservation = securityForReservation;
+        // Not used; security is set through setOrderForReservation()
         this.securityId = securityForReservation == null ? null : securityForReservation.getSecurityId();
     }
 

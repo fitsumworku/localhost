@@ -28,8 +28,7 @@ public class TradeEntity {
 	})
 	private ExecutionEntity executionForTrade;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "Account_ID", nullable = false, insertable = false, updatable = false)
+	@Transient
 	private AccountEntity accountForTrade;
 
 	@Column(name = "Trade_Date", nullable = false)
@@ -69,9 +68,6 @@ public class TradeEntity {
 		if (tradeForExecution != null) {
 			this.executionId = tradeForExecution.getExecutionId();
 			AccountEntity executionAccount = tradeForExecution.getAccountForExecution();
-			if (this.accountForTrade == null) {
-				this.accountForTrade = executionAccount;
-			}
 			this.accountId = executionAccount == null ? null : executionAccount.getAccountId();
 		}
 	}
@@ -85,11 +81,12 @@ public class TradeEntity {
 	}
 
 	public AccountEntity getAccountForTrade() {
-		return accountForTrade;
+		// Derive from the composite execution relationship to avoid dual mapping
+		return executionForTrade == null ? null : executionForTrade.getAccountForExecution();
 	}
 
 	public void setAccountForTrade(AccountEntity accountForTrade) {
-		this.accountForTrade = accountForTrade;
+		// Not used; account is set through setTradeForExecution()
 		this.accountId = accountForTrade == null ? null : accountForTrade.getAccountId();
 	}
 

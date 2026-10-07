@@ -37,8 +37,7 @@ public class ExecutionEntity {
 	@JoinColumn(name = "Account_ID", nullable = false, insertable = false, updatable = false)
 	private AccountEntity accountForExecution;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "Security_ID", nullable = false, insertable = false, updatable = false)
+	@Transient
 	private SecurityEntity securityForExecution;
 
 	@ManyToOne(fetch = FetchType.LAZY)
@@ -127,9 +126,9 @@ public class ExecutionEntity {
 		if (orderForExecution != null) {
 			this.orderId = orderForExecution.getId();
 			this.accountForExecution = orderForExecution.getAccountForOrder();
-			this.securityForExecution = orderForExecution.getSecurityForOrder();
+			SecurityEntity security = orderForExecution.getSecurityForOrder();
 			this.accountId = this.accountForExecution == null ? null : this.accountForExecution.getAccountId();
-			this.securityId = this.securityForExecution == null ? null : this.securityForExecution.getSecurityId();
+			this.securityId = security == null ? null : security.getSecurityId();
 			this.side = orderForExecution.getSide();
 		}
 	}
@@ -161,11 +160,12 @@ public class ExecutionEntity {
 	}
 
 	public SecurityEntity getSecurityForExecution() {
-		return securityForExecution;
+		// Derive from the composite order relationship to avoid dual mapping
+		return orderForExecution == null ? null : orderForExecution.getSecurityForOrder();
 	}
 
 	public void setSecurityForExecution(SecurityEntity securityForExecution) {
-		this.securityForExecution = securityForExecution;
+		// Not used; security is set through setOrderForExecution()
 		this.securityId = securityForExecution == null ? null : securityForExecution.getSecurityId();
 	}
 
