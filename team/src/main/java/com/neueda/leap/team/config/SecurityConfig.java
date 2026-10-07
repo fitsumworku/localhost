@@ -61,6 +61,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/users/*/revoke-sessions").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/users/*").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/users/*").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/accounts", "/accounts/*/deposits", "/accounts/*/withdrawals").hasRole("CLIENT")
+                        .requestMatchers(HttpMethod.GET, "/accounts", "/accounts/*", "/accounts/*/balance",
+                                "/accounts/*/positions", "/accounts/*/orders", "/accounts/*/trades",
+                                "/accounts/*/transactions", "/accounts/*/transactions/*", "/accounts/*/ledger")
+                                .hasAnyRole("CLIENT", "ADMIN")
                         // Enable additional business routes only alongside their ownership/role checks.
                         .anyRequest().denyAll())
                 .authenticationProvider(provider)

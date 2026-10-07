@@ -42,6 +42,8 @@ CREATE TABLE Users (
     -- SUSPENDED means blacklisted. Spring must write actor/time to Audit_Logs.
     Status VARCHAR(9) NOT NULL DEFAULT 'ACTIVE'
         CHECK (Status IN ('ACTIVE', 'SUSPENDED')),
+    Token_Version BIGINT NOT NULL DEFAULT 0
+    CHECK (Token_Version >= 0),
     Created_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     Updated_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     UNIQUE (Email),

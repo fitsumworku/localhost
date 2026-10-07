@@ -14,4 +14,7 @@ public record RegisterRequest(
         // Passwords must never be trimmed or normalized.
     }
     @Override public String toString() { return "RegisterRequest[REDACTED]"; }
+    
 }
+
+

@@ -20,14 +20,25 @@ public class AuditService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void recordUserEvent(Long actorId, long subjectId, String action,
                                 Map<String, ?> oldValue, Map<String, ?> newValue) {
+        write(actorId, subjectId, "users", Map.of("user_id", subjectId), action, oldValue, newValue);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordEntityEvent(Long actorId, long subjectId, String table, Map<String, ?> recordKey,
+                                  String action, Map<String, ?> oldValue, Map<String, ?> newValue) {
+        write(actorId, subjectId, table, recordKey, action, oldValue, newValue);
+    }
+
+    private void write(Long actorId, long subjectId, String table, Map<String, ?> recordKey,
+                       String action, Map<String, ?> oldValue, Map<String, ?> newValue) {
         // Callers provide an explicit safe field allowlist, never entities or request DTOs.
         jdbc.update("""
                 INSERT INTO audit_logs
                   (actor_user_id, actor_type, subject_user_id, affected_table, record_key,
                    action_type, old_value, new_value, timestamp)
-                VALUES (?, ?, ?, 'users', CAST(? AS jsonb), ?, CAST(? AS jsonb), CAST(? AS jsonb), ?)
+                VALUES (?, ?, ?, ?, CAST(? AS jsonb), ?, CAST(? AS jsonb), CAST(? AS jsonb), ?)
                 """, actorId, actorId == null ? "SYSTEM" : "USER", subjectId,
-                json.writeValueAsString(Map.of("user_id", subjectId)), action,
+                table, json.writeValueAsString(recordKey), action,
                 oldValue == null ? null : json.writeValueAsString(oldValue),
                 newValue == null ? null : json.writeValueAsString(newValue), Timestamp.from(clock.instant()));
     }
