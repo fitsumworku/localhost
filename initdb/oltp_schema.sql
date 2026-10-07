@@ -75,7 +75,8 @@ CREATE TABLE Securities (
     Security_ID BIGSERIAL PRIMARY KEY,
     Ticker VARCHAR(40) NOT NULL CHECK (length(btrim(Ticker)) > 0),
     Name VARCHAR(255) NOT NULL CHECK (length(btrim(Name)) > 0),
-    Asset_Type VARCHAR(16) NOT NULL CHECK (Asset_Type IN ('EQUITY', 'FOREX', 'CRYPTO')),
+    Asset_Type VARCHAR(16) NOT NULL
+        CONSTRAINT securities_asset_type_check CHECK (Asset_Type IN ('EQUITY', 'ETF', 'FOREX', 'CRYPTO')),
     Exchange VARCHAR(80) NOT NULL CHECK (length(btrim(Exchange)) > 0),
     Quote_Currency CHAR(3) NOT NULL CHECK (Quote_Currency ~ '^[A-Z]{3}$'),
     Base_Currency CHAR(3),

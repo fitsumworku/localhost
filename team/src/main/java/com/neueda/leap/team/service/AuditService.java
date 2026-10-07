@@ -29,7 +29,13 @@ public class AuditService {
         write(actorId, subjectId, table, recordKey, action, oldValue, newValue);
     }
 
-    private void write(Long actorId, long subjectId, String table, Map<String, ?> recordKey,
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordSystemEvent(String table, Map<String, ?> recordKey, String action,
+                                  Map<String, ?> oldValue, Map<String, ?> newValue) {
+        write(null, null, table, recordKey, action, oldValue, newValue);
+    }
+
+    private void write(Long actorId, Long subjectId, String table, Map<String, ?> recordKey,
                        String action, Map<String, ?> oldValue, Map<String, ?> newValue) {
         // Callers provide an explicit safe field allowlist, never entities or request DTOs.
         jdbc.update("""
