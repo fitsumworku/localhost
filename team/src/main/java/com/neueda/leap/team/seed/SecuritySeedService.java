@@ -1,6 +1,5 @@
 package com.neueda.leap.team.seed;
 
-import com.neueda.leap.team.service.AuditService;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,13 +8,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class SecuritySeedService {
     private final SecurityUniverseLoader loader;
     private final SecuritySeedRepository securities;
-    private final AuditService audit;
 
-    public SecuritySeedService(SecurityUniverseLoader loader, SecuritySeedRepository securities, AuditService audit) {
-        this.loader = loader; this.securities = securities; this.audit = audit;
+    public SecuritySeedService(SecurityUniverseLoader loader, SecuritySeedRepository securities) {
+        this.loader = loader; this.securities = securities;
     }
 
-    /** Insert missing reference rows and audit them in the same transaction. Never overwrite existing rows. */
+    /** Insert missing reference rows in one transaction. Never overwrite existing rows. */
     @Transactional
     public SeedResult seed(List<String> resources) {
         List<SeedSecurity> items = loader.load(resources);
@@ -32,12 +30,6 @@ public class SecuritySeedService {
                 requireCompatible(item, securities.findByTicker(item.ticker()));
                 continue;
             }
-            Map<String, Object> values = new LinkedHashMap<>();
-            values.put("ticker", item.ticker()); values.put("name", item.name());
-            values.put("asset_type", item.assetType()); values.put("exchange", item.exchange());
-            values.put("quote_currency", item.quoteCurrency()); values.put("base_currency", item.baseCurrency());
-            values.put("sector", item.sector()); values.put("status", "ACTIVE"); values.put("universe_id", item.universeId());
-            audit.recordSystemEvent("securities", Map.of("security_id", id.get()), "SECURITY_SEEDED", null, values);
             inserted++;
         }
         return new SeedResult(items.size(), inserted, items.size() - inserted);

@@ -35,7 +35,7 @@ class SecuritySeedRunnerTests {
     private static class RecordingSeedService extends SecuritySeedService {
         private int calls;
         private List<String> resources;
-        RecordingSeedService() { super(null, null, null); }
+        RecordingSeedService() { super(null, null); }
         @Override public SeedResult seed(List<String> resources) {
             this.calls++; this.resources = resources;
             return new SeedResult(20, 20, 0);

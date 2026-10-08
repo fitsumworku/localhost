@@ -27,6 +27,7 @@ public abstract class PostgresIntegrationTest {
     static void database(DynamicPropertyRegistry registry) throws Exception {
         initialize();
         byte[] key = new byte[32]; new SecureRandom().nextBytes(key);
+        registry.add("app.orders.worker-enabled", () -> "false");
         registry.add("spring.datasource.url", () -> url);
         registry.add("spring.datasource.username", () -> username);
         registry.add("spring.datasource.password", () -> password);

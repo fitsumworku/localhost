@@ -38,13 +38,6 @@ public class AccountCashController {
     public CashTransactionDto transaction(@PathVariable long accountId, @PathVariable long transactionId) {
         return service.transaction(accountId, transactionId);
     }
-    @GetMapping("/ledger")
-    @Operation(summary = "Read posted cash movements", description = "Newest posting first; includes trades and non-trading cash movements. Holds and failed transactions do not create ledger entries.")
-    public PageResponse<LedgerEntryDto> ledger(@PathVariable long accountId,
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-        return service.ledger(accountId, page, size);
-    }
-
     private ResponseEntity<CashOperationResponse> response(CashOperationResponse result) {
         HttpStatus status = result.transaction().status() == CashTransactionStatus.FAILED ? HttpStatus.CONFLICT
                 : result.replayed() ? HttpStatus.OK : HttpStatus.CREATED;

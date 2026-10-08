@@ -18,7 +18,6 @@ class AccountConcurrencyIntegrationTests extends AccountTestSupport {
         for (MvcResult r : simultaneous(work)) assertThat(r.getResponse().getStatus()).isEqualTo(201);
         assertThat(balance(id)).isEqualByComparingTo("80.00");
         assertThat(count("transactions", id)).isEqualTo(8);
-        assertThat(count("cash_ledger", id)).isEqualTo(8);
     }
     @Test void simultaneousRetriesPostExactlyOnce() throws Exception {
         long id = account(token); UUID key = UUID.randomUUID();
@@ -29,7 +28,6 @@ class AccountConcurrencyIntegrationTests extends AccountTestSupport {
         assertThat(results.stream().filter(r -> r.getResponse().getStatus() == 200).count()).isEqualTo(5);
         assertThat(balance(id)).isEqualByComparingTo("10.00");
         assertThat(count("transactions", id)).isEqualTo(1);
-        assertThat(count("cash_ledger", id)).isEqualTo(1);
     }
     @Test void simultaneousWithdrawalsCannotOverspendAvailableCash() throws Exception {
         long id = account(token); cash(id, "deposits", "100.00");
@@ -37,7 +35,6 @@ class AccountConcurrencyIntegrationTests extends AccountTestSupport {
         assertThat(results.stream().map(r -> r.getResponse().getStatus()).toList()).containsExactlyInAnyOrder(201, 409);
         assertThat(balance(id)).isEqualByComparingTo("20.00");
         assertThat(count("transactions", id)).isEqualTo(3); // Deposit, successful withdrawal, failed withdrawal.
-        assertThat(count("cash_ledger", id)).isEqualTo(2);
     }
     private List<MvcResult> simultaneous(List<Callable<MvcResult>> work) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(work.size());

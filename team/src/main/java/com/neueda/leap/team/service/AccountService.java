@@ -4,7 +4,6 @@ import com.neueda.leap.team.dto.*;
 import com.neueda.leap.team.entity.*;
 import com.neueda.leap.team.repository.*;
 import java.time.Clock;
-import java.util.Map;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -18,12 +17,11 @@ public class AccountService {
     private final AccountCashBalanceRepository balances;
     private final AccountQueryRepository queries;
     private final AccountAccessService access;
-    private final AuditService audit;
     private final Clock clock;
     public AccountService(AccountRepository accounts, AccountCashBalanceRepository balances,
-            AccountQueryRepository queries, AccountAccessService access, AuditService audit, Clock clock) {
+            AccountQueryRepository queries, AccountAccessService access, Clock clock) {
         this.accounts = accounts; this.balances = balances; this.queries = queries;
-        this.access = access; this.audit = audit; this.clock = clock;
+        this.access = access; this.clock = clock;
     }
 
     @Transactional
@@ -33,10 +31,6 @@ public class AccountService {
         var now = clock.instant();
         Account account = accounts.saveAndFlush(new Account(owner, now));
         balances.saveAndFlush(new AccountCashBalance(account, now));
-        audit.recordEntityEvent(owner.getId(), owner.getId(), "accounts", Map.of("account_id", account.getId()),
-                "ACCOUNT_CREATED", null, Map.of("user_id", owner.getId(), "currency", "USD"));
-        audit.recordEntityEvent(owner.getId(), owner.getId(), "account_cash_balances", Map.of("account_id", account.getId()),
-                "BALANCE_INITIALIZED", null, Map.of("cash_balance", "0.00"));
         return queries.account(account.getId()).orElseThrow();
     }
 

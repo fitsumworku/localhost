@@ -23,10 +23,7 @@ public class AccountQueryRepository {
             LEFT JOIN account_cash_availability v ON v.account_id = a.account_id
             LEFT JOIN account_cash_balances b ON b.account_id = a.account_id
             """;
-    private static final String TRANSACTIONS = """
-            SELECT t.*, l.ledger_id, l.running_balance
-            FROM transactions t LEFT JOIN cash_ledger l ON l.transaction_id = t.transaction_id AND l.account_id = t.account_id
-            """;
+    private static final String TRANSACTIONS = "SELECT t.* FROM transactions t ";
 
     public Optional<AccountDto> account(long id) {
         return jdbc.query(ACCOUNTS + " WHERE a.account_id = ?", this::accountRow, id).stream().findFirst();
@@ -76,15 +73,6 @@ public class AccountQueryRepository {
                 """, this::transactionRow, id, page, size);
     }
 
-    public PageResponse<LedgerEntryDto> ledger(long id, int page, int size) {
-        // Ledger_ID is the posting order specified by this schema, even if clocks move backwards.
-        return accountPage("SELECT count(*) FROM cash_ledger WHERE account_id = ?", """
-                SELECT * FROM cash_ledger WHERE account_id = ? ORDER BY ledger_id DESC LIMIT ? OFFSET ?
-                """, (r, row) -> new LedgerEntryDto(r.getLong("ledger_id"), id, nullableLong(r, "transaction_id"),
-                nullableLong(r, "trade_id"), r.getString("entry_type"), r.getBigDecimal("debit_amount"),
-                r.getBigDecimal("credit_amount"), r.getBigDecimal("running_balance"), instant(r, "entry_date")), id, page, size);
-    }
-
     public PageResponse<AccountOrderDto> orders(long id, int page, int size) {
         return accountPage("SELECT count(*) FROM orders WHERE account_id = ?", """
                 SELECT o.*, s.ticker, s.name FROM orders o JOIN securities s ON s.security_id = o.security_id
@@ -129,15 +117,11 @@ public class AccountQueryRepository {
                 r.getObject("client_request_id", UUID.class), r.getBigDecimal("transaction_amount"),
                 CashTransactionType.valueOf(r.getString("transaction_type")),
                 CashTransactionStatus.valueOf(r.getString("transaction_status")), instant(r, "transaction_date"),
-                instant(r, "completed_at"), r.getString("failure_reason"), nullableLong(r, "ledger_id"), r.getBigDecimal("running_balance"));
+                instant(r, "completed_at"), r.getString("failure_reason"));
     }
     private static Instant instant(ResultSet r, String column) throws SQLException {
         Timestamp value = r.getTimestamp(column);
         return value == null ? null : value.toInstant();
-    }
-    private static Long nullableLong(ResultSet r, String column) throws SQLException {
-        long value = r.getLong(column);
-        return r.wasNull() ? null : value;
     }
     private static void validatePage(int page, int size) {
         if (page < 0 || size < 1 || size > 100) {

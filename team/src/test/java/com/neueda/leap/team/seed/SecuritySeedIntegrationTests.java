@@ -13,18 +13,13 @@ class SecuritySeedIntegrationTests extends AccountTestSupport {
     @Autowired SecuritySeedService seeder;
     @Autowired SecuritySeedProperties properties;
 
-    @Test void fullImportPersistsTypesCurrenciesAndSystemAuditRecords() {
+    @Test void fullImportPersistsTypesAndCurrencies() {
         assertThat(seeder.seed(properties.resources())).isEqualTo(new SecuritySeedService.SeedResult(569, 569, 0));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM securities", Long.class)).isEqualTo(569);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM securities WHERE asset_type='ETF'", Long.class)).isEqualTo(12);
         assertThat(jdbc.queryForObject("SELECT quote_currency FROM securities WHERE ticker='INFY.NS'", String.class)).isEqualTo("INR");
         assertThat(jdbc.queryForObject("SELECT base_currency FROM securities WHERE ticker='FX:USDJPY'", String.class)).isEqualTo("USD");
         assertThat(jdbc.queryForObject("SELECT quote_currency FROM securities WHERE ticker='FX:USDJPY'", String.class)).isEqualTo("JPY");
-        assertThat(jdbc.queryForObject("""
-                SELECT count(*) FROM audit_logs WHERE affected_table='securities' AND action_type='SECURITY_SEEDED'
-                  AND actor_type='SYSTEM' AND actor_user_id IS NULL AND subject_user_id IS NULL
-                  AND record_key ? 'security_id' AND new_value ? 'universe_id'
-                """, Long.class)).isEqualTo(569);
     }
 
     @Test void rerunPreservesIdsStatusesNamesHoldingsAndUnlistedRows() throws Exception {
@@ -35,7 +30,6 @@ class SecuritySeedIntegrationTests extends AccountTestSupport {
         jdbc.update("UPDATE securities SET status='HALTED',name='Edited name',sector='Edited sector' WHERE security_id=?", id);
         jdbc.update("UPDATE securities SET status='DELISTED' WHERE ticker='MSFT'");
         long otherId = security();
-        long audits = seededAuditCount();
         assertThat(seeder.seed(DEV)).isEqualTo(new SecuritySeedService.SeedResult(20, 0, 20));
         assertThat(jdbc.queryForObject("SELECT security_id FROM securities WHERE ticker='AAPL'", Long.class)).isEqualTo(id);
         assertThat(jdbc.queryForObject("SELECT status FROM securities WHERE security_id=?", String.class, id)).isEqualTo("HALTED");
@@ -44,17 +38,17 @@ class SecuritySeedIntegrationTests extends AccountTestSupport {
         assertThat(jdbc.queryForObject("SELECT status FROM securities WHERE ticker='MSFT'", String.class)).isEqualTo("DELISTED");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM securities WHERE security_id=?", Long.class, otherId)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT security_id FROM account_positions WHERE account_id=?", Long.class, account)).isEqualTo(id);
-        assertThat(seededAuditCount()).isEqualTo(audits);
+
     }
 
-    @Test void incompatibleExistingCurrencyRollsBackEarlierInsertsAndAudits() {
+    @Test void incompatibleExistingCurrencyRollsBackEarlierInserts() {
         jdbc.update("""
                 INSERT INTO securities(ticker,name,asset_type,exchange,quote_currency)
                 VALUES ('XOM','Existing conflicting row','EQUITY','NYSE','EUR')
                 """);
         assertThatThrownBy(() -> seeder.seed(DEV)).isInstanceOf(IllegalStateException.class).hasMessageContaining("XOM");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM securities", Long.class)).isEqualTo(1);
-        assertThat(seededAuditCount()).isZero();
+
     }
 
     @Test void switchingBetweenDevAndFullUsExchangeLabelsDoesNotCreateDuplicates() {
@@ -63,28 +57,27 @@ class SecuritySeedIntegrationTests extends AccountTestSupport {
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("Existing security conflicts");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM securities", Long.class)).isEqualTo(20);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM securities WHERE ticker='AAPL'", Long.class)).isEqualTo(1);
-        assertThat(seededAuditCount()).isEqualTo(20);
+
     }
 
     @Test void aLaterInvalidFilePreventsAnyImport() {
         assertThatThrownBy(() -> seeder.seed(List.of(DEV.get(0), "classpath:universes/missing.json")))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Cannot read securities universe");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM securities", Long.class)).isZero();
-        assertThat(seededAuditCount()).isZero();
+
     }
 
-    @Test void auditFailureRollsBackTheEntireSeed() {
-        jdbc.execute("ALTER TABLE audit_logs ADD CONSTRAINT test_seed_audit_failure CHECK (action_type <> 'SECURITY_SEEDED')");
+    @Test void databaseFailureRollsBackTheEntireSeed() {
+        jdbc.execute("ALTER TABLE securities ADD CONSTRAINT test_seed_failure CHECK (ticker <> 'AMZN') NOT VALID");
         try {
             assertThatThrownBy(() -> seeder.seed(DEV)).isInstanceOf(RuntimeException.class);
             assertThat(jdbc.queryForObject("SELECT count(*) FROM securities", Long.class)).isZero();
-            assertThat(seededAuditCount()).isZero();
         } finally {
-            jdbc.execute("ALTER TABLE audit_logs DROP CONSTRAINT test_seed_audit_failure");
+            jdbc.execute("ALTER TABLE securities DROP CONSTRAINT test_seed_failure");
         }
     }
 
-    @Test void concurrentStartupsInsertEachSecurityAndAuditExactlyOnce() throws Exception {
+    @Test void concurrentStartupsInsertEachSecurityExactlyOnce() throws Exception {
         Assumptions.assumeTrue(nativePostgres(), "Concurrency requires PostgreSQL/Testcontainers, not PGlite.");
         ExecutorService workers = Executors.newFixedThreadPool(2);
         CountDownLatch start = new CountDownLatch(1);
@@ -96,11 +89,8 @@ class SecuritySeedIntegrationTests extends AccountTestSupport {
             var first = workers.submit(work); var second = workers.submit(work); start.countDown();
             assertThat(first.get(30, TimeUnit.SECONDS).inserted() + second.get(30, TimeUnit.SECONDS).inserted()).isEqualTo(20);
             assertThat(jdbc.queryForObject("SELECT count(*) FROM securities", Long.class)).isEqualTo(20);
-            assertThat(seededAuditCount()).isEqualTo(20);
+
         } finally { start.countDown(); workers.shutdownNow(); }
     }
 
-    private long seededAuditCount() {
-        return jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action_type='SECURITY_SEEDED'", Long.class);
-    }
 }

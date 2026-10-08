@@ -5,6 +5,7 @@ import com.neueda.leap.team.security.JwtService;
 import java.math.BigDecimal;
 import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,6 +34,13 @@ public abstract class AccountTestSupport extends PostgresIntegrationTest {
         other = user("other@example.test", "CLIENT");
         admin = user("admin@example.test", "ADMIN");
         token = token(owner); otherToken = token(other); adminToken = token(admin);
+    }
+    @AfterEach
+    void deferredFeaturesRemainInactive() {
+        org.junit.jupiter.api.Assertions.assertEquals(0L,
+                jdbc.queryForObject("SELECT count(*) FROM cash_ledger", Long.class).longValue());
+        org.junit.jupiter.api.Assertions.assertEquals(0L,
+                jdbc.queryForObject("SELECT count(*) FROM audit_logs", Long.class).longValue());
     }
     protected long user(String email, String role) {
         return jdbc.queryForObject("""

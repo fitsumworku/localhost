@@ -10,40 +10,34 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class AccountCashIntegrationTests extends AccountTestSupport {
-    @Test void cashPostingUpdatesTransactionBalanceLedgerAndAuditTogether() throws Exception {
+    @Test void cashMovementUpdatesTransactionAndBalanceTogether() throws Exception {
         long id = account(token);
         var deposit = cash(id, "deposits", "125.75");
         assertThat(deposit.getResponse().getStatus()).isEqualTo(201);
         var tx = body(deposit).path("transaction");
         assertThat(tx.path("status").asText()).isEqualTo("COMPLETED");
-        assertThat(tx.path("balanceAfter").decimalValue()).isEqualByComparingTo("125.75");
+        assertThat(balance(id)).isEqualByComparingTo("125.75");
+        assertThat(tx.has("ledgerId")).isFalse();
+        assertThat(tx.has("balanceAfter")).isFalse();
         assertThat(cash(id, "withdrawals", "25.25").getResponse().getStatus()).isEqualTo(201);
         assertThat(balance(id)).isEqualByComparingTo("100.50");
         assertThat(count("transactions", id)).isEqualTo(2);
-        var ledger = getJson("/accounts/" + id + "/ledger", token).path("content");
-        assertThat(ledger.get(0).path("creditAmount").decimalValue()).isEqualByComparingTo("25.25");
-        assertThat(ledger.get(1).path("debitAmount").decimalValue()).isEqualByComparingTo("125.75");
-        assertThat(ledger.get(0).path("runningBalance").decimalValue()).isEqualByComparingTo("100.50");
-        assertThat(jdbc.queryForObject("SELECT sum(debit_amount-credit_amount) FROM cash_ledger WHERE account_id=?", java.math.BigDecimal.class, id))
-                .isEqualByComparingTo(balance(id));
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action_type IN ('CASH_TRANSACTION_COMPLETED','CASH_BALANCE_CHANGED','CASH_POSTED') AND actor_user_id=? AND subject_user_id=?",
-                Long.class, owner, owner)).isEqualTo(6);
+        var history = getJson("/accounts/" + id + "/transactions", token).path("content");
+        assertThat(history.get(0).path("type").asText()).isEqualTo("WITHDRAWAL");
+        assertThat(history.get(0).path("amount").decimalValue()).isEqualByComparingTo("25.25");
         getJson(deposit.getResponse().getHeader("Location"), token);
     }
 
-    @Test void retryReturnsOriginalPostingWithoutDuplicateMoneyLedgerOrAudit() throws Exception {
+    @Test void retryReturnsOriginalTransactionWithoutDuplicateMoney() throws Exception {
         long id = account(token); UUID key = UUID.randomUUID();
         var original = cash(id, "deposits", "10.10", key, token);
         cash(id, "deposits", "1.00");
-        long audits = jdbc.queryForObject("SELECT count(*) FROM audit_logs", Long.class);
         var repeated = cash(id, "deposits", "10.1", key, token);
         assertThat(repeated.getResponse().getStatus()).isEqualTo(200);
         assertThat(body(repeated).path("replayed").asBoolean()).isTrue();
         assertThat(body(repeated).path("transaction")).isEqualTo(body(original).path("transaction"));
         assertThat(balance(id)).isEqualByComparingTo("11.10");
         assertThat(count("transactions", id)).isEqualTo(2);
-        assertThat(count("cash_ledger", id)).isEqualTo(2);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs", Long.class)).isEqualTo(audits);
     }
 
     @Test void reusedKeyWithDifferentAmountOrOperationIsRejected() throws Exception {
@@ -69,15 +63,12 @@ class AccountCashIntegrationTests extends AccountTestSupport {
         var failed = cash(id, "withdrawals", "10.00", key, token);
         assertThat(failed.getResponse().getStatus()).isEqualTo(409);
         assertThat(body(failed).path("transaction").path("failureReason").asText()).isEqualTo("INSUFFICIENT_AVAILABLE_CASH");
-        assertThat(body(failed).path("transaction").path("ledgerId").isNull()).isTrue();
         assertThat(count("transactions", id)).isEqualTo(1);
-        assertThat(count("cash_ledger", id)).isZero();
         cash(id, "deposits", "100.00");
         var retry = cash(id, "withdrawals", "10.00", key, token);
         assertThat(retry.getResponse().getStatus()).isEqualTo(409);
         assertThat(body(retry).path("replayed").asBoolean()).isTrue();
         assertThat(balance(id)).isEqualByComparingTo("100.00");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action_type='CASH_TRANSACTION_FAILED'", Long.class)).isEqualTo(1);
     }
 
     @Test void withdrawalsRespectOnlyActiveBuyReservationsIncludingOvernightOrders() throws Exception {
@@ -131,20 +122,17 @@ class AccountCashIntegrationTests extends AccountTestSupport {
         var failed = cash(id, "deposits", "0.01");
         assertThat(failed.getResponse().getStatus()).isEqualTo(409);
         assertThat(body(failed).path("transaction").path("failureReason").asText()).isEqualTo("BALANCE_LIMIT_EXCEEDED");
-        assertThat(count("cash_ledger", id)).isEqualTo(1);
     }
 
-    @Test void auditFailureRollsBackSuccessfulCashMovementAndRequestCanBeRetried() throws Exception {
+    @Test void balanceFailureRollsBackCashTransactionAndRequestCanBeRetried() throws Exception {
         long id = account(token); UUID key = UUID.randomUUID();
         cash(id, "deposits", "100.00");
-        jdbc.execute("ALTER TABLE audit_logs ADD CONSTRAINT fail_cash_audit CHECK (action_type <> 'CASH_POSTED') NOT VALID");
+        jdbc.execute("ALTER TABLE account_cash_balances ADD CONSTRAINT test_keep_balance CHECK (cash_balance >= 100) NOT VALID");
         try {
             assertThat(cash(id, "withdrawals", "10.00", key, token).getResponse().getStatus()).isEqualTo(500);
             assertThat(balance(id)).isEqualByComparingTo("100.00");
             assertThat(count("transactions", id)).isEqualTo(1);
-            assertThat(count("cash_ledger", id)).isEqualTo(1);
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action_type='CASH_TRANSACTION_COMPLETED'", Long.class)).isEqualTo(1);
-        } finally { jdbc.execute("ALTER TABLE audit_logs DROP CONSTRAINT fail_cash_audit"); }
+        } finally { jdbc.execute("ALTER TABLE account_cash_balances DROP CONSTRAINT test_keep_balance"); }
         assertThat(cash(id, "withdrawals", "10.00", key, token).getResponse().getStatus()).isEqualTo(201);
         assertThat(balance(id)).isEqualByComparingTo("90.00");
     }

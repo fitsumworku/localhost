@@ -7,7 +7,6 @@ import com.neueda.leap.team.exception.ApiException;
 import com.neueda.leap.team.repository.*;
 import java.math.*;
 import java.time.Clock;
-import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -21,16 +20,14 @@ public class AccountCashService {
     private final AccountAccessService access;
     private final AccountCashBalanceRepository balances;
     private final CashTransactionRepository transactions;
-    private final CashLedgerRepository ledger;
     private final AccountQueryRepository queries;
-    private final AuditService audit;
     private final Clock clock;
 
     public AccountCashService(AccountAccessService access, AccountCashBalanceRepository balances,
-            CashTransactionRepository transactions, CashLedgerRepository ledger,
-            AccountQueryRepository queries, AuditService audit, Clock clock) {
+            CashTransactionRepository transactions,
+            AccountQueryRepository queries, Clock clock) {
         this.access = access; this.balances = balances; this.transactions = transactions;
-        this.ledger = ledger; this.queries = queries; this.audit = audit; this.clock = clock;
+        this.queries = queries; this.clock = clock;
     }
 
     @Transactional
@@ -48,7 +45,7 @@ public class AccountCashService {
     private CashOperationResponse post(long accountId, CashMovementRequest request, CashTransactionType type) {
         BigDecimal amount = validateAmount(request);
         // Lock order: user -> account cash balance -> dependent cash rows.
-        // Order reservation/execution services must use this same order when they are added.
+        // Order reservation/execution services use this same lock order.
         User user = access.lockActiveClient();
         access.owned(accountId, user.getId());
         AccountCashBalance balance = balances.findByAccountIdForUpdate(accountId)
@@ -83,28 +80,14 @@ public class AccountCashService {
         if (failure != null) {
             transaction.fail(failure, now);
             transactions.saveAndFlush(transaction);
-            audit.recordEntityEvent(user.getId(), user.getId(), "transactions",
-                    Map.of("transaction_id", transaction.getId(), "account_id", accountId),
-                    "CASH_TRANSACTION_FAILED", null,
-                    Map.of("type", type.name(), "amount", amount, "status", "FAILED", "failure_reason", failure));
-            // Return normally so FAILED and its audit record commit. The controller returns HTTP 409.
+            // Return normally so FAILED commits. The controller returns HTTP 409.
             return new CashOperationResponse(queries.transaction(accountId, transaction.getId()).orElseThrow(), false);
         }
 
         transaction.complete(now);
         transactions.saveAndFlush(transaction);
         balance.changeBalance(after, now);
-        CashLedgerEntry entry = ledger.saveAndFlush(new CashLedgerEntry(transaction, after, now));
-        audit.recordEntityEvent(user.getId(), user.getId(), "transactions",
-                Map.of("transaction_id", transaction.getId(), "account_id", accountId), "CASH_TRANSACTION_COMPLETED", null,
-                Map.of("type", type.name(), "amount", amount, "status", "COMPLETED", "client_request_id", request.clientRequestId()));
-        audit.recordEntityEvent(user.getId(), user.getId(), "account_cash_balances", Map.of("account_id", accountId),
-                "CASH_BALANCE_CHANGED", Map.of("cash_balance", before),
-                Map.of("cash_balance", after, "transaction_id", transaction.getId(), "ledger_id", entry.getId()));
-        audit.recordEntityEvent(user.getId(), user.getId(), "cash_ledger",
-                Map.of("ledger_id", entry.getId(), "account_id", accountId), "CASH_POSTED", null,
-                Map.of("transaction_id", transaction.getId(), "entry_type", entry.getEntryType(),
-                        "debit_amount", entry.getDebitAmount(), "credit_amount", entry.getCreditAmount(), "running_balance", after));
+        balances.flush();
         return new CashOperationResponse(queries.transaction(accountId, transaction.getId()).orElseThrow(), false);
     }
 
@@ -116,10 +99,6 @@ public class AccountCashService {
         return queries.transaction(accountId, transactionId).orElseThrow(() ->
                 new ApiException(HttpStatus.NOT_FOUND, "TRANSACTION_NOT_FOUND", "Transaction not found."));
     }
-    public PageResponse<LedgerEntryDto> ledger(long accountId, int page, int size) {
-        access.readable(accountId); return queries.ledger(accountId, page, size);
-    }
-
     private static BigDecimal validateAmount(CashMovementRequest request) {
         if (request == null || request.clientRequestId() == null || request.amount() == null
                 || request.amount().signum() <= 0 || request.amount().scale() > 2

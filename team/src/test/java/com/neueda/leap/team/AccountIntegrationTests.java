@@ -43,7 +43,7 @@ class AccountIntegrationTests extends AccountTestSupport {
         assertThat(b).isNotEqualTo(a);
     }
 
-    @ParameterizedTest @ValueSource(strings = {"", "/balance", "/positions", "/orders", "/trades", "/transactions", "/ledger", "/transactions/1"})
+    @ParameterizedTest @ValueSource(strings = {"", "/balance", "/positions", "/orders", "/trades", "/transactions", "/transactions/1"})
     void everyAccountReadChecksOwnership(String suffix) throws Exception {
         long id = account(otherToken);
         mvc.perform(get("/accounts/" + id + suffix).header("Authorization", "Bearer " + token))
@@ -83,14 +83,25 @@ class AccountIntegrationTests extends AccountTestSupport {
         mvc.perform(get("/accounts" + query).header("Authorization", "Bearer " + token)).andExpect(status().isBadRequest());
     }
 
-    @Test void creationRollsBackBothRowsWhenAuditingFails() throws Exception {
-        jdbc.execute("ALTER TABLE audit_logs ADD CONSTRAINT fail_account_audit CHECK (action_type <> 'BALANCE_INITIALIZED')");
+    @Test void accountCreationRollsBackIfItsBalanceCannotBeCreated() throws Exception {
+        jdbc.execute("ALTER TABLE account_cash_balances ADD CONSTRAINT test_reject_zero CHECK (cash_balance <> 0) NOT VALID");
         try {
             mvc.perform(post("/accounts").header("Authorization", "Bearer " + token)).andExpect(status().isInternalServerError());
             assertThat(jdbc.queryForObject("SELECT count(*) FROM accounts", Long.class)).isZero();
             assertThat(jdbc.queryForObject("SELECT count(*) FROM account_cash_balances", Long.class)).isZero();
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs", Long.class)).isZero();
-        } finally { jdbc.execute("ALTER TABLE audit_logs DROP CONSTRAINT fail_account_audit"); }
+        } finally { jdbc.execute("ALTER TABLE account_cash_balances DROP CONSTRAINT test_reject_zero"); }
+    }
+
+    @Test void removedLedgerAndAuditRoutesAreUnavailable() throws Exception {
+        long id = account(token);
+        for (String bearer : new String[]{token, adminToken}) {
+            mvc.perform(get("/accounts/" + id + "/ledger").header("Authorization", "Bearer " + bearer))
+                    .andExpect(status().isForbidden());
+            mvc.perform(get("/users/" + owner + "/audit-logs").header("Authorization", "Bearer " + bearer))
+                    .andExpect(status().isForbidden());
+        }
+        var spec = body(mvc.perform(get("/v3/api-docs")).andExpect(status().isOk()).andReturn());
+        assertThat(spec.path("paths").has("/accounts/{accountId}/ledger")).isFalse();
     }
 
     @Test void missingBalanceIsNotPresentedAsZeroOrHiddenFromList() throws Exception {
@@ -144,7 +155,7 @@ class AccountIntegrationTests extends AccountTestSupport {
         assertThat(spec.path("paths").path("/accounts").path("post").path("security").isEmpty()).isFalse();
     }
 
-    @Test void registrationAndLoginStillWorkAfterAuditServiceExtension() throws Exception {
+    @Test void registrationAndLoginStillWork() throws Exception {
         String request = "{\"name\":\"New client\",\"email\":\"new@example.test\",\"password\":\"New-Account-Password-123!\"}";
         mvc.perform(post("/auth/register").contentType("application/json").content(request))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.role").value("CLIENT"));

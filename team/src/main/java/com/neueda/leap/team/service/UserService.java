@@ -26,16 +26,15 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
-    private final AuditService audit;
     private final Clock clock;
     private final EntityManager entityManager;
 
     public UserService(UserRepository users, RoleRepository roles, PasswordEncoder passwordEncoder,
                        AuthenticationManager authenticationManager, JwtService jwtService,
-                       AuditService audit, Clock clock, EntityManager entityManager) {
+                       Clock clock, EntityManager entityManager) {
         this.users = users; this.roles = roles; this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager; this.jwtService = jwtService;
-        this.audit = audit; this.clock = clock; this.entityManager = entityManager;
+        this.clock = clock; this.entityManager = entityManager;
     }
 
     @Transactional
@@ -44,7 +43,6 @@ public class UserService {
         var clientRole = roles.findByName(RoleName.CLIENT)
                 .orElseThrow(() -> new IllegalStateException("Seed CLIENT and ADMIN roles before registration."));
         User user = users.saveAndFlush(new User(req.name(), req.email(), passwordEncoder.encode(req.password()), clientRole, clock.instant()));
-        audit.recordUserEvent(null, user.getId(), "REGISTER", null, Map.of("role", "CLIENT", "status", "ACTIVE"));
         return UserDto.from(user);
     }
 
@@ -59,7 +57,6 @@ public class UserService {
         entityManager.refresh(user);
         if (user.getStatus() != UserStatus.ACTIVE) throw new BadCredentialsException("User unavailable");
         IssuedJwt issued = jwtService.generateToken(user);
-        audit.recordUserEvent(user.getId(), user.getId(), "LOGIN", null, Map.of("role", user.getRole().getName().name()));
         long remaining = Math.max(0, Duration.between(clock.instant(), issued.expiresAt()).toMillis());
         return new AuthResponse(issued.token(), "Bearer", remaining, UserDto.from(user));
     }
@@ -70,9 +67,7 @@ public class UserService {
         AppUserDetails principal = principal();
         User user = lockedUser(principal.getUserId());
         if (user.getTokenVersion() != principal.getTokenVersion()) return;
-        long oldVersion = user.getTokenVersion();
         user.revokeTokens(clock.instant());
-        audit.recordUserEvent(user.getId(), user.getId(), "LOGOUT_ALL", Map.of("token_version", oldVersion), Map.of("token_version", user.getTokenVersion()));
     }
 
     @Transactional(readOnly = true)
@@ -114,9 +109,7 @@ public class UserService {
         User user = lockedUser(userId);
         requireActivePrincipal(user);
         if (!user.getName().equals(request.name())) {
-            String previousName = user.getName();
             user.updateName(request.name(), clock.instant());
-            audit.recordUserEvent(userId, userId, "PROFILE_UPDATE", Map.of("name", previousName), Map.of("name", user.getName()));
         }
         return UserDto.from(user);
     }
@@ -128,8 +121,6 @@ public class UserService {
         UserStatus previous = user.getStatus();
         if (previous != request.status()) {
             user.changeStatus(request.status(), clock.instant());
-            audit.recordUserEvent(principal().getUserId(), userId, "STATUS_CHANGE",
-                    Map.of("status", previous.name()), Map.of("status", user.getStatus().name()));
         }
         return UserDto.from(user);
     }
@@ -138,10 +129,7 @@ public class UserService {
     @PreAuthorize("hasRole('ADMIN')")
     public void revokeSessions(Long userId) {
         User user = lockedClient(userId);
-        long previous = user.getTokenVersion();
         user.revokeTokens(clock.instant());
-        audit.recordUserEvent(principal().getUserId(), userId, "SESSIONS_REVOKED",
-                Map.of("token_version", previous), Map.of("token_version", user.getTokenVersion()));
     }
 
     private User lockedUser(long id) { return users.findByIdForUpdate(id).orElseThrow(this::notFound); }
