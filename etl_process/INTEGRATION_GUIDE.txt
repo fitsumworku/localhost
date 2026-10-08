@@ -1,47 +1,153 @@
 ================================================================================
-ETL TECH STACK INTEGRATION GUIDE - PaySprint Wealth Platform
-Full Implementation Roadmap: Debezium + Kafka + Python + Airflow
+ETL ARCHITECTURE & DESIGN REFERENCE GUIDE - PaySprint Wealth Platform
+Strategic Architecture for Debezium + Kafka + Python + Airflow ETL Pipeline
 ================================================================================
 
-DOCUMENT VERSION: 2.0
+DOCUMENT VERSION: 3.0 (RESTRUCTURED)
 CREATED: 2026-09-28
-LAST UPDATED: 2026-10-6
+LAST UPDATED: 2026-10-08
+PURPOSE: Architecture decisions, strategic planning, and design patterns
+
+================================================================================
+QUICK START: WHICH GUIDE TO USE?
+================================================================================
+
+📋 THIS GUIDE (INTEGRATION_GUIDE.txt) — Architecture & Design
+   Use for: Strategic planning, architectural decisions, design patterns
+   When: During planning phase, design reviews, long-term maintenance
+   Focus: Sections 3-6 (Critical Considerations, Schema Changes, Checklist, Troubleshooting)
+
+🧪 etl_integration_test.txt — Local Development Testing
+   Use for: Step-by-step execution on your local machine
+   When: Before AWS deployment, during development
+   Time: 2-4 hours
+   Focus: Phases 1-7 (end-to-end testing procedures)
+
+☁️  etl_integration_aws.txt — AWS Production Deployment
+   Use for: Step-by-step deployment on AWS infrastructure
+   When: After local testing passes, moving to production
+   Time: 4-8 hours
+   Focus: Phases 1-7 (AWS-specific setup and deployment)
+
+================================================================================
+RECOMMENDED WORKFLOW
+================================================================================
+
+1. PLANNING PHASE
+   → Read this guide (INTEGRATION_GUIDE.txt)
+   → Review Sections 3-6: Critical Considerations, Schema, Checklist, Troubleshooting
+   → Understand design decisions and trade-offs
+   → Plan resource requirements and timeline
+
+2. LOCAL TESTING PHASE
+   → Follow etl_integration_test.txt step-by-step
+   → Complete all 7 phases (3-4 hours)
+   → Validate core ETL logic with 168K test records
+   → Reference this guide for design rationale if issues arise
+
+3. AWS DEPLOYMENT PHASE
+   → Follow etl_integration_aws.txt step-by-step
+   → Complete all 7 phases (4-8 hours)
+   → Deploy to production AWS infrastructure
+   → Reference this guide for architectural decisions
+
+4. ONGOING OPERATIONS
+   → Refer to Section 6 (Troubleshooting) when issues occur
+   → Use Section 3 (Critical Considerations) for capacity planning
+   → Consult Section 4 (Schema Changes) when schema evolves
+   → Reference Section 5 (Checklist) for compliance/audit
 
 ================================================================================
 TABLE OF CONTENTS
 ================================================================================
 
-SECTION A: PREREQUISITES (Before Integration Guide Phases)
+SECTION 1: ARCHITECTURE OVERVIEW
+  Overview of full ETL stack
+  Technology choices and rationale
+
+SECTION 2: PREREQUISITES & SETUP VERIFICATION
   PRE.1: Data Generation
   PRE.2: OLTP Schema Creation
   PRE.3: OLAP Schema Creation
   PRE.4: Load Test Data into OLTP
   PRE.5: Verify Database Connectivity
+  ⚠️  EXECUTION NOTE: See etl_integration_test.txt or etl_integration_aws.txt for step-by-step
 
-SECTION B: INTEGRATION GUIDE PHASES
-1. ARCHITECTURE OVERVIEW
-2. PHASE 1: INFRASTRUCTURE SETUP (Debezium, Kafka, Zookeeper)
-3. PHASE 2: DATABASE PREPARATION (OLTP & OLAP)
-4. PHASE 3: PYTHON ETL PIPELINE DEVELOPMENT
-5. PHASE 4: AIRFLOW ORCHESTRATION SETUP
-6. PHASE 5: SCHEMA OPTIMIZATION FOR ANALYTICS
-7. PHASE 6: MONITORING & VALIDATION
+SECTION 3: CRITICAL CONSIDERATIONS (Core Strategic Content)
+  ⭐ CONSIDERATION 1: Exactly-Once Semantics (Idempotency)
+  ⭐ CONSIDERATION 2: Schema Drift Handling (OLTP Changes)
+  ⭐ CONSIDERATION 3: Slowly Changing Dimensions (SCD Type 2)
+  ⭐ CONSIDERATION 4: Partition Maintenance Strategy
+  ⭐ CONSIDERATION 5: Late-Arriving Data Handling
+  ⭐ CONSIDERATION 6: Performance Tuning Approach
+  ⭐ CONSIDERATION 7: Security & Compliance Requirements
+  ⭐ CONSIDERATION 8: Cost Optimization Strategies
 
-SECTION C: POST-INTEGRATION STEPS
-8. POST-INTEGRATION: Performance Testing & Sign-Off
+SECTION 4: RECOMMENDED OLAP SCHEMA CHANGES (Core Strategic Content)
+  Summary of 13 tables to create, 9 to modify, 4 to partition
+  Detailed migration strategy
+  SCD Type 2 implementation guide
+  Aggregated fact table design
 
-SECTION D: APPENDICES
-9. IMPLEMENTATION CHECKLIST
-10. CRITICAL CONSIDERATIONS
-11. RECOMMENDED OLAP SCHEMA CHANGES
-12. TROUBLESHOOTING GUIDE
+SECTION 5: IMPLEMENTATION CHECKLIST (Core Strategic Content)
+  100+ items organized by phase
+  Infrastructure, Database, Python, Airflow, Schema, Monitoring
+  Production readiness checklist
+
+SECTION 6: TROUBLESHOOTING GUIDE (Core Strategic Content)
+  8 major issues with diagnosis and resolution
+  Debezium connector problems
+  Kafka consumer lag
+  Data quality failures
+  Python pipeline crashes
+  Airflow scheduling issues
+  Database performance issues
+  ⚠️  QUICK FIXES: See etl_integration_test.txt or etl_integration_aws.txt for specific steps
 
 ================================================================================
-SECTION A: PREREQUISITES
+SECTION 1: ARCHITECTURE OVERVIEW
+================================================================================
+
+Full ETL Pipeline Architecture:
+  OLTP PostgreSQL (Source Database, CDC enabled)
+    ↓ Logical Replication via Debezium
+  Kafka Topics (13 topics, one per table)
+    ↓ Event Streaming (CDC events)
+  Python ETL Pipeline (Kafka consumer, transformers, batch loader)
+    ↓ Transform & Load with SCD Type 2
+  OLAP PostgreSQL (Analytics Database, dimensional schema)
+    ↓ SQL Queries for Dashboards & Reports
+  Airflow (Orchestrator for daily runs and monitoring)
+
+Key Technology Choices:
+  - CDC Method: Debezium PostgreSQL Connector (pgoutput, native logical decoding)
+  - Message Broker: Apache Kafka (fault-tolerant, scalable)
+  - ETL Language: Python 3.10+ (kafka-python, psycopg2)
+  - Orchestration: Apache Airflow 2.7.0 (DAG-based scheduling)
+  - Analytics Schema: Kimball star schema with SCD Type 2 dimensions
+
+Why These Choices:
+  ✅ CDC provides real-time data synchronization without impacting OLTP
+  ✅ Kafka enables fault-tolerant, replayed event streaming
+  ✅ Python provides flexibility for complex transformations
+  ✅ Airflow enables reliable scheduling, monitoring, and alerting
+  ✅ Star schema with SCD Type 2 supports historical analytics
+
+For detailed EXECUTION instructions, see:
+  → etl_integration_test.txt (Local testing)
+  → etl_integration_aws.txt (AWS deployment)
+
+================================================================================
+SECTION 2: PREREQUISITES & SETUP VERIFICATION
 ================================================================================
 
 CRITICAL: Complete ALL prerequisites before starting PHASE 1. These are
 foundational tasks that enable the entire integration pipeline.
+
+⚠️  IMPORTANT: This section describes WHAT must be in place.
+For step-by-step execution instructions:
+   → See etl_integration_test.txt (local testing)
+   → See etl_integration_aws.txt (AWS deployment)
 
 ================================================================================
 PRE.1: DATA GENERATION
@@ -258,20 +364,30 @@ TROUBLESHOOTING:
 TIMELINE: 5 minutes
 
 ================================================================================
-SECTION B: INTEGRATION GUIDE PHASES
+⚠️  EXECUTION INSTRUCTIONS MOVED TO SEPARATE GUIDES
 ================================================================================
 
-PRE-PHASE CHECKLIST:
-  ✅ PRE.1: Data generation files exist
-  ✅ PRE.2: OLTP schema created
-  ✅ PRE.3: OLAP schema created
-  ✅ PRE.4: Test data loaded into OLTP (~168K rows)
-  ✅ PRE.5: Database connectivity verified
+The step-by-step execution instructions for PHASE 1-6 have been moved to:
 
-IF ALL PREREQUISITES COMPLETE: Proceed to PHASE 1
+  📝 etl_integration_test.txt
+     └─ Complete local testing procedures (2-4 hours)
+     └─ 7 phases with validation checklists
+     └─ Troubleshooting common local issues
+
+  ☁️  etl_integration_aws.txt
+     └─ Complete AWS deployment procedures (4-8 hours)
+     └─ 7 phases with AWS-specific services (RDS, MSK, EC2, CloudWatch)
+     └─ Cost optimization and disaster recovery procedures
+
+This document (INTEGRATION_GUIDE.txt) focuses on:
+  ⭐ Strategic architectural decisions and rationale
+  ⭐ Critical considerations for long-term maintenance
+  ⭐ Schema design patterns and migration strategies
+  ⭐ Troubleshooting deep issues and complex scenarios
+  ⭐ Comprehensive implementation checklist for compliance
 
 ================================================================================
-1. ARCHITECTURE OVERVIEW
+ARCHITECTURE OVERVIEW (For Reference)
 ================================================================================
 
 DATA FLOW:
@@ -300,13 +416,67 @@ COMPONENT RESPONSIBILITIES:
 - Fact Tables: Store granular transactions and aggregated analytics
 
 ================================================================================
+🔄 PHASES 1-6 EXECUTION GUIDE
+================================================================================
+
+For step-by-step implementation of Phases 1-6, please refer to:
+
+  LOCAL ENVIRONMENT: etl_integration_test.txt
+    - PHASE 1: Pre-flight checks (30 min)
+    - PHASE 2: Data generation & verification (15 min)
+    - PHASE 3: Kafka setup (20 min)
+    - PHASE 4: Debezium CDC configuration (20 min)
+    - PHASE 5: Python pipeline testing (45 min)
+    - PHASE 6: Airflow DAG testing (45 min)
+    - PHASE 7: Validation & results (30 min)
+    TOTAL: 3-4 hours
+
+  AWS PRODUCTION: etl_integration_aws.txt
+    - PHASE 1: AWS infrastructure setup (1-2 hours)
+    - PHASE 2: Database preparation (30-45 min)
+    - PHASE 3: Application deployment (1-2 hours)
+    - PHASE 4: Security hardening (30-45 min)
+    - PHASE 5: Monitoring & logging (30 min)
+    - PHASE 6: Testing in AWS (1-2 hours)
+    - PHASE 7: Production deployment (30 min)
+    TOTAL: 4-8 hours
+
+This guide provides the ARCHITECTURE and STRATEGY behind those steps.
+Continue reading Sections 3-6 below for design patterns and critical considerations.
+
+================================================================================
+================================================================================
+
+⬇️  SECTIONS 3-6 BELOW: CORE STRATEGIC CONTENT FOR THIS GUIDE
+
+The following sections contain architectural decisions, strategic patterns,
+and design rationale that should inform your implementation decisions.
+
+================================================================================
+================================================================================
+
+STOP: Before Implementing Phases 1-6
+
+Read the sections below (3-6) to understand:
+  ✅ SECTION 3: Critical Considerations (8 major issues)
+  ✅ SECTION 4: Recommended OLAP Schema Changes (14+ tables)
+  ✅ SECTION 5: Implementation Checklist (100+ items)
+  ✅ SECTION 6: Troubleshooting Guide (8+ issues)
+
+This will prevent costly mistakes during deployment.
+
+================================================================================
+SECTION 3: CRITICAL CONSIDERATIONS
+================================================================================
+
+Consider the following architectural decisions before building your pipeline.
+
+================================================================================
 2. PHASE 1: INFRASTRUCTURE SETUP
 ================================================================================
 
-STEP 2.1: ENABLE LOGICAL DECODING ON OLTP POSTGRESQL
-─────────────────────────────────────────────────────
-
-STATUS: ⏳ MANUAL (DBA Task)
+[This section follows the Architecture Overview above and is kept for reference.
+For execution instructions, see etl_integration_test.txt or etl_integration_aws.txt]
 
 Logical decoding allows Debezium to capture changes without replication slots
 becoming a bottleneck.
@@ -2151,8 +2321,11 @@ QUICK REFERENCE: Total Timeline & Effort
 *First full pipeline run: 2-4 hours (after setup complete)*
 
 ================================================================================
-8. IMPLEMENTATION CHECKLIST
+⭐ SECTION 5: IMPLEMENTATION CHECKLIST (CORE STRATEGIC CONTENT)
 ================================================================================
+
+Use this checklist during deployment to ensure nothing is missed.
+100+ items organized by phase for compliance and quality assurance.
 
 PHASE 1: INFRASTRUCTURE
   [ ] Enable logical decoding on OLTP PostgreSQL
@@ -2254,8 +2427,11 @@ PRODUCTION READINESS
   [ ] First week monitoring during business hours
 
 ================================================================================
-9. CRITICAL CONSIDERATIONS
+⭐ SECTION 3: CRITICAL CONSIDERATIONS (CORE STRATEGIC CONTENT)
 ================================================================================
+
+Read this section during planning to avoid costly design mistakes.
+Each consideration describes a key architectural decision.
 
 CONSIDERATION 1: EXACTLY-ONCE SEMANTICS
 ────────────────────────────────────────
@@ -2434,8 +2610,11 @@ Recommendation:
   - Archive data older than 2 years to S3/GCS
 
 ================================================================================
-10. RECOMMENDED OLAP SCHEMA CHANGES
+⭐ SECTION 4: RECOMMENDED OLAP SCHEMA CHANGES (CORE STRATEGIC CONTENT)
 ================================================================================
+
+Read this section before creating OLAP tables.
+Provides complete schema migration strategy.
 
 SUMMARY OF ALL CHANGES NEEDED:
 
@@ -2495,8 +2674,11 @@ MIGRATION STRATEGY:
   8. Document schema evolution for future analysts
 
 ================================================================================
-11. TROUBLESHOOTING GUIDE
+⭐ SECTION 6: TROUBLESHOOTING GUIDE (CORE STRATEGIC CONTENT)
 ================================================================================
+
+Use this section when unexpected issues arise during or after deployment.
+Provides diagnosis and resolution strategies for 8+ major issues.
 
 ISSUE: Debezium Connector Not Starting
 ─────────────────────────────────────
@@ -2773,20 +2955,39 @@ Auto-generated files: ~40+ production-quality files
 First pipeline run: 2-4 hours after setup complete
 
 ================================================================================
-END OF INTEGRATION GUIDE
+✅ END OF ARCHITECTURE & DESIGN REFERENCE GUIDE
 ================================================================================
 
-VERSION: 3.0 - COMPREHENSIVE IMPLEMENTATION GUIDE
-LAST UPDATED: 2026-10-06
-STATUS: Ready for Production Deployment
+VERSION: 3.0 - RESTRUCTURED (ARCHITECTURE & DESIGN FOCUS)
+LAST UPDATED: 2026-10-08
+STATUS: Ready for Planning & Execution
 
-Complete with:
-  ✅ All prerequisites detailed (5 steps)
-  ✅ All integration phases detailed (6 phases, 28 steps)
-  ✅ All post-integration steps (4 steps)
-  ✅ Troubleshooting guide (6 major issues)
-  ✅ Command reference (30+ commands)
-  ✅ Security best practices
-  ✅ Timeline and effort estimates
+This guide contains:
+  ⭐ SECTION 1: Architecture overview and technology rationale
+  ⭐ SECTION 2: Prerequisites checklist (5 items)
+  ⭐ SECTION 3: Critical Considerations (8 major decisions)
+  ⭐ SECTION 4: Recommended OLAP Schema Changes (14+ tables)
+  ⭐ SECTION 5: Implementation Checklist (100+ items)
+  ⭐ SECTION 6: Troubleshooting Guide (8+ issues with solutions)
 
-Next Action: Execute prerequisites in SECTION A, then proceed through PHASES 1-6
+For EXECUTION INSTRUCTIONS, refer to:
+  ➡️  etl_integration_test.txt (Local testing - 2-4 hours)
+  ➡️  etl_integration_aws.txt (AWS deployment - 4-8 hours)
+
+RECOMMENDED NEXT STEPS:
+  1. Complete prerequisites (SECTION 2)
+  2. Review critical considerations (SECTION 3)
+  3. Plan schema changes (SECTION 4)
+  4. Execute using test or AWS guide (choose environment)
+  5. Reference checklist (SECTION 5) during deployment
+  6. Use troubleshooting guide (SECTION 6) for issues
+
+DOCUMENT PURPOSE:
+  This is the STRATEGIC REFERENCE for:
+    - Architecture planning and review
+    - Design decision rationale
+    - Schema evolution guidance
+    - Long-term maintenance procedures
+    - Complex issue troubleshooting
+
+  Use etl_integration_test.txt or etl_integration_aws.txt for step-by-step execution.
