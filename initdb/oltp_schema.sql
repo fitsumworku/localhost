@@ -39,7 +39,7 @@ CREATE TABLE Users (
     -- Exactly one role per login; many users may reference the same role.
     -- Spring assigns CLIENT on public registration; admin provisioning is protected.
     Role_ID BIGINT NOT NULL REFERENCES Roles(Role_ID),
-    -- SUSPENDED means blacklisted. Spring must write actor/time to Audit_Logs.
+    -- SUSPENDED means blacklisted.
     Status VARCHAR(9) NOT NULL DEFAULT 'ACTIVE'
         CHECK (Status IN ('ACTIVE', 'SUSPENDED')),
     Token_Version BIGINT NOT NULL DEFAULT 0
@@ -122,6 +122,14 @@ CREATE TABLE Orders (
     Accepted_At TIMESTAMPTZ,
     Terminal_At TIMESTAMPTZ,
     Rejection_Reason TEXT,
+    -- Durable execution queue; a lease token fences a worker that resumes after losing its lease.
+    Next_Attempt_At TIMESTAMPTZ DEFAULT clock_timestamp(),
+    Execution_Token UUID,
+    Execution_Lease_Until TIMESTAMPTZ,
+    Execution_Attempts INTEGER NOT NULL DEFAULT 0 CHECK (Execution_Attempts >= 0),
+    Last_Execution_Message VARCHAR(100),
+    CHECK ((Execution_Token IS NULL) = (Execution_Lease_Until IS NULL)),
+    CHECK ((Order_Status = 'IN_EXECUTION') = (Execution_Token IS NOT NULL)),
     UNIQUE (Account_ID, Client_Request_ID),
     -- Supports ownership/instrument/side consistency in child tables.
     UNIQUE (Order_ID, Account_ID, Security_ID, Side),
@@ -260,7 +268,7 @@ CREATE TABLE Trades (
     CHECK (Settlement_Date >= Trade_Date)
 );
 
--- Non-trading cash operations. A buy/sell is represented by Trades + Cash_Ledger.
+-- Non-trading cash operations. A buy/sell is represented by Trades and the account balance update.
 -- Keeping a type here does not require exposing it in the initial UI.
 CREATE TABLE Transactions (
     Transaction_ID BIGSERIAL PRIMARY KEY,
@@ -285,10 +293,8 @@ CREATE TABLE Transactions (
         OR (Transaction_Status <> 'FAILED' AND Failure_Reason IS NULL))
 );
 
--- Lock the account's Account_Cash_Balances row before posting.
--- Let INSERT allocate Ledger_ID from its default;
--- do not preallocate IDs in the application. With the default sequence CACHE 1,
--- Ledger_ID orders that account's postings. Update Account_Cash_Balances in that transaction.
+-- Reserved model scaffold: CashLedgerEntry is retained, but the backend does not
+-- read or write Cash_Ledger while the teammate implements this feature.
 CREATE TABLE Cash_Ledger (
     Ledger_ID BIGSERIAL PRIMARY KEY,
     Account_ID BIGINT NOT NULL REFERENCES Accounts(Account_ID),
@@ -338,6 +344,7 @@ CREATE TABLE Disputes (
         OR (Status NOT IN ('RESOLVED','REJECTED') AND Date_Resolved IS NULL))
 );
 
+-- Reserved schema scaffold for the teammate; no audit service or runtime calls remain.
 CREATE TABLE Audit_Logs (
     Audit_ID BIGSERIAL PRIMARY KEY,
     Actor_User_ID BIGINT REFERENCES Users(User_ID),
@@ -359,9 +366,9 @@ CREATE INDEX ix_accounts_user ON Accounts(User_ID, Account_ID);
 CREATE INDEX ix_positions_security ON Account_Positions(Security_ID);
 CREATE INDEX ix_orders_account_history ON Orders(Account_ID, Created_Date DESC, Order_ID DESC);
 CREATE INDEX ix_orders_security ON Orders(Security_ID);
-CREATE INDEX ix_orders_execution_queue ON Orders(Security_ID, Created_Date, Order_ID)
+CREATE INDEX ix_orders_execution_queue ON Orders(Next_Attempt_At, Order_ID)
     WHERE Order_Status = 'ACCEPTED';
-CREATE INDEX ix_orders_in_execution ON Orders(Updated_Date) WHERE Order_Status = 'IN_EXECUTION';
+CREATE INDEX ix_orders_in_execution ON Orders(Execution_Lease_Until) WHERE Order_Status = 'IN_EXECUTION';
 CREATE INDEX ix_active_reservations ON Order_Reservations(Account_ID, Security_ID, Side)
     WHERE Status = 'ACTIVE';
 CREATE INDEX ix_executions_order ON Executions(Order_ID, Finished_At, Execution_ID);
