@@ -69,6 +69,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/accounts/*/orders", "/accounts/*/orders/*/cancel").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.GET, "/accounts/*/orders/*", "/accounts/*/orders/*/executions",
                                 "/securities", "/securities/*", "/securities/*/quote").hasAnyRole("CLIENT", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/disputes/*/transaction/*", "/disputes/*/trade/*").hasRole("CLIENT")
+                        .requestMatchers(HttpMethod.GET, "/disputes/*", "/disputes/*/*").hasAnyRole("CLIENT", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/disputes/*/*/assign-to-me").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/disputes/*/*/status").hasRole("ADMIN")
                         // Enable additional business routes only alongside their ownership/role checks.
                         .anyRequest().denyAll())
                 .authenticationProvider(provider)
