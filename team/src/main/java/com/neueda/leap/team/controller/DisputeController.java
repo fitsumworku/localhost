@@ -14,7 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/disputes")
+@RequestMapping("/accounts")
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Disputes")
 @PreAuthorize("hasAnyRole('CLIENT', 'ADMIN')")
@@ -25,7 +25,7 @@ public class DisputeController {
         this.disputeService = disputeService;
     }
 
-    @PostMapping("/{accountId}/transaction/{transactionId}")
+    @PostMapping("/{accountId}/disputes/transaction/{transactionId}")
     @PreAuthorize("hasRole('CLIENT')")
     @Operation(summary = "File a dispute on a transaction", description = "CLIENT only. Dispute a specific transaction in their account.")
     public ResponseEntity<DisputeDto> fileDisputeOnTransaction(@PathVariable Long accountId, @PathVariable Long transactionId, @Valid @RequestBody CreateDisputeRequest request)
@@ -34,7 +34,7 @@ public class DisputeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(dispute);
     }
 
-    @PostMapping("/{accountId}/trade/{tradeId}")
+    @PostMapping("/{accountId}/disputes/trade/{tradeId}")
     @PreAuthorize("hasRole('CLIENT')")
     @Operation(summary = "File a dispute on a trade", 
                description = "CLIENT only. Dispute a specific trade in their account.")
@@ -46,7 +46,7 @@ public class DisputeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(dispute);
     }
 
-    @GetMapping("/{accountId}")
+    @GetMapping("/{accountId}/disputes")
     @Operation(summary = "List disputes for an account", 
                description = "CLIENT sees only their own. ADMIN sees all accounts.")
     public ResponseEntity<PageResponse<DisputeDto>> listDisputes(
@@ -58,7 +58,7 @@ public class DisputeController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/{accountId}/{disputeId}")
+    @GetMapping("/{accountId}/disputes/{disputeId}")
     @Operation(summary = "Get a specific dispute")
     public ResponseEntity<DisputeDto> getDispute(
             @PathVariable Long accountId,
@@ -67,7 +67,7 @@ public class DisputeController {
         return ResponseEntity.ok(dispute);
     }
 
-    @PostMapping("/{accountId}/{disputeId}/assign-to-me")
+    @PostMapping("/{accountId}/disputes/{disputeId}/assign-to-me")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Assign dispute to current ADMIN", 
                description = "ADMIN only. Assign a dispute to review.")
@@ -78,7 +78,7 @@ public class DisputeController {
         return ResponseEntity.ok(dispute);
     }
 
-    @PatchMapping("/{accountId}/{disputeId}/status")
+    @PatchMapping("/{accountId}/disputes/{disputeId}/status")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update dispute status", 
                description = "ADMIN only. Update status to UNDER_REVIEW, ESCALATED, RESOLVED, or REJECTED.")
