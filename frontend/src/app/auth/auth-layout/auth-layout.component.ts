@@ -1,4 +1,12 @@
-import { AfterViewInit, Component, DestroyRef, ElementRef, ViewChild, inject, signal } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  DestroyRef,
+  ElementRef,
+  ViewChild,
+  inject,
+  signal,
+} from '@angular/core';
 import { Event as RouterEvent, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -16,30 +24,70 @@ interface FloatingSymbol {
 
 const SYMBOLS: Record<AuthVariant, string[]> = {
   login: [
-    '$', '+2.4%', '{ }', 'AAPL ▲', '$', '( )', '▲ 1.8%', '</>', '€', 'BUY', '$',
-    '+12.7%', 'Σ', 'NVDA ▲', '1010', '£', '=>', '$', 'MSFT', '+0.9%', '¥', '[ ]',
+    '$',
+    '+2.4%',
+    '{ }',
+    'AAPL ▲',
+    '$',
+    '( )',
+    '▲ 1.8%',
+    '</>',
+    '€',
+    'BUY',
+    '$',
+    '+12.7%',
+    'Σ',
+    'NVDA ▲',
+    '1010',
+    '£',
+    '=>',
+    '$',
+    'MSFT',
+    '+0.9%',
+    '¥',
+    '[ ]',
   ],
   signup: [
-    '₿', 'TSLA ▲', '+5.3%', '&&', 'AMZN', '%', '▲ 3.1%', '::', '₹', 'HOLD', 'Δ',
-    'GOOGL ▲', '+8.6%', '++', 'ETF', '₩', '!=', 'META ▲', '0x1F', '+1.4%', '∞', '//',
+    '₿',
+    'TSLA ▲',
+    '+5.3%',
+    '&&',
+    'AMZN',
+    '%',
+    '▲ 3.1%',
+    '::',
+    '₹',
+    'HOLD',
+    'Δ',
+    'GOOGL ▲',
+    '+8.6%',
+    '++',
+    'ETF',
+    '₩',
+    '!=',
+    'META ▲',
+    '0x13',
+    '+1.4%',
+    '∞',
+    '//',
   ],
 };
 
 // Chart points share x positions so one shape can morph smoothly into the other
 const CHART_X = [
-  0, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600,
-  660, 720, 780, 840, 900, 960, 1020, 1080, 1140, 1170, 1200,
+  0, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840, 900, 960, 1020, 1080,
+  1140, 1170, 1200,
 ];
 const CHART_Y: Record<AuthVariant, number[]> = {
   // Steady climb
   login: [
-    520, 500, 510, 478, 488, 452, 466, 430, 442, 404, 388,
-    398, 356, 366, 322, 300, 314, 262, 240, 196, 150, 118,
+    520, 500, 510, 478, 488, 452, 466, 430, 442, 404, 388, 398, 356, 366, 322, 300, 314, 262, 240,
+    196, 150, 118,
   ],
   // Dip, recovery, then a sharp breakout
   signup: [
-    430, 452, 440, 470, 494, 478, 506, 492, 462, 478, 444,
-    420, 434, 396, 410, 372, 340, 352, 290, 246, 178, 132,
+    430, 452, 440, 470, 494, 478, 506, 492, 462, 478, 444, 420, 434, 396, 410, 372, 340, 352, 290,
+    246, 178, 132,
   ],
 };
 const DOT_INDEX = 20;
@@ -61,17 +109,15 @@ export class AuthLayoutComponent implements AfterViewInit {
 
   readonly symbolLayers = (Object.keys(SYMBOLS) as AuthVariant[]).map((variant, v) => ({
     variant,
-    symbols: SYMBOLS[variant].map(
-      (text, i): FloatingSymbol => ({
-        text,
-        // Spread symbols evenly but irregularly; offset each layer so they don't line up
-        left: (i * 47 + 5 + v * 23) % 96,
-        size: 14 + ((i * 7) % 4) * 6,
-        duration: 18 + ((i * 11) % 14),
-        delay: -((i * 13 + v * 7) % 30),
-        opacity: 0.12 + ((i * 5) % 4) * 0.06,
-      }),
-    ),
+    symbols: SYMBOLS[variant].map((text, i): FloatingSymbol => ({
+      text,
+      // Spread symbols evenly but irregularly; offset each layer so they don't line up
+      left: (i * 47 + 5 + v * 23) % 96,
+      size: 14 + ((i * 7) % 4) * 6,
+      duration: 18 + ((i * 11) % 14),
+      delay: -((i * 13 + v * 7) % 30),
+      opacity: 0.12 + ((i * 5) % 4) * 0.06,
+    })),
   }));
 
   private router = inject(Router);
