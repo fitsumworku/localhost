@@ -1,13 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatCardModule } from '@angular/material/card';
 import { AuthService } from '../services/auth.service';
 import { LoginRequest } from '../models/auth.model';
 
@@ -16,26 +12,19 @@ import { LoginRequest } from '../models/auth.model';
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatIconModule,
-    MatCardModule
-  ]
+  imports: [CommonModule, ReactiveFormsModule, MatIconModule],
 })
 export class LoginComponent implements OnInit {
   loginForm!: FormGroup;
   hidePassword = true;
-  isLoading = false;
-  errorMessage = '';
+  // Signals so the template re-renders when HTTP callbacks change them (the app is zoneless)
+  readonly isLoading = signal(false);
+  readonly errorMessage = signal('');
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -45,7 +34,7 @@ export class LoginComponent implements OnInit {
   initializeForm(): void {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]]
+      password: ['', [Validators.required, Validators.minLength(6)]],
     });
   }
 
@@ -55,25 +44,26 @@ export class LoginComponent implements OnInit {
 
   onSubmit(): void {
     if (this.loginForm.invalid) {
+      this.loginForm.markAllAsTouched();
       return;
     }
 
-    this.isLoading = true;
-    this.errorMessage = '';
+    this.isLoading.set(true);
+    this.errorMessage.set('');
 
     const loginRequest: LoginRequest = this.loginForm.value;
 
     this.authService.login(loginRequest).subscribe({
       next: (response: any) => {
-        this.isLoading = false;
+        this.isLoading.set(false);
         // TODO: Save JWT token to sessionStorage when implementing JWT logic
-        // this.authService.saveToken(response.token);
+        // this.authService.saveToken(response.accessToken);
         this.router.navigate(['/account-type']); // Navigate to account type selection
       },
       error: (error: HttpErrorResponse) => {
-        this.isLoading = false;
-        this.errorMessage = error.error?.message || 'Login failed. Please try again.';
-      }
+        this.isLoading.set(false);
+        this.errorMessage.set(error.error?.message || 'Login failed. Please try again.');
+      },
     });
   }
 

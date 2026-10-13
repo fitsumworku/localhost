@@ -1,0 +1,124 @@
+@use '../auth-tokens' as *;
+
+// Cover the whole viewport (also hides the browser's default body margin)
+:host {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.auth-page {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at 50% 120%, #06301f 0%, $bg 60%);
+  overflow: hidden;
+}
+
+// ============ Background ============
+
+.background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fog {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.55;
+  animation: drift 22s ease-in-out infinite alternate;
+}
+
+.fog-1 { width: 55vw; height: 55vw; left: -18vw; top: -22vw; background: #0d7a4f; }
+.fog-2 { width: 50vw; height: 50vw; right: -20vw; bottom: -25vw; background: #12a065; animation-delay: -8s; }
+.fog-3 { width: 35vw; height: 35vw; right: 5vw; top: -15vw; background: #0a5c3b; animation-delay: -15s; opacity: 0.4; }
+
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(4vw, 3vw) scale(1.12); }
+}
+
+.chart {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  // Fade the chart in from the left so the rising end stands out
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 35%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 35%);
+}
+
+.grid-line {
+  stroke: rgba(46, 229, 157, 0.07);
+  stroke-width: 1;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgba(46, 229, 157, 0.8));
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 3.5s ease-out 0.3s forwards;
+}
+
+.chart-area {
+  opacity: 0;
+  animation: fade-in 2s ease-out 1.5s forwards;
+}
+
+.chart-dot {
+  fill: #5dffc0;
+  opacity: 0;
+  filter: drop-shadow(0 0 10px #5dffc0);
+  animation: fade-in 0.6s ease-out 3.6s forwards, pulse 2.4s ease-in-out 4.2s infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fade-in { to { opacity: 1; } }
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.6); }
+}
+
+// Each page has its own set of symbols; switching pages crossfades between them
+.symbols {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+
+  &.active { opacity: 1; }
+}
+
+.symbol {
+  position: absolute;
+  bottom: -10vh;
+  color: $accent;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  text-shadow: 0 0 12px rgba(46, 229, 157, 0.6);
+  animation-name: float-up;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes float-up {
+  0%   { transform: translateY(0) rotate(-4deg); opacity: 0; }
+  10%  { opacity: var(--symbol-opacity); }
+  90%  { opacity: var(--symbol-opacity); }
+  100% { transform: translateY(-125vh) rotate(4deg); opacity: 0; }
+}
+

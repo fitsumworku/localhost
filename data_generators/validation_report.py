@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 COMPREHENSIVE VALIDATION & SAMPLE REPORT
 Validates all business rules and provides sample output for all generators
@@ -10,6 +10,7 @@ from collections import defaultdict, Counter
 from datetime import datetime
 
 base_path = Path(__file__).parent
+data_folder = Path(__file__).parent.parent / "data"
 report_lines = []
 
 def add_section(title):
@@ -22,7 +23,7 @@ def add_line(text):
 
 def validate_file(filename, expected_rows=None):
     """Check if file exists and optionally validate row count"""
-    filepath = base_path / filename
+    filepath = data_folder / filename
     if not filepath.exists():
         return False, 0
     
@@ -40,6 +41,7 @@ def validate_file(filename, expected_rows=None):
 add_section("DATA GENERATOR VALIDATION & BUSINESS RULES REPORT")
 add_line(f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 add_line(f"Workspace: {base_path}")
+add_line(f"Data Folder: {data_folder}")
 
 # ============================================================================
 # SECTION 1: FILE EXISTENCE & ROW COUNTS
@@ -85,7 +87,7 @@ try:
     buy_with_cash = 0
     sell_no_cash = 0
     
-    with open(base_path / "order_reservations_insert.sql") as f:
+    with open(data_folder / "order_reservations_insert.sql") as f:
         for line in f:
             if "INSERT INTO Order_Reservations" in line:
                 if "'B'" in line and "Reserved_Cash" in line:
@@ -105,11 +107,11 @@ except Exception as e:
     add_line(f"  [WARN]  Validation skipped: {str(e)[:50]}")
 
 # Rule 2: Order Status Lifecycle
-add_line("\n[RULE 2] ORDER STATUS LIFECYCLE: SUBMITTED → ACCEPTED → IN_EXECUTION → Terminal")
+add_line("\n[RULE 2] ORDER STATUS LIFECYCLE: SUBMITTED â†’ ACCEPTED â†’ IN_EXECUTION â†’ Terminal")
 
 try:
     statuses = Counter()
-    with open(base_path / "orders_insert.sql") as f:
+    with open(data_folder / "orders_insert.sql") as f:
         for line in f:
             if "INSERT INTO Orders" in line:
                 match = re.search(r"'(SUBMITTED|ACCEPTED|IN_EXECUTION|FILLED|REJECTED|CANCELLED)'", line)
@@ -128,7 +130,7 @@ add_line("\n[RULE 3] EXECUTION STATUS: FILLED | REJECTED | FAILED (no PARTIALLY_
 
 try:
     exe_statuses = Counter()
-    with open(base_path / "executions_insert.sql") as f:
+    with open(data_folder / "executions_insert.sql") as f:
         for line in f:
             if "INSERT INTO Executions" in line:
                 for status in ['FILLED', 'REJECTED', 'FAILED']:
@@ -149,7 +151,7 @@ add_line("\n[RULE 4] TRADE SETTLEMENT: Settlement_Date >= Trade_Date (T+2 logic)
 
 try:
     valid_settlements = 0
-    with open(base_path / "trades_insert.sql") as f:
+    with open(data_folder / "trades_insert.sql") as f:
         for line in f:
             if "INSERT INTO Trades" in line:
                 # Extract dates
@@ -170,7 +172,7 @@ add_line("\n[RULE 5] ACCOUNT POSITIONS: Quantity > 0 Only (Closed Positions Excl
 try:
     position_count = 0
     zero_qty = 0
-    with open(base_path / "account_positions_insert.sql") as f:
+    with open(data_folder / "account_positions_insert.sql") as f:
         for line in f:
             if "INSERT INTO Account_Positions" in line:
                 position_count += 1
@@ -192,7 +194,7 @@ add_line("\n[RULE 6] CASH LEDGER: Running_Balance >= 0 For All Entries")
 try:
     negative_balance = 0
     valid_balances = 0
-    with open(base_path / "cash_ledger_insert.sql") as f:
+    with open(data_folder / "cash_ledger_insert.sql") as f:
         for line in f:
             if "INSERT INTO Cash_Ledger" in line:
                 match = re.search(r",\s*([0-9.-]+)\s*,\s*'[^']*'\)", line)
@@ -213,7 +215,7 @@ add_line("\n[RULE 7] TRANSACTION STATUS: PENDING | COMPLETED | FAILED")
 
 try:
     trans_statuses = Counter()
-    with open(base_path / "transactions_insert.sql") as f:
+    with open(data_folder / "transactions_insert.sql") as f:
         for line in f:
             if "INSERT INTO Transactions" in line:
                 for status in ['PENDING', 'COMPLETED', 'FAILED']:
@@ -234,7 +236,7 @@ add_line("\n[RULE 8] DISPUTES: Admin Assignment & Status Lifecycle")
 try:
     dispute_statuses = Counter()
     with_admin = 0
-    with open(base_path / "disputes_insert.sql") as f:
+    with open(data_folder / "disputes_insert.sql") as f:
         for line in f:
             if "INSERT INTO Disputes" in line:
                 with_admin += 1
@@ -273,7 +275,7 @@ table_files = [
 for filename, title in table_files:
     add_line(f"\n[{title}]")
     try:
-        with open(base_path / filename) as f:
+        with open(data_folder / filename) as f:
             count = 0
             for line in f:
                 if line.strip().startswith("INSERT"):
@@ -329,7 +331,7 @@ file_mapping = {
 
 for filename, table_name in file_mapping.items():
     try:
-        with open(base_path / filename) as f:
+        with open(data_folder / filename) as f:
             stats[table_name] = sum(1 for line in f if line.strip().startswith("INSERT"))
     except:
         pass
@@ -357,3 +359,4 @@ with open(report_path, "w", encoding='utf-8') as f:
 
 print("\n".join(report_lines[-50:]))  # Print last 50 lines
 print(f"\n[OK] Full report saved to: {report_path}")
+
