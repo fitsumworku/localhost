@@ -1,15 +1,13 @@
 package com.neueda.leap.team.dto;
 
-import com.neueda.leap.team.entity.UserEntity;
+import com.neueda.leap.team.entity.User;
+import com.neueda.leap.team.entity.enums.*;
+import java.time.Instant;
 
-import java.time.LocalDateTime;
-
-
-public record UserDto(Long userId, String name, String email,
-                      LocalDateTime createdDate, String status) {
-
-    public static UserDto from(UserEntity u) {
-        return new UserDto(u.getUserId(), u.getName(), u.getEmail(),
-                u.getDateCreated(), u.getStatus());
+public record UserDto(Long userId, String name, String email, RoleName role,
+                      Instant createdDate, Instant updatedDate, UserStatus status) {
+    public static UserDto from(User user) {
+        return new UserDto(user.getId(), user.getName(), user.getEmail(), user.getRole().getName(),
+                user.getCreatedDate(), user.getUpdatedDate(), user.getStatus());
     }
 }

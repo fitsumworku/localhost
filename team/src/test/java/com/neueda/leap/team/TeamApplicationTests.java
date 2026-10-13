@@ -1,10 +1,9 @@
 package com.neueda.leap.team;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.neueda.leap.team.support.PostgresIntegrationTest;
 
-@SpringBootTest
-class TeamApplicationTests {
+class TeamApplicationTests extends PostgresIntegrationTest {
 
 	@Test
 	void contextLoads() {

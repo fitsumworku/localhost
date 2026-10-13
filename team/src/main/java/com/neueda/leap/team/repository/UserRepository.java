@@ -1,17 +1,23 @@
 package com.neueda.leap.team.repository;
 
-import com.neueda.leap.team.entity.UserEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
-
+import com.neueda.leap.team.entity.User;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
 
-// Spring generates the SQL from the method names.
-// save() and findById() come from JpaRepository.
-public interface UserRepository extends JpaRepository<UserEntity, Long> {
+public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
+    @EntityGraph(attributePaths = "role")
+    Optional<User> findByEmail(String email);
 
-    // SELECT * FROM Users WHERE Email = ?
-    Optional<UserEntity> findByEmail(String email);
+    @Override
+    @EntityGraph(attributePaths = "role")
+    Optional<User> findById(Long id);
 
-    // SELECT COUNT(*) > 0 FROM Users WHERE Email = ?
     boolean existsByEmail(String email);
+
+    // Service transactions lock the user before changing status/token version.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findByIdForUpdate(@Param("id") Long id);
 }

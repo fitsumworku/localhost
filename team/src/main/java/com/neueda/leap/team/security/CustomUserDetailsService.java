@@ -1,59 +1,28 @@
 package com.neueda.leap.team.security;
 
-import com.neueda.leap.team.entity.RoleEntity;
-import com.neueda.leap.team.entity.UserEntity;
 import com.neueda.leap.team.repository.UserRepository;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import java.util.Locale;
+import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
-
-    private final UserRepository userRepository;
-
-    public CustomUserDetailsService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+    private final UserRepository users;
+    public CustomUserDetailsService(UserRepository users) { this.users = users; }
 
     @Override
     @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        UserEntity user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    public AppUserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        if (email == null) throw new UsernameNotFoundException("User unavailable");
+        return users.findByEmail(email.strip().toLowerCase(Locale.ROOT))
+                .map(AppUserDetails::new)
+                .orElseThrow(() -> new UsernameNotFoundException("User unavailable"));
+    }
 
-        List<GrantedAuthority> authorities = new ArrayList<>();
-        for (RoleEntity role : user.getRoles()) {
-            if (role.getRoleName() == null || role.getRoleName().isBlank()) {
-                continue;
-            }
-            String normalized = role.getRoleName().trim().toUpperCase(Locale.ROOT);
-            if (!normalized.startsWith("ROLE_")) {
-                normalized = "ROLE_" + normalized;
-            }
-            authorities.add(new SimpleGrantedAuthority(normalized));
-        }
-
-        if (authorities.isEmpty()) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-        }
-
-        boolean enabled = "ACTIVE".equalsIgnoreCase(user.getStatus());
-
-        return User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .authorities(authorities)
-                .disabled(!enabled)
-                .build();
+    @Transactional(readOnly = true)
+    public AppUserDetails loadUserById(long userId) throws UsernameNotFoundException {
+        return users.findById(userId).map(AppUserDetails::new)
+                .orElseThrow(() -> new UsernameNotFoundException("User unavailable"));
     }
 }

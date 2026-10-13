@@ -1,106 +1,44 @@
 package com.neueda.leap.team.controller;
 
+import com.neueda.leap.team.dto.*;
+import com.neueda.leap.team.entity.enums.*;
+import com.neueda.leap.team.service.UserService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/users")
+@SecurityRequirement(name = "bearerAuth")
 public class UserController {
-
-    @PostMapping
-    public ResponseEntity<Map<String, Object>> createUser(@RequestBody Map<String, Object> body) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(body);
-    }
+    private final UserService service;
+    public UserController(UserService service) { this.service = service; }
 
     @GetMapping
-    public ResponseEntity<Map<String, Object>> listUsers(
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String role,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size,
-            @RequestParam(required = false) String sort
-    ) {
-        return ResponseEntity.ok(Map.of(
-                "status", status,
-                "role", role,
-                "page", page,
-                "size", size,
-                "sort", sort
-        ));
+    public UserPageResponse listUsers(
+            @RequestParam(required = false) UserStatus status,
+            @RequestParam(required = false) RoleName role,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdDate,desc") String sort) {
+        return service.listUsers(status, role, page, size, sort);
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<Map<String, Object>> getUserById(@PathVariable Long userId) {
-        return ResponseEntity.ok(Map.of("userId", userId));
-    }
+    public UserDto getUserById(@PathVariable Long userId) { return service.getById(userId); }
 
     @PatchMapping("/{userId}")
-    public ResponseEntity<Map<String, Object>> updateUserProfile(
-            @PathVariable Long userId,
-            @RequestBody Map<String, Object> body
-    ) {
-        return ResponseEntity.ok(Map.of("userId", userId, "updates", body));
+    public UserDto updateUserProfile(@PathVariable Long userId, @Valid @RequestBody UpdateProfileRequest request) {
+        return service.updateProfile(userId, request);
     }
 
     @PatchMapping("/{userId}/status")
-    public ResponseEntity<Map<String, Object>> updateUserStatus(
-            @PathVariable Long userId,
-            @RequestBody Map<String, String> body
-    ) {
-        return ResponseEntity.ok(Map.of("userId", userId, "status", body.get("status")));
+    public UserDto updateUserStatus(@PathVariable Long userId, @Valid @RequestBody UpdateUserStatusRequest request) {
+        return service.updateStatus(userId, request);
     }
 
-    @DeleteMapping("/{userId}")
+    @PostMapping("/{userId}/revoke-sessions")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteUser(@PathVariable Long userId) {
-        // Intentionally left blank; service integration can be added later.
-    }
-
-    @GetMapping("/{userId}/roles")
-    public ResponseEntity<Map<String, Object>> getUserRoles(@PathVariable Long userId) {
-        return ResponseEntity.ok(Map.of("userId", userId));
-    }
-
-    @PostMapping("/{userId}/roles/{roleId}")
-    public ResponseEntity<Map<String, Object>> assignRoleToUser(
-            @PathVariable Long userId,
-            @PathVariable Long roleId
-    ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("userId", userId, "roleId", roleId));
-    }
-
-    @DeleteMapping("/{userId}/roles/{roleId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void removeRoleFromUser(
-            @PathVariable Long userId,
-            @PathVariable Long roleId
-    ) {
-        // Intentionally left blank; service integration can be added later.
-    }
-
-    @GetMapping("/{userId}/accounts")
-    public ResponseEntity<Map<String, Object>> listUserAccounts(@PathVariable Long userId) {
-        return ResponseEntity.ok(Map.of("userId", userId));
-    }
-
-    @PostMapping("/{userId}/accounts")
-    public ResponseEntity<Map<String, Object>> createAccountForUser(
-            @PathVariable Long userId,
-            @RequestBody(required = false) Map<String, Object> body
-    ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("userId", userId, "payload", body));
-    }
-
-    @GetMapping("/{userId}/audit-logs")
-    public ResponseEntity<Map<String, Object>> getUserAuditLogs(@PathVariable Long userId) {
-        return ResponseEntity.ok(Map.of("userId", userId));
-    }
-
-    @GetMapping("/{userId}/disputes")
-    public ResponseEntity<Map<String, Object>> getUserDisputes(@PathVariable Long userId) {
-        return ResponseEntity.ok(Map.of("userId", userId));
-    }
+    public void revokeSessions(@PathVariable Long userId) { service.revokeSessions(userId); }
 }
