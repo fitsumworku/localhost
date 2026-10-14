@@ -1,0 +1,941 @@
+================================================================================
+ETL LOCAL INTEGRATION TESTING GUIDE
+Testing the Full ETL Flow on Your Feature Branch (Local/Dev Environment)
+================================================================================
+
+VERSION: 1.0
+ENVIRONMENT: Local Development (Windows/Linux/Mac)
+LAST UPDATED: 2026-10-08
+TARGET DURATION: 2-4 hours (complete end-to-end test)
+
+================================================================================
+OVERVIEW
+================================================================================
+
+This guide covers complete end-to-end testing of the ETL pipeline on your local
+machine using your current OLTP and OLAP databases before AWS deployment.
+
+WHAT YOU'LL TEST:
+  ✅ Data generator pipeline (13 SQL files)
+  ✅ Kafka connectivity and topic creation
+  ✅ Debezium CDC connector
+  ✅ Python ETL transformers
+  ✅ Data quality checks
+  ✅ Airflow DAG orchestration
+  ✅ Full end-to-end data flow (OLTP → Kafka → OLAP)
+
+EXPECTED OUTCOME:
+  ✅ All data successfully transformed and loaded to OLAP
+  ✅ Data quality checks pass
+  ✅ Airflow DAG completes without errors
+  ✅ Pipeline ready for AWS deployment
+
+TIME ALLOCATION:
+  Phase 1: Setup & Connectivity (30 min)
+  Phase 2: Data Generation (15 min)
+  Phase 3: Kafka Setup (20 min)
+  Phase 4: Debezium Configuration (20 min)
+  Phase 5: Python Pipeline (45 min)
+  Phase 6: Airflow DAG (45 min)
+  Phase 7: Validation & Troubleshooting (30 min)
+  ─────────────────────────────────
+  TOTAL: ~3-4 hours
+
+================================================================================
+PHASE 1: PRE-FLIGHT CHECKS (30 minutes)
+================================================================================
+
+STEP 1.1: Verify Local Databases Running
+──────────────────────────────────────────
+
+OLTP Database Check:
+  psql -h localhost -U postgres -d oltp_db -c "SELECT COUNT(*) FROM users;"
+  
+  EXPECTED OUTPUT:
+  count
+  -------
+  1000
+  (1 row)
+  
+  ✅ If you see row count > 0: OLTP is running and seeded
+
+OLAP Database Check:
+  psql -h localhost -U postgres -d olap_db -c "SELECT version();"
+  
+  EXPECTED OUTPUT:
+  PostgreSQL X.X.X on ... (1 row)
+  
+  ✅ If you see version: OLAP is running
+
+Troubleshooting:
+  ❌ Connection refused: Start PostgreSQL service
+  ❌ Database doesn't exist: Run data_generators/RUN_ALL_GENERATORS.py
+  ❌ No tables: Run initdb scripts first
+
+STEP 1.2: Verify Python Environment
+────────────────────────────────────
+
+Create Virtual Environment:
+  cd c:\Users\Administrator\localhost\etl-pipeline
+  python3 -m venv venv
+  
+  # Activate:
+  # Windows PowerShell:
+  .\venv\Scripts\Activate.ps1
+  # Or Linux/Mac:
+  source venv/bin/activate
+
+Verify Python Version:
+  python --version
+  
+  EXPECTED: Python 3.10 or higher
+
+Install Dependencies:
+  pip install -r requirements.txt
+  
+  Verify key packages:
+  python -c "import kafka; import psycopg2; import pytest; print('✅ All packages installed')"
+
+STEP 1.3: Verify Local Kafka Running
+──────────────────────────────────────
+
+Check Kafka Process:
+  # On Windows with Docker:
+  docker ps | grep kafka
+  
+  # On Linux/Mac:
+  ps aux | grep kafka
+
+  EXPECTED: Kafka broker running (port 9092)
+
+Test Kafka Connection:
+  python -c "
+from kafka import KafkaProducer, KafkaConsumer
+try:
+    p = KafkaProducer(bootstrap_servers='localhost:9092')
+    c = KafkaConsumer(bootstrap_servers='localhost:9092')
+    print('✅ Kafka Connected')
+except:
+    print('❌ Kafka Connection Failed')
+  "
+
+Troubleshooting:
+  ❌ Connection refused: Start Kafka broker
+  ❌ Port 9092 in use: Kill other process or change port
+
+STEP 1.4: Create Test Log Directory
+────────────────────────────────────
+
+  mkdir -p c:\Users\Administrator\localhost\etl-pipeline\logs
+  mkdir -p c:\Users\Administrator\localhost\etl-pipeline\test_results
+
+These directories will capture detailed logs during testing.
+
+✅ PHASE 1 COMPLETE: All systems running locally
+
+================================================================================
+PHASE 2: DATA GENERATION & VERIFICATION (15 minutes)
+================================================================================
+
+STEP 2.1: Generate Test Data
+────────────────────────────
+
+Run All Data Generators:
+  cd c:\Users\Administrator\localhost\data_generators
+  python RUN_ALL_GENERATORS.py
+  
+  EXPECTED OUTPUT:
+  [OK] 1. Roles: SUCCESS
+  [OK] 2. Users: SUCCESS
+  [OK] 3. Accounts: SUCCESS
+  [OK] 4. Cash Balances: SUCCESS
+  [OK] 6. Orders: SUCCESS
+  [OK] 7. Order Reservations: SUCCESS
+  [OK] 8. Executions/Trades/Transactions/CashLedger: SUCCESS
+  [OK] 9. Account Positions & Disputes: SUCCESS
+  
+  Total time: ~1-2 minutes
+
+STEP 2.2: Verify Generated Files
+─────────────────────────────────
+
+Check All 13 SQL Files Exist:
+  ls -la c:\Users\Administrator\localhost\data\*.sql
+  
+  EXPECTED: 13 files, all recent timestamps
+  - roles_insert.sql (2 records)
+  - users_insert.sql (1,000 records)
+  - accounts_insert.sql (2,345 records)
+  - account_cash_balances_insert.sql (2,345 records)
+  - securities_insert.sql (589 records with Security_ID)
+  - orders_insert.sql (35,000+ records)
+  - order_reservations_insert.sql (35,000+ records)
+  - executions_insert.sql (30,000+ records)
+  - trades_insert.sql (20,000+ records)
+  - transactions_insert.sql (10,000+ records)
+  - cash_ledger_insert.sql (10,000+ records)
+  - account_positions_insert.sql (20,000+ records)
+  - disputes_insert.sql (1,000 records)
+
+Verify File Format:
+  head -3 c:\Users\Administrator\localhost\data\orders_insert.sql
+  
+  EXPECTED: Each line starts with "INSERT INTO"
+  INSERT INTO Orders (Order_ID, Account_ID, Security_ID, ...)
+  VALUES (1, 1, 5, ...);
+  INSERT INTO Orders (Order_ID, Account_ID, Security_ID, ...)
+  VALUES (2, 2, 10, ...);
+
+✅ PHASE 2 COMPLETE: Data generated and verified
+
+================================================================================
+PHASE 3: KAFKA SETUP (20 minutes)
+================================================================================
+
+STEP 3.1: Create Kafka Topics
+──────────────────────────────
+
+Create Topics Script:
+  # On Windows/Docker:
+  docker exec kafka kafka-topics.sh --create \
+    --bootstrap-server localhost:9092 \
+    --topic debezium.oltp.public.users \
+    --partitions 6 \
+    --replication-factor 1 \
+    --config retention.ms=604800000
+  
+  # Repeat for all 13 tables:
+  debezium.oltp.public.roles
+  debezium.oltp.public.users
+  debezium.oltp.public.accounts
+  debezium.oltp.public.account_cash_balances
+  debezium.oltp.public.securities
+  debezium.oltp.public.orders
+  debezium.oltp.public.order_reservations
+  debezium.oltp.public.executions
+  debezium.oltp.public.trades
+  debezium.oltp.public.transactions
+  debezium.oltp.public.cash_ledger
+  debezium.oltp.public.account_positions
+  debezium.oltp.public.disputes
+
+STEP 3.2: Verify Topics Created
+────────────────────────────────
+
+List All Topics:
+  docker exec kafka kafka-topics.sh --list --bootstrap-server localhost:9092 | grep debezium
+  
+  EXPECTED: All 13 topics listed
+
+Describe One Topic:
+  docker exec kafka kafka-topics.sh --describe \
+    --bootstrap-server localhost:9092 \
+    --topic debezium.oltp.public.users
+  
+  EXPECTED OUTPUT:
+  Topic: debezium.oltp.public.users
+  PartitionCount: 6
+  ReplicationFactor: 1
+  Configs: retention.ms=604800000
+
+✅ PHASE 3 COMPLETE: Kafka topics ready
+
+================================================================================
+PHASE 4: DEBEZIUM CDC CONFIGURATION (20 minutes)
+================================================================================
+
+STEP 4.1: Enable Logical Decoding on OLTP
+──────────────────────────────────────────
+
+Check Current Settings:
+  psql -h localhost -U postgres -d oltp_db -c "SHOW wal_level;"
+  
+  EXPECTED: wal_level = logical
+  
+  If not set:
+  ALTER SYSTEM SET wal_level = logical;
+  SELECT pg_reload_conf();
+
+Create Replication Slot:
+  psql -h localhost -U postgres -d oltp_db -c "
+    SELECT * FROM pg_create_logical_replication_slot('debezium_slot', 'pgoutput');
+  "
+  
+  Verify:
+  psql -h localhost -U postgres -d oltp_db -c "SELECT * FROM pg_replication_slots;"
+  
+  EXPECTED: debezium_slot shown as active
+
+Create Publication:
+  psql -h localhost -U postgres -d oltp_db << EOF
+  CREATE PUBLICATION debezium_pub FOR ALL TABLES;
+  EOF
+  
+  Verify:
+  psql -h localhost -U postgres -d oltp_db -c "SELECT * FROM pg_publication;"
+  
+  EXPECTED: debezium_pub listed
+
+STEP 4.2: Register Debezium Connector
+──────────────────────────────────────
+
+Create Connector Configuration:
+  cat > /tmp/connector-config.json << 'EOF'
+{
+  "name": "postgres-oltp-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgres.PostgresConnector",
+    "database.hostname": "localhost",
+    "database.port": 5432,
+    "database.user": "postgres",
+    "database.password": "postgres",
+    "database.dbname": "oltp_db",
+    "database.server.name": "debezium.oltp",
+    "plugin.name": "pgoutput",
+    "slot.name": "debezium_slot",
+    "publication.name": "debezium_pub",
+    "transforms": "route",
+    "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.route.regex": "([^.]+)\\.([^.]+)\\.([^.]+)",
+    "transforms.route.replacement": "$3",
+    "topic.prefix": "debezium.oltp.public"
+  }
+}
+EOF
+
+Register with Kafka Connect:
+  curl -X POST http://localhost:8083/connectors \
+    -H "Content-Type: application/json" \
+    -d @/tmp/connector-config.json
+  
+  EXPECTED OUTPUT:
+  {"name":"postgres-oltp-connector", "config":{...}, "tasks":[], "type":"source"}
+
+STEP 4.3: Verify Connector Running
+────────────────────────────────────
+
+Check Connector Status:
+  curl -s http://localhost:8083/connectors/postgres-oltp-connector/status | jq .
+  
+  EXPECTED OUTPUT:
+  {
+    "name": "postgres-oltp-connector",
+    "connector": {
+      "state": "RUNNING",
+      ...
+    },
+    "tasks": [{"id": 0, "state": "RUNNING", ...}]
+  }
+
+Test CDC Event:
+  psql -h localhost -U postgres -d oltp_db -c "UPDATE users SET name = 'Test ' || id WHERE id = 1;"
+  
+  Check Kafka Topic:
+  docker exec kafka kafka-console-consumer.sh \
+    --bootstrap-server localhost:9092 \
+    --topic debezium.oltp.public.users \
+    --from-beginning \
+    --max-messages 5
+  
+  EXPECTED: JSON events with before/after data
+
+✅ PHASE 4 COMPLETE: Debezium capturing changes
+
+================================================================================
+PHASE 5: PYTHON ETL PIPELINE (45 minutes)
+================================================================================
+
+STEP 5.1: Test Database Connectivity
+──────────────────────────────────────
+
+Run Connectivity Test:
+  cd c:\Users\Administrator\localhost\etl-pipeline
+  
+  # Make sure venv is activated
+  .\venv\Scripts\Activate.ps1  # or source venv/bin/activate
+  
+  python test_connectivity.py
+  
+  EXPECTED OUTPUT:
+  ============================================================
+  DATABASE & KAFKA CONNECTIVITY TEST
+  ============================================================
+  
+  1. Testing OLTP Connection...
+     [OK] OLTP Connected. Users: 1000
+  
+  2. Testing OLAP Connection...
+     [OK] OLAP Connected. Pipeline runs: 0
+  
+  3. Testing Kafka Connection...
+     [OK] Kafka Connected. Brokers: 1
+     [OK] Kafka Consumer Ready. Topics: 13
+  
+  ============================================================
+  TEST COMPLETE
+  ============================================================
+
+Troubleshooting Connectivity Issues:
+  ❌ OLTP fails: Check OLTP_HOST, OLTP_USER, OLTP_PASSWORD in .env
+  ❌ OLAP fails: Verify OLAP running, check etl_user permissions
+  ❌ Kafka fails: Check KAFKA_BROKERS in .env, verify Kafka broker running
+
+STEP 5.2: Run Unit Tests
+─────────────────────────
+
+Run All Tests:
+  pytest tests/ -v --tb=short 2>&1 | tee c:\Users\Administrator\localhost\etl-pipeline\test_results\unit_tests.log
+  
+  EXPECTED OUTPUT:
+  tests/test_transformers.py::test_user_transformer PASSED
+  tests/test_transformers.py::test_account_transformer PASSED
+  tests/test_loaders.py::test_scd_type_2 PASSED
+  tests/test_validators.py::test_data_quality_checks PASSED
+  ...
+  ============ 28 passed in X.XXs ============
+
+Verify Code Coverage:
+  pytest tests/ --cov=src --cov-report=term-missing
+  
+  EXPECTED: Coverage >= 85%
+
+STEP 5.3: Test Transformers with Sample Data
+──────────────────────────────────────────────
+
+Create Small Test File:
+  cat > /tmp/test_users.json << 'EOF'
+{"id": 1, "name": "Test User", "email": "test@example.com", "role_id": 1}
+{"id": 2, "name": "Admin User", "email": "admin@example.com", "role_id": 2}
+EOF
+
+Test Transformer:
+  python -c "
+from src.transformers import UserTransformer
+import json
+
+transformer = UserTransformer()
+with open('/tmp/test_users.json') as f:
+    for line in f:
+        event = json.loads(line)
+        result = transformer.transform(event)
+        print(f'✅ Transformed: {result}')
+  "
+  
+  EXPECTED: Successfully transformed records with no errors
+
+STEP 5.4: Run Integration Tests (Optional)
+────────────────────────────────────────────
+
+Test with Test Database:
+  # Create test_olap_db for testing
+  createdb test_olap_db
+  
+  # Run integration tests
+  pytest tests/test_integration.py -v
+  
+  EXPECTED: All integration tests pass
+
+Clean Up Test Database:
+  dropdb test_olap_db
+
+✅ PHASE 5 COMPLETE: Python pipeline tested
+
+================================================================================
+PHASE 6: AIRFLOW DAG TESTING (45 minutes)
+================================================================================
+
+STEP 6.1: Create Airflow Environment
+──────────────────────────────────────
+
+Create Separate Airflow venv:
+  python3 -m venv c:\Users\Administrator\localhost\airflow-venv
+  
+  # Activate:
+  c:\Users\Administrator\localhost\airflow-venv\Scripts\Activate.ps1
+  
+  # Install Airflow:
+  pip install apache-airflow==2.7.0
+  pip install apache-airflow-providers-postgres==5.9.0
+  pip install apache-airflow-providers-apache-kafka==1.2.0
+
+Initialize Airflow:
+  export AIRFLOW_HOME=c:\Users\Administrator\localhost\airflow_home
+  airflow db init
+  
+  EXPECTED: SQLite database created
+
+Create Admin User:
+  airflow users create \
+    --username admin \
+    --firstname Admin \
+    --lastname User \
+    --role Admin \
+    --email admin@localhost.com \
+    --password admin123
+
+STEP 6.2: Copy DAG Files
+─────────────────────────
+
+Copy DAG to Airflow:
+  cp -r c:\Users\Administrator\localhost\airflow\dags\* $AIRFLOW_HOME\dags\
+  
+  Verify DAG Files:
+  ls -la $AIRFLOW_HOME\dags\
+  
+  EXPECTED:
+  oltp_to_olap_dag.py
+  tasks/
+    ├── validate_infrastructure.py
+    ├── consume_kafka_events.py
+    ├── transform_load_facts.py
+    ├── quality_checks.py
+    └── ... (other task files)
+
+STEP 6.3: Configure Airflow Connections
+────────────────────────────────────────
+
+Add OLTP Connection:
+  airflow connections add oltp_db \
+    --conn-type postgres \
+    --conn-host localhost \
+    --conn-login postgres \
+    --conn-password postgres \
+    --conn-schema oltp_db \
+    --conn-port 5432
+
+Add OLAP Connection:
+  airflow connections add olap_db \
+    --conn-type postgres \
+    --conn-host localhost \
+    --conn-login postgres \
+    --conn-password postgres \
+    --conn-schema olap_db \
+    --conn-port 5432
+
+Add Kafka Connection:
+  airflow connections add kafka_default \
+    --conn-type kafka \
+    --conn-host localhost \
+    --conn-port 9092
+
+Verify Connections:
+  airflow connections list
+  
+  EXPECTED: All three connections listed
+
+STEP 6.4: Test DAG Syntax
+──────────────────────────
+
+Dry Run DAG:
+  airflow dags test oltp_to_olap_daily 2026-10-08
+  
+  EXPECTED OUTPUT:
+  [INFO] DAgging oltp_to_olap_daily
+  [INFO] Executing DAG run...
+  (no errors)
+
+List DAGs:
+  airflow dags list
+  
+  EXPECTED: oltp_to_olap_daily listed
+
+STEP 6.5: Start Airflow Services
+──────────────────────────────────
+
+Start Webserver (in new terminal):
+  export AIRFLOW_HOME=c:\Users\Administrator\localhost\airflow_home
+  airflow webserver --port 8080
+  
+  EXPECTED: Webserver running on http://localhost:8080
+
+Start Scheduler (in another terminal):
+  export AIRFLOW_HOME=c:\Users\Administrator\localhost\airflow_home
+  airflow scheduler
+  
+  EXPECTED: Scheduler running
+
+STEP 6.6: Test Individual Tasks
+────────────────────────────────
+
+Test validate_infrastructure Task:
+  airflow tasks test oltp_to_olap_daily validate_infrastructure 2026-10-08
+  
+  EXPECTED OUTPUT:
+  [INFO] Validating infrastructure...
+  [INFO] ✅ OLTP Connected
+  [INFO] ✅ OLAP Connected
+  [INFO] ✅ Kafka Connected
+
+Test consume_kafka_events Task:
+  airflow tasks test oltp_to_olap_daily consume_kafka_events 2026-10-08
+  
+  EXPECTED OUTPUT:
+  [INFO] Consuming Kafka events...
+  [INFO] Processed X events from Y topics
+
+STEP 6.7: Trigger Full DAG Run
+───────────────────────────────
+
+Trigger DAG Manually:
+  airflow dags trigger oltp_to_olap_daily
+  
+  EXPECTED: DAG run created
+
+Monitor DAG Execution:
+  1. Open Airflow UI: http://localhost:8080
+  2. Click on "DAGs" tab
+  3. Click on "oltp_to_olap_daily"
+  4. View the latest DAG run
+  5. Monitor task execution in Graph view
+  
+  EXPECTED SEQUENCE:
+  validate_infrastructure ✅ (5 min)
+    ↓
+  consume_kafka_events ✅ (30 min)
+    ↓
+  transform_load_facts ✅ (45 min)
+    ↓
+  quality_checks ✅ (10 min)
+    ↓
+  COMPLETE ✅
+
+Watch Logs in Real-Time:
+  tail -f $AIRFLOW_HOME/logs/[dag_id]/oltp_to_olap_daily/2026-10-08T*/
+  
+  EXPECTED: No ERROR or CRITICAL messages
+
+✅ PHASE 6 COMPLETE: DAG executed successfully
+
+================================================================================
+PHASE 7: VALIDATION & RESULTS (30 minutes)
+================================================================================
+
+STEP 7.1: Verify Data Loaded to OLAP
+──────────────────────────────────────
+
+Count Records in Each Table:
+  psql -h localhost -U postgres -d olap_db << EOF
+  SELECT 'Roles' as table_name, COUNT(*) as count FROM roles
+  UNION ALL
+  SELECT 'Users', COUNT(*) FROM users
+  UNION ALL
+  SELECT 'Accounts', COUNT(*) FROM accounts
+  UNION ALL
+  SELECT 'Orders', COUNT(*) FROM orders
+  UNION ALL
+  SELECT 'Trades', COUNT(*) FROM trades
+  UNION ALL
+  SELECT 'Transactions', COUNT(*) FROM transactions
+  ORDER BY table_name;
+  EOF
+  
+  EXPECTED: All tables have row counts matching generators:
+  Roles: 2
+  Users: 1000
+  Accounts: ~2350
+  Orders: ~35000
+  Trades: ~20000
+  Transactions: ~10000
+
+Sample Data Quality Checks:
+  psql -h localhost -U postgres -d olap_db << EOF
+  -- Check for NULLs in key columns
+  SELECT COUNT(*) FROM trades WHERE trade_id IS NULL OR account_id IS NULL;
+  -- Expected: 0
+  
+  -- Check for duplicates
+  SELECT trade_id, COUNT(*) FROM trades GROUP BY trade_id HAVING COUNT(*) > 1;
+  -- Expected: 0 rows returned
+  
+  -- Check for referential integrity
+  SELECT COUNT(*) FROM trades t 
+  WHERE NOT EXISTS (SELECT 1 FROM accounts a WHERE a.account_id = t.account_id);
+  -- Expected: 0 (all foreign keys exist)
+  EOF
+
+STEP 7.2: Run Data Quality Checks
+──────────────────────────────────
+
+Airflow Quality Checks Task Logs:
+  cat $AIRFLOW_HOME/logs/oltp_to_olap_daily/quality_checks/*/task.log | tail -50
+  
+  EXPECTED:
+  [INFO] Starting data quality checks...
+  [INFO] ✅ Row count check PASSED
+  [INFO] ✅ NULL value check PASSED
+  [INFO] ✅ Duplicate check PASSED
+  [INFO] ✅ Referential integrity PASSED
+  [INFO] All quality checks PASSED
+
+Query etl_pipeline_runs Table:
+  psql -h localhost -U postgres -d olap_db -c "
+    SELECT run_id, task_name, status, created_at FROM etl_pipeline_runs 
+    ORDER BY created_at DESC LIMIT 10;
+  "
+  
+  EXPECTED: All tasks show status='SUCCESS'
+
+STEP 7.3: Verify SCD Type 2 Logic (If Implemented)
+────────────────────────────────────────────────────
+
+Test SCD Type 2 Tracking:
+  psql -h localhost -U postgres -d olap_db << EOF
+  -- Check current dimension records
+  SELECT COUNT(*) FROM users WHERE is_current = TRUE;
+  -- Expected: Should match number of unique users in source
+  
+  -- Check for any historical records
+  SELECT COUNT(*) FROM users WHERE is_current = FALSE;
+  -- Expected: 0 on first load (no changes to track yet)
+  EOF
+
+STEP 7.4: Performance Baseline
+────────────────────────────────
+
+Run Sample Queries with EXPLAIN ANALYZE:
+  psql -h localhost -U postgres -d olap_db << EOF
+  EXPLAIN ANALYZE
+  SELECT COUNT(*) FROM trades WHERE DATE(trade_date) = CURRENT_DATE;
+  
+  EXPLAIN ANALYZE
+  SELECT f.*, u.name FROM trades f
+  JOIN users u ON f.user_id = u.id
+  LIMIT 1000;
+  EOF
+  
+  EXPECTED: Query execution time < 5 seconds
+
+Document Baseline Metrics:
+  Create file: c:\Users\Administrator\localhost\etl-pipeline\test_results\performance_baseline.txt
+  
+  Record:
+  - Query execution times
+  - Table row counts
+  - Execution timestamp
+  - Database size
+
+STEP 7.5: Generate Test Report
+───────────────────────────────
+
+Create Test Summary Report:
+  
+  TEST EXECUTION REPORT
+  =====================
+  Date: 2026-10-08
+  Environment: Local Development
+  
+  PHASE RESULTS:
+  ✅ Phase 1: Setup & Connectivity - PASSED (30 min)
+  ✅ Phase 2: Data Generation - PASSED (15 min)
+  ✅ Phase 3: Kafka Setup - PASSED (20 min)
+  ✅ Phase 4: Debezium CDC - PASSED (20 min)
+  ✅ Phase 5: Python Pipeline - PASSED (45 min)
+  ✅ Phase 6: Airflow DAG - PASSED (45 min)
+  ✅ Phase 7: Validation - PASSED (30 min)
+  
+  DATA LOADED:
+  - Users: 1000
+  - Accounts: 2345
+  - Orders: 35000+
+  - Trades: 20000+
+  - Transactions: 10000+
+  
+  QUALITY CHECKS:
+  ✅ NULL value checks: PASSED
+  ✅ Duplicate detection: PASSED
+  ✅ Referential integrity: PASSED
+  ✅ Business logic validation: PASSED
+  
+  PERFORMANCE:
+  - DAG execution time: ~2 hours
+  - Average task duration: Within SLA
+  - Query latency: < 5 seconds
+  
+  SCHEMA COMPATIBILITY:
+  ✅ Current OLTP schema compatible
+  ✅ Python transformers handle current schema
+  ⚠️  Note: Backend schema may change - transformers will need updating
+  
+  RECOMMENDATION:
+  ✅ READY FOR AWS DEPLOYMENT (once backend schema stabilizes)
+  
+  NEXT STEPS:
+  1. Document any backend schema changes
+  2. Update table_mappings.json if schema changes
+  3. Re-run tests if schema changes significantly
+  4. Deploy to AWS staging environment
+  5. Run full end-to-end test on AWS
+
+Save to: c:\Users\Administrator\localhost\etl-pipeline\test_results\test_report_[DATE].txt
+
+✅ PHASE 7 COMPLETE: All tests passed
+
+================================================================================
+TROUBLESHOOTING COMMON ISSUES
+================================================================================
+
+ISSUE: Kafka Consumer Lag High
+──────────────────────────────
+
+Symptoms:
+  - Airflow task consuming events takes > 1 hour
+  - Kafka consumer lag > 10000 messages
+
+Diagnosis:
+  kafka-consumer-groups.sh --group etl_pipeline_consumer_group \
+    --describe --bootstrap-server localhost:9092
+
+Resolution:
+  1. Check OLAP database performance: Is insert slowing down?
+  2. Reduce batch size in config/database.yaml (BATCH_SIZE=1000 → 500)
+  3. Check disk I/O: iostat or Performance Monitor
+  4. Increase Airflow task timeout in DAG
+
+ISSUE: Data Quality Checks Failing
+──────────────────────────────────
+
+Symptoms:
+  - quality_checks task in Airflow fails
+  - NULL or duplicate values detected
+
+Diagnosis:
+  1. Check Airflow task logs: $AIRFLOW_HOME/logs/[dag]/quality_checks/
+  2. Query the failing table: SELECT * FROM [table] WHERE [check_condition]
+  3. Check Python transformers: Are they handling NULL values?
+
+Resolution:
+  1. Fix transformer logic in src/transformers.py
+  2. Re-run unit tests: pytest tests/
+  3. Truncate affected table: TRUNCATE TABLE [table];
+  4. Re-trigger Airflow DAG
+
+ISSUE: Python Pipeline Crashes
+───────────────────────────────
+
+Symptoms:
+  - Airflow task fails with Python exception
+  - No data loaded to OLAP
+
+Diagnosis:
+  1. Check Airflow task logs for stack trace
+  2. Verify database connectivity: psql -h localhost -U postgres
+  3. Check Kafka connectivity: python -c "from kafka import KafkaConsumer"
+  4. Check file permissions: ls -la etl-pipeline/
+
+Resolution:
+  1. Fix Python code based on error message
+  2. Re-run unit tests locally
+  3. Re-trigger Airflow DAG
+
+ISSUE: Airflow DAG Not Triggering
+──────────────────────────────────
+
+Symptoms:
+  - DAG listed but not executing
+  - No logs in $AIRFLOW_HOME/logs/
+
+Diagnosis:
+  1. Check scheduler running: ps aux | grep "airflow scheduler"
+  2. Check DAG syntax: python $AIRFLOW_HOME/dags/oltp_to_olap_dag.py
+  3. Check Airflow UI for parse errors
+
+Resolution:
+  1. Fix DAG Python syntax errors
+  2. Restart scheduler: kill [scheduler_pid] && airflow scheduler &
+  3. Wait 5 minutes for DAG parser to re-run
+  4. Manually trigger: airflow dags trigger oltp_to_olap_daily
+
+================================================================================
+SUCCESS CRITERIA - WHEN TESTING IS COMPLETE
+================================================================================
+
+You can consider local testing COMPLETE and SUCCESSFUL when:
+
+✅ ALL DATA GENERATED:
+   - All 13 SQL files present in c:\Users\Administrator\localhost\data\
+   - All record counts match expectations (1000+ users, 35000+ orders, etc.)
+
+✅ CONNECTIVITY VERIFIED:
+   - OLTP database connects and returns 1000+ users
+   - OLAP database connects and ready
+   - Kafka broker responds and topics exist
+   - Debezium connector running and capturing changes
+
+✅ PYTHON PIPELINE TESTED:
+   - Unit tests pass (pytest tests/ -v)
+   - Connectivity test passes
+   - Transformers handle sample data without errors
+   - No Python exceptions in logs
+
+✅ AIRFLOW DAG COMPLETE:
+   - All 7 tasks execute successfully
+   - No task failures or timeouts
+   - DAG execution completes in < 4 hours
+   - All logs show no ERROR or CRITICAL messages
+
+✅ DATA QUALITY CHECKS PASS:
+   - No NULL values in key columns
+   - No duplicate records detected
+   - All foreign keys valid (referential integrity)
+   - Business logic checks pass (prices > 0, balances >= 0, etc.)
+
+✅ DATA LOADED TO OLAP:
+   - Users table: 1000 records
+   - Accounts table: 2300+ records
+   - Orders table: 35000+ records
+   - Trades table: 20000+ records
+   - All dimension and fact tables populated
+
+✅ SCHEMA COMPATIBILITY:
+   - Current schema matches table_mappings.json
+   - All transformers reference valid columns
+   - No "column not found" errors
+   - ⚠️ Note: If backend schema changes, run tests again before AWS deploy
+
+================================================================================
+NEXT STEPS AFTER LOCAL TESTING
+================================================================================
+
+IMMEDIATE (After successful local test):
+  1. Commit all tested code to feature branch
+  2. Create test report documenting results
+  3. Note any schema incompatibilities if found
+  4. Update README.md with test instructions
+
+BEFORE AWS DEPLOYMENT (1-2 weeks):
+  1. Backend team finalizes schema
+  2. Compare final schema vs. current schema
+  3. Update table_mappings.json if needed
+  4. Update Python transformers if needed
+  5. Re-run local tests with updated schema
+  6. Get QA sign-off on test results
+
+AWS DEPLOYMENT:
+  1. Refer to etl_integration_aws.txt for AWS-specific setup
+  2. Follow AWS deployment checklist
+  3. Run same test suite on AWS staging
+  4. Get stakeholder approval
+  5. Deploy to production
+
+================================================================================
+SUPPORT & DOCUMENTATION
+================================================================================
+
+For issues or questions:
+  - Check TROUBLESHOOTING section in this document
+  - Review Airflow logs: $AIRFLOW_HOME/logs/
+  - Check Python logs: c:\Users\Administrator\localhost\etl-pipeline\logs\
+  - Search INTEGRATION_GUIDE.txt for detailed technical info
+
+Document updates:
+  - Keep this file updated with new test procedures
+  - Record any schema changes discovered during testing
+  - Add new troubleshooting issues as discovered
+  - Update success criteria if requirements change
+
+For schema changes:
+  - Document exactly what changed (new columns, removed columns, renamed)
+  - Update table_mappings.json with new mappings
+  - Update Python transformers to handle changes
+  - Add unit tests for new transformation logic
+  - Re-run full test suite

@@ -1,0 +1,1315 @@
+================================================================================
+ETL AWS INTEGRATION GUIDE
+Deploying the ETL Pipeline to AWS Production Environment
+================================================================================
+
+VERSION: 1.0
+ENVIRONMENT: AWS Production
+TARGET PLATFORM: EC2 + RDS + MSK + Lambda/ECS
+LAST UPDATED: 2026-10-08
+
+================================================================================
+OVERVIEW
+================================================================================
+
+This guide covers the complete deployment of the ETL pipeline to AWS.
+All components have been tested locally and are production-ready.
+
+ARCHITECTURE OVERVIEW:
+  OLTP Database (RDS PostgreSQL)
+    ↓ (CDC via Debezium)
+  Kafka Cluster (AWS MSK)
+    ↓ (Event streaming)
+  Python ETL Pipeline (EC2 or ECS)
+    ↓ (Transform & Load)
+  OLAP Database (RDS PostgreSQL)
+    ↓ (Queries & Analytics)
+  Airflow Orchestrator (EC2 or MWAA)
+
+TOTAL DEPLOYMENT TIME: 4-8 hours
+TEAM SIZE: DevOps + DBA + Backend Engineer
+
+================================================================================
+PREREQUISITES - VERIFY BEFORE STARTING
+================================================================================
+
+AWS Account Requirements:
+  ☐ AWS Account with appropriate IAM permissions
+  ☐ VPC created for production environment
+  ☐ EC2 instances available (t3.large for Airflow, t3.xlarge for ETL)
+  ☐ RDS PostgreSQL available
+  ☐ AWS MSK (Managed Streaming for Kafka) available
+  ☐ CloudWatch for logging and monitoring
+  ☐ AWS Secrets Manager for credentials
+
+Backend Requirements:
+  ☐ OLTP schema finalized and stable (no pending changes)
+  ☐ OLAP schema created and ready
+  ☐ Table mappings documented
+  ☐ All 13 base tables created in OLTP
+  ☐ All dimension and fact tables created in OLAP
+
+Network Requirements:
+  ☐ Security groups configured
+  ☐ VPC endpoints for AWS services
+  ☐ VPN or bastion host for database access
+  ☐ SSL/TLS certificates available
+
+Data Requirements:
+  ☐ OLTP database populated with initial data
+  ☐ Backup of OLTP database created
+  ☐ Backup of OLAP database created
+
+===============================================================================
+PHASE 1: AWS INFRASTRUCTURE SETUP (1-2 hours)
+================================================================================
+
+STEP 1.1: Create RDS Instances for OLTP and OLAP
+─────────────────────────────────────────────────
+
+Create OLTP RDS Instance:
+
+AWS Console → RDS → Create Database
+
+Configuration:
+  - Engine: PostgreSQL 14.x or higher
+  - Multi-AZ: Yes (for HA)
+  - Storage: 500 GB initial, auto-scaling enabled
+  - Instance class: db.r6i.2xlarge (for production workload)
+  - VPC: Production VPC
+  - Security group: Allow port 5432 from ETL security group
+  - Backup retention: 30 days
+  - Encryption: KMS (AWS managed or customer managed)
+  - Enable enhanced monitoring
+  - Enable Performance Insights
+
+Create OLAP RDS Instance:
+
+AWS Console → RDS → Create Database
+
+Configuration:
+  - Engine: PostgreSQL 14.x or higher
+  - Multi-AZ: Yes (for HA)
+  - Storage: 1 TB initial, auto-scaling enabled
+  - Instance class: db.r6i.4xlarge (larger for analytics workload)
+  - VPC: Production VPC
+  - Security group: Allow port 5432 from Airflow and ETL security groups
+  - Backup retention: 30 days
+  - Encryption: KMS (AWS managed or customer managed)
+  - Enable enhanced monitoring
+  - Enable Performance Insights
+
+Verification:
+  - Both databases accessible from ETL security group
+  - Backups enabled and running
+  - Parameter groups allow logical decoding (OLTP) and required extensions
+
+STEP 1.2: Set Up AWS MSK Kafka Cluster
+────────────────────────────────────────
+
+Create MSK Cluster:
+
+AWS Console → Amazon MSK → Create Cluster
+
+Configuration:
+  - Cluster name: etl-kafka-cluster
+  - Kafka version: 3.2.x or higher
+  - Number of brokers: 3 (production minimum)
+  - Broker node type: kafka.m5.large
+  - Storage per broker: 100 GB
+  - Broker subnets: 3 AZs
+  - Security groups: Allow port 9092 from ETL and Kafka Connect security groups
+  - Encryption: Enabled (TLS)
+  - Authentication: SASL/SCRAM (recommended) or mTLS
+  - Monitoring: CloudWatch (all metrics enabled)
+  - Logs: CloudWatch Logs (broker logs enabled)
+
+Kafka Connect:
+
+Option A: AWS Lambda for Kafka Connect (Serverless)
+  - Simpler deployment
+  - Auto-scaling
+  - Pay per invocation
+
+Option B: EC2-based Kafka Connect (Recommended for CDC)
+  - More control
+  - Better for stateful operations
+  - Dedicated instance: t3.xlarge
+  - Security group: Allow 8083 from Airflow
+  - IAM role: Permissions to access RDS, MSK, CloudWatch
+
+Install Debezium on Kafka Connect:
+  
+  # If using EC2:
+  ssh -i key.pem ec2-user@kafka-connect-instance
+  
+  # Download Debezium PostgreSQL Connector
+  cd /opt/kafka-connect/plugins
+  aws s3 cp s3://debezium-releases/debezium-connector-postgres-2.5.0-plugin.tar.gz .
+  tar -xzf debezium-connector-postgres-2.5.0-plugin.tar.gz
+  
+  # Update kafka-connect-distributed.properties
+  echo "plugin.path=/opt/kafka-connect/plugins" >> config/connect-distributed.properties
+  
+  # Restart Kafka Connect
+  systemctl restart kafka-connect
+
+Verification:
+  - MSK cluster running (3 brokers healthy)
+  - Kafka Connect service running
+  - Ability to create topics via AWS CLI
+
+STEP 1.3: Create EC2 Instances
+───────────────────────────────
+
+ETL Pipeline Instance:
+
+AWS Console → EC2 → Launch Instance
+
+Configuration:
+  - Name: etl-pipeline-prod
+  - AMI: Ubuntu 22.04 LTS
+  - Instance type: t3.xlarge (4 vCPU, 16 GB RAM)
+  - VPC: Production VPC
+  - Security group: Allows SSH (from bastion), HTTPS (for monitoring)
+  - Storage: 100 GB gp3 EBS (root), 200 GB for logs/data
+  - IAM role: Permissions to access RDS, MSK, S3, CloudWatch, Secrets Manager
+  - Monitoring: CloudWatch detailed monitoring enabled
+  - Network: Private subnet with NAT for outbound internet
+
+Airflow Instance:
+
+AWS Console → EC2 → Launch Instance
+
+Configuration:
+  - Name: airflow-prod
+  - AMI: Ubuntu 22.04 LTS
+  - Instance type: t3.xlarge (4 vCPU, 16 GB RAM)
+  - VPC: Production VPC
+  - Security group: Allows SSH (from bastion), HTTP/HTTPS (port 8080)
+  - Storage: 100 GB gp3 EBS (root)
+  - IAM role: Permissions to access RDS, EC2, CloudWatch, Logs
+  - Monitoring: CloudWatch detailed monitoring enabled
+  - Network: Private subnet with NAT, ALB in front for HTTPS
+
+Alternative: AWS MWAA (Managed Workflows for Apache Airflow)
+  - Fully managed Airflow environment
+  - Auto-scaling
+  - No infrastructure management
+  - Higher cost but lower operational overhead
+
+Verification:
+  - Both instances running and healthy
+  - SSH access working from bastion
+  - Security groups allow proper traffic
+  - IAM roles attached with correct permissions
+
+STEP 1.4: Configure AWS Secrets Manager
+────────────────────────────────────────
+
+Create Secret for Database Credentials:
+
+AWS Console → Secrets Manager → Create Secret
+
+Secret: prod/oltp/credentials
+{
+  "username": "debezium_user",
+  "password": "STRONG_PASSWORD_HERE",
+  "host": "prod-oltp.rds.amazonaws.com",
+  "port": 5432,
+  "dbname": "oltp_db"
+}
+
+Secret: prod/olap/credentials
+{
+  "username": "etl_user",
+  "password": "STRONG_PASSWORD_HERE",
+  "host": "prod-olap.rds.amazonaws.com",
+  "port": 5432,
+  "dbname": "olap_db"
+}
+
+Create Secret for Kafka:
+
+Secret: prod/kafka/credentials
+{
+  "bootstrap_servers": "b-1.etl.xxxxx.kafka.us-east-1.amazonaws.com:9092,b-2...,b-3...",
+  "sasl_username": "debezium",
+  "sasl_password": "STRONG_PASSWORD_HERE"
+}
+
+Update EC2 IAM Role:
+
+Add inline policy to allow reading secrets:
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:prod/*"
+    }
+  ]
+}
+
+Verification:
+  - All secrets created successfully
+  - EC2 instances can read secrets via IAM role
+  - Test secret retrieval: aws secretsmanager get-secret-value --secret-id prod/oltp/credentials
+
+================================================================================
+PHASE 2: DATABASE PREPARATION (30-45 minutes)
+================================================================================
+
+STEP 2.1: Initialize OLTP Database
+───────────────────────────────────
+
+Connect to RDS OLTP:
+  psql -h prod-oltp.rds.amazonaws.com -U postgres -d oltp_db
+
+Run Initialization Scripts:
+  
+  # Enable logical decoding
+  ALTER SYSTEM SET wal_level = logical;
+  SELECT pg_reload_conf();
+  
+  # Create debezium user
+  CREATE USER debezium_user WITH PASSWORD 'PASSWORD_FROM_SECRETS_MANAGER';
+  GRANT CONNECT ON DATABASE oltp_db TO debezium_user;
+  GRANT REPLICATION ON DATABASE oltp_db TO debezium_user;
+  GRANT USAGE ON SCHEMA public TO debezium_user;
+  GRANT SELECT ON ALL TABLES IN SCHEMA public TO debezium_user;
+
+Create Replication Slot:
+  SELECT * FROM pg_create_logical_replication_slot('debezium_slot', 'pgoutput');
+
+Create Publication:
+  CREATE PUBLICATION debezium_pub FOR ALL TABLES;
+
+Verify Setup:
+  SELECT * FROM pg_replication_slots;  -- Should show debezium_slot
+  SELECT * FROM pg_publication;         -- Should show debezium_pub
+
+STEP 2.2: Initialize OLAP Database
+───────────────────────────────────
+
+Connect to RDS OLAP:
+  psql -h prod-olap.rds.amazonaws.com -U postgres -d olap_db
+
+Create ETL User:
+  CREATE USER etl_user WITH PASSWORD 'PASSWORD_FROM_SECRETS_MANAGER';
+  GRANT CONNECT ON DATABASE olap_db TO etl_user;
+  GRANT USAGE ON SCHEMA public TO etl_user;
+  GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO etl_user;
+  GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO etl_user;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO etl_user;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO etl_user;
+
+Create Tracking Tables:
+  
+  -- Pipeline runs tracking
+  CREATE TABLE IF NOT EXISTS etl_pipeline_runs (
+    run_id BIGSERIAL PRIMARY KEY,
+    dag_id VARCHAR(255) NOT NULL,
+    run_date DATE NOT NULL,
+    task_name VARCHAR(100),
+    status VARCHAR(20),
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    error_message TEXT
+  );
+  CREATE INDEX idx_etl_runs_status ON etl_pipeline_runs(status, created_at);
+  
+  -- Kafka offset tracking
+  CREATE TABLE IF NOT EXISTS kafka_offsets (
+    topic VARCHAR(256) NOT NULL,
+    partition INT NOT NULL,
+    offset BIGINT NOT NULL,
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (topic, partition)
+  );
+  
+  -- Data quality issues
+  CREATE TABLE IF NOT EXISTS data_quality_issues (
+    issue_id BIGSERIAL PRIMARY KEY,
+    run_id BIGINT REFERENCES etl_pipeline_runs(run_id),
+    check_name VARCHAR(100),
+    issue_description TEXT,
+    severity VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
+Create Required Extensions:
+  CREATE EXTENSION IF NOT EXISTS plpgsql;
+  CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+Enable Audit Logging:
+  ALTER DATABASE olap_db SET pgaudit.log = 'READ,WRITE,DDL';
+  CREATE EXTENSION IF NOT EXISTS pgaudit;
+
+Verification:
+  \du etl_user                                    -- Should show user created
+  SELECT COUNT(*) FROM etl_pipeline_runs;        -- Should return 0
+  SELECT COUNT(*) FROM kafka_offsets;            -- Should return 0
+
+STEP 2.3: Create Initial Data (Optional)
+──────────────────────────────────────────
+
+If you want to seed OLAP with current OLTP data:
+
+Create Snapshot Loader Script:
+  
+  Create file: /opt/etl/scripts/load_olap_snapshot.py
+  
+  This script:
+  1. Connects to OLTP database
+  2. Extracts all data from each table
+  3. Transforms and loads to OLAP
+  4. Sets initial Kafka offsets
+  5. Records etl_pipeline_runs entry
+
+Run Snapshot Load:
+  ssh -i key.pem ec2-user@etl-pipeline-prod
+  cd /opt/etl
+  python scripts/load_olap_snapshot.py
+  
+  Expected time: 30-60 minutes depending on data volume
+
+Verification:
+  SELECT COUNT(*) FROM users;                    -- Should show row count
+  SELECT * FROM etl_pipeline_runs ORDER BY created_at DESC LIMIT 1;
+
+================================================================================
+PHASE 3: APPLICATION DEPLOYMENT (1-2 hours)
+================================================================================
+
+STEP 3.1: Deploy Python ETL Pipeline
+──────────────────────────────────────
+
+SSH to ETL Instance:
+  ssh -i prod-key.pem ec2-user@etl-pipeline-prod.internal
+
+Clone Repository:
+  cd /opt
+  git clone https://[YOUR_REPO]/team-project.git
+  cd team-project
+
+Create Python Virtual Environment:
+  python3 -m venv /opt/etl-venv
+  source /opt/etl-venv/bin/activate
+  pip install --upgrade pip
+  pip install -r etl-pipeline/requirements.txt
+
+Create .env File (from AWS Secrets):
+  Create script: /opt/scripts/setup_env.sh
+  
+  #!/bin/bash
+  export OLTP_HOST=$(aws secretsmanager get-secret-value --secret-id prod/oltp/credentials --query SecretString --output text | jq -r .host)
+  export OLTP_USER=$(aws secretsmanager get-secret-value --secret-id prod/oltp/credentials --query SecretString --output text | jq -r .username)
+  export OLTP_PASSWORD=$(aws secretsmanager get-secret-value --secret-id prod/oltp/credentials --query SecretString --output text | jq -r .password)
+  export OLTP_DATABASE=oltp_db
+  export OLAP_HOST=$(aws secretsmanager get-secret-value --secret-id prod/olap/credentials --query SecretString --output text | jq -r .host)
+  export OLAP_USER=$(aws secretsmanager get-secret-value --secret-id prod/olap/credentials --query SecretString --output text | jq -r .username)
+  export OLAP_PASSWORD=$(aws secretsmanager get-secret-value --secret-id prod/olap/credentials --query SecretString --output text | jq -r .password)
+  export OLAP_DATABASE=olap_db
+  export KAFKA_BROKERS=$(aws secretsmanager get-secret-value --secret-id prod/kafka/credentials --query SecretString --output text | jq -r .bootstrap_servers)
+  export LOG_LEVEL=INFO
+  export BATCH_SIZE=5000
+  export BATCH_TIMEOUT_SEC=60
+  export MAX_RETRIES=5
+  
+  chmod +x /opt/scripts/setup_env.sh
+
+Test Connectivity:
+  /opt/scripts/setup_env.sh
+  source /opt/etl-venv/bin/activate
+  python etl-pipeline/test_connectivity.py
+  
+  Expected output:
+  ✅ OLTP Connected
+  ✅ OLAP Connected
+  ✅ Kafka Connected
+
+Create Systemd Service:
+  
+  Create file: /etc/systemd/system/etl-pipeline.service
+  
+  [Unit]
+  Description=ETL Pipeline Service
+  After=network.target
+  
+  [Service]
+  Type=simple
+  User=etl
+  ExecStart=/bin/bash -c 'source /opt/scripts/setup_env.sh && source /opt/etl-venv/bin/activate && python -m etl_pipeline.main'
+  Restart=always
+  RestartSec=10
+  StandardOutput=journal
+  StandardError=journal
+  SyslogIdentifier=etl-pipeline
+  
+  [Install]
+  WantedBy=multi-user.target
+  
+  Enable and start:
+  sudo systemctl daemon-reload
+  sudo systemctl enable etl-pipeline
+  sudo systemctl start etl-pipeline
+  sudo systemctl status etl-pipeline
+
+Monitor Logs:
+  sudo journalctl -u etl-pipeline -f
+
+STEP 3.2: Deploy Airflow
+─────────────────────────
+
+Option A: EC2-based Airflow
+
+SSH to Airflow Instance:
+  ssh -i prod-key.pem ec2-user@airflow-prod.internal
+
+Install Airflow:
+  python3 -m venv /opt/airflow-venv
+  source /opt/airflow-venv/bin/activate
+  pip install apache-airflow==2.7.0
+  pip install apache-airflow-providers-postgres==5.9.0
+  pip install apache-airflow-providers-apache-kafka==1.2.0
+  pip install python-dotenv
+
+Initialize Airflow:
+  export AIRFLOW_HOME=/opt/airflow
+  airflow db init
+  
+  # Create admin user
+  airflow users create \
+    --username admin \
+    --firstname Admin \
+    --lastname User \
+    --role Admin \
+    --email admin@company.com \
+    --password STRONG_PASSWORD
+
+Configure Airflow for RDS:
+
+  Create file: /opt/airflow/airflow.cfg
+  
+  [database]
+  sql_alchemy_conn = postgresql://airflow:PASSWORD@prod-airflow-rds.rds.amazonaws.com:5432/airflow
+  
+  [core]
+  dags_folder = /opt/airflow/dags
+  load_examples = False
+  load_default_connections = False
+  
+  [webserver]
+  base_log_folder = /opt/airflow/logs
+  expose_config = False
+  
+  [scheduler]
+  dag_dir_list_interval = 300
+
+Copy DAG Files:
+  cp -r /opt/team-project/airflow/dags/* /opt/airflow/dags/
+
+Create Systemd Services:
+
+  Webserver: /etc/systemd/system/airflow-webserver.service
+  [Unit]
+  Description=Airflow Webserver
+  After=network.target
+  
+  [Service]
+  User=airflow
+  ExecStart=/opt/airflow-venv/bin/airflow webserver --port 8080
+  Restart=always
+  
+  [Install]
+  WantedBy=multi-user.target
+  
+  Scheduler: /etc/systemd/system/airflow-scheduler.service
+  [Unit]
+  Description=Airflow Scheduler
+  After=network.target
+  
+  [Service]
+  User=airflow
+  ExecStart=/opt/airflow-venv/bin/airflow scheduler
+  Restart=always
+  
+  [Install]
+  WantedBy=multi-user.target
+  
+  Enable and start:
+  sudo systemctl daemon-reload
+  sudo systemctl enable airflow-webserver airflow-scheduler
+  sudo systemctl start airflow-webserver airflow-scheduler
+
+Configure Database Connections:
+
+  airflow connections add oltp_db \
+    --conn-type postgres \
+    --conn-host prod-oltp.rds.amazonaws.com \
+    --conn-login debezium_user \
+    --conn-password XXXX \
+    --conn-schema oltp_db \
+    --conn-port 5432
+
+  airflow connections add olap_db \
+    --conn-type postgres \
+    --conn-host prod-olap.rds.amazonaws.com \
+    --conn-login etl_user \
+    --conn-password XXXX \
+    --conn-schema olap_db \
+    --conn-port 5432
+
+Option B: AWS MWAA (Managed Workflows for Airflow)
+
+Create MWAA Environment:
+
+AWS Console → MWAA → Create Environment
+
+Configuration:
+  - Environment name: etl-airflow-prod
+  - Airflow version: 2.7.0
+  - DAGs S3 bucket: Create new S3 bucket
+  - Max workers: 10 (auto-scaling)
+  - Worker instance type: mw2.small
+  - Scheduler instance type: mw2.small
+  - Logging: CloudWatch Logs enabled
+
+Upload DAG Files:
+  aws s3 sync /path/to/dags/ s3://etl-airflow-dags-bucket/dags/
+
+Create Requirements File:
+  Create requirements.txt in S3:
+  apache-airflow-providers-postgres==5.9.0
+  apache-airflow-providers-apache-kafka==1.2.0
+  python-dotenv
+
+Verification:
+  - Environment ready for use
+  - Web UI accessible
+  - Logs visible in CloudWatch
+
+STEP 3.3: Set Up Debezium Connector
+─────────────────────────────────────
+
+Create Connector Configuration:
+
+Create file: /opt/scripts/debezium-connector-config.json
+
+{
+  "name": "postgres-oltp-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgres.PostgresConnector",
+    "database.hostname": "prod-oltp.rds.amazonaws.com",
+    "database.port": 5432,
+    "database.user": "debezium_user",
+    "database.password": "PASSWORD",
+    "database.dbname": "oltp_db",
+    "database.server.name": "prod.oltp",
+    "plugin.name": "pgoutput",
+    "slot.name": "debezium_slot",
+    "publication.name": "debezium_pub",
+    "topic.prefix": "cdc.prod.oltp",
+    "transforms": "route",
+    "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.route.regex": "([^.]+)\\.([^.]+)\\.([^.]+)\\.([^.]+)",
+    "transforms.route.replacement": "$4",
+    "max.batch.size": 2048,
+    "poll.interval.ms": 1000,
+    "snapshot.mode": "initial",
+    "snapshot.isolation.mode": "repeatable_read"
+  }
+}
+
+Register Connector:
+  
+  SSH to Kafka Connect instance:
+  curl -X POST http://localhost:8083/connectors \
+    -H "Content-Type: application/json" \
+    -d @/opt/scripts/debezium-connector-config.json
+
+Verify Running:
+  curl -s http://localhost:8083/connectors/postgres-oltp-connector/status | jq .
+
+Monitor Progress:
+  # Check consumer lag in MSK:
+  aws kafka list-broker-nodes --cluster-arn arn:aws:kafka:...
+  
+  # Monitor Kafka Connect logs:
+  tail -f /var/log/kafka/connect.log
+
+================================================================================
+PHASE 4: SECURITY HARDENING (30-45 minutes)
+================================================================================
+
+STEP 4.1: Network Security
+────────────────────────────
+
+VPC Configuration:
+  ☐ All resources in private subnets
+  ☐ NAT gateway for outbound internet
+  ☐ VPC endpoints for AWS services (S3, Secrets Manager, CloudWatch)
+  ☐ Network ACLs configured
+
+Security Groups:
+
+ETL Pipeline Security Group:
+  - Inbound: 22 (SSH) from Bastion, 9092 (Kafka) from self
+  - Outbound: 5432 (RDS), 9092 (MSK), 443 (HTTPS to AWS), 80 (NTP)
+
+Airflow Security Group:
+  - Inbound: 22 (SSH) from Bastion, 8080 (HTTP) from ALB
+  - Outbound: 5432 (RDS), 9092 (MSK), 443 (HTTPS to AWS)
+
+RDS Security Groups:
+  - OLTP: Allow port 5432 from ETL, Kafka Connect, Bastion
+  - OLAP: Allow port 5432 from ETL, Airflow, Bastion
+
+MSK Security Groups:
+  - Allow port 9092 from ETL, Kafka Connect, Airflow
+  - Allow port 2181 (ZooKeeper) from Kafka Connect only
+
+STEP 4.2: Database Security
+─────────────────────────────
+
+Enable RDS Encryption:
+  ☐ Enable encryption at rest (KMS)
+  ☐ Enable encryption in transit (SSL)
+  ☐ Configure backup encryption
+  ☐ Enable enhanced monitoring
+
+Create Read-Only User for Analytics:
+  CREATE USER analytics_user WITH PASSWORD 'PASSWORD';
+  GRANT CONNECT ON DATABASE olap_db TO analytics_user;
+  GRANT USAGE ON SCHEMA public TO analytics_user;
+  GRANT SELECT ON ALL TABLES IN SCHEMA public TO analytics_user;
+
+Enable Audit Logging:
+  
+  For OLTP:
+  CREATE EXTENSION pgaudit;
+  ALTER DATABASE oltp_db SET pgaudit.log = 'READ,WRITE,DDL';
+  
+  For OLAP:
+  CREATE EXTENSION pgaudit;
+  ALTER DATABASE olap_db SET pgaudit.log = 'WRITE,DDL';  -- Less logging in OLAP
+
+STEP 4.3: Kafka Security
+─────────────────────────
+
+Enable SASL/SCRAM Authentication:
+
+  AWS Console → MSK Cluster → Edit cluster security → SASL/SCRAM
+
+Create Kafka Users:
+  
+  # Using AWS CLI:
+  aws kafka create-scram-secret \
+    --cluster-arn arn:aws:kafka:... \
+    --client-authentication sasl_scram \
+    --secret-arn arn:aws:secretsmanager:...
+
+Enable TLS/SSL:
+  ☐ TLS encryption between brokers
+  ☐ TLS encryption between clients and brokers
+  ☐ Certificate validation enabled
+
+STEP 4.4: Application Security
+────────────────────────────────
+
+Airflow Security:
+  ☐ Change default admin password
+  ☐ Enable RBAC (Role-Based Access Control)
+  ☐ Restrict webserver access (use ALB + WAF)
+  ☐ Disable example DAGs
+
+Secrets Management:
+  ☐ All credentials in AWS Secrets Manager
+  ☐ No hardcoded secrets in code
+  ☐ Rotate secrets every 90 days
+  ☐ Enable secret versioning
+
+SSL/TLS Certificates:
+  ☐ Airflow webserver behind ALB with SSL termination
+  ☐ RDS connections using SSL
+  ☐ Kafka connections using TLS
+  ☐ Certificates from AWS Certificate Manager
+
+================================================================================
+PHASE 5: MONITORING & LOGGING (30 minutes)
+================================================================================
+
+STEP 5.1: CloudWatch Setup
+────────────────────────────
+
+Create CloudWatch Log Groups:
+
+  /aws/etl/pipeline
+  /aws/airflow/logs
+  /aws/kafka/broker-logs
+  /aws/rds/oltp
+  /aws/rds/olap
+
+Set Up CloudWatch Alarms:
+
+ETL Pipeline Alarms:
+  - High memory usage (> 80%)
+  - High CPU usage (> 80%)
+  - Kafka consumer lag > 100,000 messages
+  - Errors in logs
+
+Airflow Alarms:
+  - DAG failure
+  - Task timeout
+  - Scheduler not running
+  - High web server latency
+
+RDS Alarms:
+  - Database connections > 80% of max
+  - CPU utilization > 80%
+  - Free storage space < 10%
+  - Replication lag > 1 second
+
+MSK Alarms:
+  - Broker node failures
+  - Topic replication failing
+  - High ZooKeeper CPU
+
+STEP 5.2: Application Logging
+───────────────────────────────
+
+ETL Pipeline Logging:
+
+  All logs sent to CloudWatch:
+  - INFO: Pipeline events (start, end, record counts)
+  - WARNING: Schema mismatches, slow operations
+  - ERROR: Exceptions, connection failures
+  - DEBUG: Detailed transformation steps
+
+Airflow Logging:
+
+  DAG logs in CloudWatch:
+  - DAG start/end times
+  - Task execution times
+  - Errors and retries
+  - SLA breaches
+
+Database Logging:
+
+  Enable PostgreSQL logging:
+  ALTER SYSTEM SET log_statement = 'mod';
+  ALTER SYSTEM SET log_duration = on;
+  SELECT pg_reload_conf();
+
+STEP 5.3: Performance Monitoring
+──────────────────────────────────
+
+Create Custom Metrics:
+
+  - ETL throughput (records/minute)
+  - Data quality check results
+  - Kafka offset lag
+  - OLAP query latency
+  - Transformation time per table
+
+Create Dashboards:
+
+  CloudWatch Dashboard: ETL Pipeline Status
+  - Throughput graph
+  - Lag graph
+  - Error rate
+  - CPU/Memory usage
+  - Recent logs
+
+  Airflow Dashboard (built-in)
+  - DAG run status
+  - Task duration trends
+  - SLA adherence
+
+================================================================================
+PHASE 6: TESTING IN AWS (1-2 hours)
+================================================================================
+
+STEP 6.1: Connectivity Testing
+────────────────────────────────
+
+Test Each Component:
+
+  1. ETL → OLTP RDS:
+     telnet prod-oltp.rds.amazonaws.com 5432
+     psql -h prod-oltp.rds.amazonaws.com -U debezium_user -d oltp_db -c "SELECT COUNT(*) FROM users;"
+
+  2. ETL → OLAP RDS:
+     psql -h prod-olap.rds.amazonaws.com -U etl_user -d olap_db -c "SELECT COUNT(*) FROM etl_pipeline_runs;"
+
+  3. ETL → MSK:
+     kafka-broker-api-versions.sh --bootstrap-server b-1...kafka.amazonaws.com:9092
+
+  4. Airflow → OLAP RDS:
+     airflow dags test oltp_to_olap_daily 2026-10-08
+
+STEP 6.2: Data Pipeline Test
+──────────────────────────────
+
+Run Snapshot Load:
+
+  1. Load OLTP data to OLAP (initial snapshot)
+  2. Verify row counts match
+  3. Run data quality checks
+  4. Document baseline metrics
+
+Trigger Airflow DAG:
+
+  1. Login to Airflow UI: http://airflow-prod.internal:8080
+  2. Go to oltp_to_olap_daily DAG
+  3. Click "Trigger DAG"
+  4. Monitor execution in Graph view
+  5. Expected runtime: 2-4 hours
+
+Monitor Real-Time CDC:
+
+  1. Make test update in OLTP:
+     UPDATE users SET name = 'AWS Test ' || id WHERE id = 1;
+
+  2. Verify CDC captured:
+     kafka-console-consumer.sh --bootstrap-server ... --topic cdc.prod.oltp.users --from-beginning
+
+  3. Verify data loaded to OLAP:
+     SELECT * FROM users WHERE id = 1;
+
+STEP 6.3: Performance Baseline
+────────────────────────────────
+
+Run EXPLAIN ANALYZE:
+
+  psql -h prod-olap.rds.amazonaws.com -U etl_user -d olap_db << EOF
+  EXPLAIN ANALYZE SELECT COUNT(*) FROM trades WHERE DATE(trade_date) = CURRENT_DATE;
+  EXPLAIN ANALYZE SELECT f.* FROM trades f JOIN users u ON f.user_id = u.id LIMIT 1000;
+  EOF
+
+Document Metrics:
+
+  - Query execution time
+  - Table row counts
+  - Database size
+  - CPU/Memory utilization
+  - Storage I/O
+
+Create Performance Report:
+
+  Save to S3: s3://etl-reports-prod/performance-baseline-[DATE].txt
+
+STEP 6.4: Failover Testing (Optional)
+──────────────────────────────────────
+
+Test RDS Multi-AZ Failover:
+
+  1. Initiate manual failover in RDS console
+  2. Monitor ETL and Airflow for connectivity issues
+  3. Verify automatic reconnection
+  4. Document failover time
+
+Test Kafka Replication:
+
+  1. Verify all 3 brokers healthy
+  2. Monitor topics have 3 replicas
+  3. Simulate broker failure (optional in staging only)
+
+================================================================================
+PHASE 7: PRODUCTION DEPLOYMENT (30 minutes)
+================================================================================
+
+STEP 7.1: Pre-Deployment Checklist
+───────────────────────────────────
+
+Infrastructure:
+  ☐ All AWS resources created and tested
+  ☐ Security groups configured correctly
+  ☐ Network connectivity verified
+  ☐ Backups enabled and tested
+
+Databases:
+  ☐ OLTP with logical decoding enabled
+  ☐ OLAP with tracking tables created
+  ☐ Credentials in Secrets Manager
+  ☐ All IAM roles and policies in place
+
+Applications:
+  ☐ ETL pipeline tested and deployed
+  ☐ Airflow DAG deployed and tested
+  ☐ Debezium connector registered and running
+  ☐ All connectivity tests passing
+
+Monitoring:
+  ☐ CloudWatch logs configured
+  ☐ Alarms created and tested
+  ☐ Dashboards available
+  ☐ On-call rotation established
+
+Documentation:
+  ☐ Runbooks written
+  ☐ Troubleshooting guide completed
+  ☐ Architecture documented
+  ☐ Team trained on monitoring
+
+STEP 7.2: Go-Live Plan
+───────────────────────
+
+Deployment Window: Off-business hours (e.g., Friday 8 PM - Sunday 6 AM)
+
+Hour 0-1: Preparation
+  - Notify stakeholders
+  - Start monitoring dashboard
+  - Prepare rollback procedures
+
+Hour 1-2: Activate Pipeline
+  - Start ETL service: systemctl start etl-pipeline
+  - Verify Kafka events flowing
+  - Verify data loading to OLAP
+
+Hour 2-3: Enable Airflow DAG
+  - Unpause DAG in Airflow
+  - Trigger first production run
+  - Monitor all tasks
+
+Hour 3-4: Validation
+  - Data quality checks pass
+  - Performance metrics acceptable
+  - Stakeholders confirm success
+
+Hour 4+: Monitoring
+  - Continuous monitoring for 24 hours
+  - Document any issues
+  - Run multiple DAG cycles
+
+STEP 7.3: Post-Deployment
+────────────────────────────
+
+Monitor First 24 Hours:
+  - Check all metrics in CloudWatch
+  - Review all logs
+  - Verify data loaded correctly
+  - Monitor performance
+
+Run Daily Validation:
+  - Row count validation
+  - Data quality checks
+  - Performance metrics
+  - Error rates
+
+Team Handoff:
+  - Brief operations team
+  - Provide runbooks
+  - Establish escalation procedures
+  - Schedule training session
+
+================================================================================
+OPERATION PROCEDURES
+================================================================================
+
+Daily Operations:
+
+Monitor Pipeline:
+  1. Check Airflow DAG status (should run daily at 2 AM)
+  2. Review CloudWatch dashboard
+  3. Check if any alarms triggered
+  4. Verify data quality checks passed
+  5. Monitor Kafka consumer lag
+
+Weekly Tasks:
+
+  - Review and archive old logs
+  - Analyze performance trends
+  - Check for slow queries
+  - Validate backup integrity
+  - Review security logs
+
+Monthly Tasks:
+
+  - Full system review
+  - Update runbooks if needed
+  - Capacity planning
+  - Cost analysis
+  - Rotate secrets (every 90 days)
+
+Incident Response:
+
+If DAG Fails:
+  1. Check Airflow scheduler logs
+  2. Identify which task failed
+  3. Review task error logs
+  4. Manually retry task: airflow tasks clear [dag] [task] -s 2026-10-08
+  5. If critical, notify team
+
+If Kafka Lag High:
+  1. Check ETL instance resources (CPU, memory)
+  2. Check OLAP database performance
+  3. Check network latency
+  4. Increase batch size or reduce timeout
+  5. Check for slow queries in OLAP
+
+If Data Quality Fails:
+  1. Identify which check failed
+  2. Query affected table
+  3. Review transformer logic
+  4. Fix root cause
+  5. Reload affected data
+
+================================================================================
+COST OPTIMIZATION
+================================================================================
+
+Right-Sizing:
+  - Start with t3.xlarge for ETL/Airflow
+  - Monitor utilization
+  - Scale down if CPU/memory < 20%
+  - Scale up if approaching limits
+
+Kafka Optimization:
+  - MSK costs: $0.1/hour per broker
+  - Start with 3 brokers, monitor lag
+  - Retention: Keep at 7 days minimum
+  - Compression: Enable snappy compression
+
+Database Optimization:
+  - RDS: Choose appropriate instance size
+  - Storage: Monitor growth, set auto-scaling
+  - Backups: Adjust retention to 30 days
+  - Reserved instances: Purchase for 1-3 years
+
+Cost Monitoring:
+  - Set up AWS Budget alerts
+  - Review costs monthly
+  - Analyze by component
+  - Optimize over time
+
+================================================================================
+DISASTER RECOVERY
+================================================================================
+
+Backup Strategy:
+
+OLTP Database:
+  - Automated daily backups (30 days)
+  - Read replica in different AZ
+  - Test restore quarterly
+
+OLAP Database:
+  - Automated daily backups (30 days)
+  - Test restore quarterly
+  - Optional: Read replica for HA
+
+Kafka:
+  - MSK handles replication (3 replicas)
+  - 7-day retention for recovery
+  - Schema registry backed up
+
+Recovery Procedures:
+
+If OLTP Corrupted:
+  1. Restore from latest backup
+  2. Rebuild replication slot
+  3. Restart Debezium connector
+  4. Catch up OLAP with snapshot
+
+If OLAP Corrupted:
+  1. Restore from latest backup
+  2. Update Kafka offsets
+  3. Re-run failed DAG tasks
+  4. Verify data integrity
+
+If Kafka Cluster Down:
+  1. MSK auto-recovery with multi-AZ
+  2. Manual recovery: restore from snapshot
+  3. Debezium resumes from replication slot
+
+RTO/RPO Targets:
+  - RTO (Recovery Time Objective): < 4 hours
+  - RPO (Recovery Point Objective): < 1 hour
+
+================================================================================
+SCHEMA CHANGES & UPDATES
+================================================================================
+
+Process for OLTP Schema Changes:
+
+  1. Notify ETL team before change
+  2. Create new columns as nullable
+  3. Update Python table_mappings.json
+  4. Update transformers (if needed)
+  5. Test locally
+  6. Deploy code changes
+  7. Monitor first run for issues
+  8. Document change in changelog
+
+Process for OLAP Schema Changes:
+
+  1. Plan change during maintenance window
+  2. Notify analytics team
+  3. Make change to OLAP schema
+  4. Update transformers
+  5. Rerun affected DAG tasks
+  6. Update documentation
+
+================================================================================
+TROUBLESHOOTING GUIDE - AWS SPECIFIC
+================================================================================
+
+Issue: RDS Connection Timeout
+  
+  Diagnosis:
+  - Check security group allows port 5432
+  - Verify RDS instance is running
+  - Check network connectivity from ETL instance
+  - Verify credentials in Secrets Manager
+  
+  Resolution:
+  - Update security group rules
+  - Restart RDS instance if needed
+  - Use bastion host to test connection
+
+Issue: Kafka Broker Unreachable
+
+  Diagnosis:
+  - Check MSK cluster status in console
+  - Verify security group allows port 9092
+  - Check broker node health
+  
+  Resolution:
+  - Wait for broker recovery
+  - Manually restart broker if failed
+  - Scale cluster if repeated issues
+
+Issue: High Kafka Consumer Lag
+
+  Diagnosis:
+  - Check ETL instance CPU/memory
+  - Check OLAP disk I/O
+  - Verify network latency
+  
+  Resolution:
+  - Increase ETL instance size
+  - Optimize OLAP queries
+  - Add indexes to OLAP tables
+  - Reduce batch size to process faster
+
+Issue: DAG Not Running on Schedule
+
+  Diagnosis:
+  - Check if scheduler running: systemctl status airflow-scheduler
+  - Check DAG parse errors in UI
+  - Verify cron expression
+  - Check Airflow metadata database
+  
+  Resolution:
+  - Restart scheduler
+  - Fix DAG syntax errors
+  - Manually trigger DAG to test
+
+Issue: CloudWatch Metrics Missing
+
+  Diagnosis:
+  - Check IAM role has CloudWatch permissions
+  - Verify log groups exist
+  - Check agent/service publishing metrics
+  
+  Resolution:
+  - Add cloudwatch:PutMetricData to IAM role
+  - Create log groups manually if needed
+  - Restart services to resume publishing
+
+================================================================================
+SUPPORT & ESCALATION
+================================================================================
+
+Support Levels:
+
+Level 1: Operations Team
+  - Monitor dashboards
+  - Restart services
+  - Run incident response playbooks
+  - Escalate to Level 2 if unresolved in 30 min
+
+Level 2: DevOps/Platform Team
+  - Investigate infrastructure issues
+  - Modify security groups/network
+  - Scale resources
+  - Escalate to Level 3 if needed
+
+Level 3: Engineering/Architecture
+  - Code-level debugging
+  - Schema changes
+  - Major infrastructure changes
+  - AWS support escalation
+
+On-Call Schedule:
+  - Primary on-call engineer
+  - Secondary backup
+  - Escalation to manager if both unavailable
+
+Escalation Timeline:
+  - Warning issued at 15 minutes
+  - Page secondary at 30 minutes
+  - Page manager at 45 minutes
+
+================================================================================
+APPENDIX A: QUICK COMMAND REFERENCE
+================================================================================
+
+Useful AWS CLI Commands:
+
+  # Check RDS status
+  aws rds describe-db-instances --db-instance-identifier prod-oltp
+  
+  # Check MSK cluster status
+  aws kafka describe-cluster --cluster-arn arn:aws:kafka:...
+  
+  # List EC2 instances
+  aws ec2 describe-instances --filters "Name=instance-state-name,Values=running"
+  
+  # Retrieve secrets
+  aws secretsmanager get-secret-value --secret-id prod/oltp/credentials
+  
+  # Get CloudWatch metrics
+  aws cloudwatch get-metric-statistics --namespace AWS/RDS --metric-name CPUUtilization --start-time ... --end-time ... --period 300 --statistics Average
+
+Useful Airflow Commands:
+
+  # List DAGs
+  airflow dags list
+  
+  # Test DAG
+  airflow dags test [dag_id] [execution_date]
+  
+  # Trigger DAG
+  airflow dags trigger [dag_id]
+  
+  # Clear tasks
+  airflow tasks clear [dag_id] [task_id] -s [start_date]
+  
+  # Get connection
+  airflow connections get [conn_id]
+
+Useful PostgreSQL Commands:
+
+  # Check replication status
+  SELECT * FROM pg_stat_replication;
+  
+  # Check logical replication slot
+  SELECT * FROM pg_replication_slots;
+  
+  # Monitor slow queries
+  SELECT query, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC;
+
+================================================================================
+END OF AWS INTEGRATION GUIDE
+================================================================================
+
+Last Updated: 2026-10-08
+Next Review: 2026-11-08
+Owner: DevOps/Platform Team
