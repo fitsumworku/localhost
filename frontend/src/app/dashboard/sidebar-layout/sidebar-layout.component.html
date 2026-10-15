@@ -27,6 +27,39 @@
 
   <!-- Main Content -->
   <main class="main-content">
-    <router-outlet></router-outlet>
+    <!-- Top Header with Account Selector -->
+    <div class="top-header" *ngIf="!isAdminDashboard">
+      <div class="header-content">
+        <h1>{{ selectedAccount ? ('Account ' + selectedAccount.accountId) : 'Accounts' }}</h1>
+        <div class="account-selector-wrapper">
+          <mat-form-field appearance="outline" class="account-selector">
+            <mat-label>Account</mat-label>
+            <mat-select [value]="selectedAccount" (selectionChange)="selectAccount($event.value)">
+              <mat-option *ngFor="let account of accounts" [value]="account">
+                Account {{ account.accountId }} ({{ account.currency }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+          <button mat-icon-button class="add-account-btn" (click)="openAddAccountDialog()" title="Add new account">
+            <mat-icon>add</mat-icon>
+          </button>
+        </div>
+        <div class="cash-actions" *ngIf="selectedAccount">
+          <button mat-stroked-button type="button" (click)="openCashMovement('deposit')">
+            <mat-icon>add_circle</mat-icon>
+            Deposit
+          </button>
+          <button mat-stroked-button type="button" (click)="openCashMovement('withdrawal')">
+            <mat-icon>remove_circle</mat-icon>
+            Withdraw
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page Content -->
+    <div class="page-content">
+      <router-outlet></router-outlet>
+    </div>
   </main>
 </div>

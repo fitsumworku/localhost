@@ -2,7 +2,7 @@
   <!-- Header -->
   <div class="dialog-header">
     <div class="transaction-info">
-      <h2>Dispute Transaction</h2>
+      <h2>Dispute Activity</h2>
       <p class="transaction-details">
         {{ data.date }} • {{ data.asset }} • {{ data.type | uppercase }} • {{ data.amount }} • ${{ data.price }}
       </p>
@@ -14,28 +14,15 @@
 
   <!-- Form -->
   <form [formGroup]="disputeForm" class="dispute-form">
-    <!-- Dispute Reason -->
-    <div class="form-group">
-      <label class="form-label">Dispute Reason</label>
-      <mat-form-field>
-        <mat-label>Select a reason</mat-label>
-        <mat-select formControlName="reason">
-          <mat-option *ngFor="let reason of disputeReasons" [value]="reason.value">
-            {{ reason.label }}
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
-
     <!-- Supporting Details -->
     <div class="form-group">
       <label class="form-label">Supporting Details</label>
       <mat-form-field class="textarea-field">
-        <mat-label>Describe the issue, include any relevant timestamps, order IDs, or expected behavior.</mat-label>
+        <mat-label>Describe the issue.</mat-label>
         <textarea
           matInput
           formControlName="details"
-          rows="5"
+          rows="4"
           placeholder="Provide detailed information..."
         ></textarea>
       </mat-form-field>

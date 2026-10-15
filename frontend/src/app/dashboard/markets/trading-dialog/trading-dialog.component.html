@@ -28,34 +28,13 @@
     </button>
   </div>
 
-  <!-- Order Type -->
-  <div class="order-type-section">
-    <label class="section-label">Order Type</label>
-    <div class="order-type-buttons">
-      <button
-        [class.active]="orderType === 'market'"
-        (click)="selectOrderType('market')"
-        class="order-btn"
-      >
-        Market
-      </button>
-      <button
-        [class.active]="orderType === 'limit'"
-        (click)="selectOrderType('limit')"
-        class="order-btn"
-      >
-        Limit
-      </button>
-    </div>
-  </div>
-
   <!-- Form -->
   <form [formGroup]="tradeForm" class="trade-form">
     <!-- Quantity -->
     <div class="form-group">
       <label class="form-label">Quantity</label>
       <div class="quantity-input">
-        <button type="button" class="qty-btn">-</button>
+        <button type="button" class="qty-btn" (click)="adjustQuantity(-1)" [disabled]="isSubmitting">-</button>
         <mat-form-field class="qty-field">
           <input
             matInput
@@ -64,23 +43,8 @@
             placeholder="0"
           />
         </mat-form-field>
-        <button type="button" class="qty-btn">+</button>
+        <button type="button" class="qty-btn" (click)="adjustQuantity(1)" [disabled]="isSubmitting">+</button>
       </div>
-    </div>
-
-    <!-- Limit Price (only if limit order) -->
-    <div class="form-group" *ngIf="orderType === 'limit'">
-      <label class="form-label">Limit Price</label>
-      <mat-form-field>
-        <mat-label>Price</mat-label>
-        <input
-          matInput
-          type="number"
-          formControlName="limitPrice"
-          placeholder="0.00"
-        />
-        <span matSuffix>USD</span>
-      </mat-form-field>
     </div>
 
     <!-- Estimated Total -->
@@ -90,7 +54,7 @@
         {{ estimatedTotal | currency }}
       </div>
       <p class="estimated-note">
-        Based on {{ orderType === 'market' ? 'current' : 'limit' }} price of {{ (orderType === 'market' ? data.price : tradeForm.get('limitPrice')?.value) | currency }}
+        Based on current price of {{ data.price | currency }}
       </p>
     </div>
 
@@ -102,9 +66,19 @@
       [class.buy]="transactionType === 'buy'"
       [class.sell]="transactionType === 'sell'"
       (click)="onSubmit()"
-      [disabled]="!tradeForm.valid"
+      [disabled]="!tradeForm.valid || isSubmitting"
     >
       Place {{ transactionType === 'buy' ? 'Buy' : 'Sell' }} Order
     </button>
+    <div
+      *ngIf="orderOutcome"
+      class="order-outcome"
+      [class.success]="orderOutcome.tone === 'success'"
+      [class.warning]="orderOutcome.tone === 'warning'"
+      [class.error]="orderOutcome.tone === 'error'"
+    >
+      <strong>{{ orderOutcome.title }}</strong>
+      <span>{{ orderOutcome.detail }}</span>
+    </div>
   </form>
 </div>

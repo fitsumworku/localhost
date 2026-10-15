@@ -1,0 +1,32 @@
+<div class="add-account-dialog">
+  <div class="dialog-header">
+    <h2>Add a New Account</h2>
+    <button mat-icon-button (click)="onCancel()" class="close-button">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="dialog-form">
+    <div class="form-content">
+      <mat-form-field appearance="outline" class="account-input">
+        <mat-label>Account Name</mat-label>
+        <input matInput formControlName="accountName" placeholder="e.g., Trading Account">
+        <mat-error *ngIf="form.get('accountName')?.hasError('required')">
+          Account name is required
+        </mat-error>
+        <mat-error *ngIf="form.get('accountName')?.hasError('minlength')">
+          Account name must be at least 3 characters
+        </mat-error>
+      </mat-form-field>
+    </div>
+
+    <div class="dialog-actions">
+      <button mat-stroked-button type="button" (click)="onCancel()">
+        Cancel
+      </button>
+      <button mat-raised-button color="primary" type="submit" [disabled]="!form.valid">
+        Create Account
+      </button>
+    </div>
+  </form>
+</div>

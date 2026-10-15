@@ -2,13 +2,13 @@ import { Routes } from '@angular/router';
 import { LoginComponent } from './auth/login/login.component';
 import { SignupComponent } from './auth/signup/signup.component';
 import { AuthLayoutComponent } from './auth/auth-layout/auth-layout.component';
-import { AccountTypeComponent } from './auth/account-type/account-type.component';
+// import { AccountTypeComponent } from './auth/account-type/account-type.component';
 import { SidebarLayoutComponent } from './dashboard/sidebar-layout/sidebar-layout.component';
 import { ClientDashboardComponent } from './dashboard/client-dashboard/client-dashboard.component';
 import { AdminDashboardComponent } from './dashboard/admin-dashboard/admin-dashboard.component';
 import { MarketsComponent } from './dashboard/markets/markets.component';
 import { CompareMarketsComponent } from './dashboard/compare-markets/compare-markets.component';
-import { TransactionHistoryComponent } from './dashboard/transaction-history/transaction-history.component';
+import { TransactionHistoryComponent } from './dashboard/activity-history/activity-history.component';
 import { ClientDisputesComponent } from './dashboard/client-disputes/client-disputes.component';
 import { ComplianceComponent } from './dashboard/compliance/compliance.component';
 
@@ -22,7 +22,6 @@ export const routes: Routes = [
       { path: 'signup', component: SignupComponent }
     ]
   },
-  { path: 'account-type', component: AccountTypeComponent },
   {
     path: '',
     component: SidebarLayoutComponent,

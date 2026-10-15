@@ -1,0 +1,247 @@
+.dispute-dialog {
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  box-sizing: border-box;
+
+  .dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e0e0e0;
+    flex-shrink: 0;
+    min-width: 0;
+
+    .transaction-info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+
+      h2 {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin: 0 0 8px 0;
+        word-break: break-word;
+      }
+
+      .transaction-details {
+        font-size: 12px;
+        color: #666;
+        margin: 0;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+      }
+    }
+
+    .close-btn {
+      color: #999;
+      flex-shrink: 0;
+      margin-left: 8px;
+
+      &:hover {
+        color: #1a1a1a;
+      }
+    }
+  }
+
+  .dispute-form {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+
+    .form-group {
+      margin-bottom: 16px;
+
+      .form-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #1a1a1a;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+      }
+
+      mat-form-field {
+        width: 100%;
+        box-sizing: border-box;
+
+        ::ng-deep .mat-mdc-form-field {
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        ::ng-deep textarea {
+          resize: vertical;
+          max-width: 100%;
+          box-sizing: border-box;
+        }
+      }
+
+      .textarea-field {
+        ::ng-deep .mat-mdc-text-field-wrapper {
+          padding-bottom: 0;
+        }
+      }
+
+      .field-hint {
+        font-size: 11px;
+        color: #ff6b6b;
+        margin-top: 4px;
+        margin-bottom: 0;
+      }
+    }
+
+    .dialog-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 20px;
+      padding-top: 12px;
+      border-top: 1px solid #e0e0e0;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+
+      button {
+        padding: 8px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+      }
+
+      .cancel-btn {
+        color: #666;
+        border-color: #e0e0e0;
+
+        &:hover {
+          border-color: #999;
+          color: #999;
+        }
+      }
+
+      .submit-btn {
+        background-color: #06402b;
+        color: white;
+
+        &:hover:not(:disabled) {
+          background-color: #05331f;
+        }
+
+        &:disabled {
+          background-color: #ccc;
+          cursor: not-allowed;
+        }
+      }
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .dispute-dialog {
+    padding: 20px;
+
+    .dialog-header {
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+
+      .transaction-info {
+        h2 {
+          font-size: 16px;
+        }
+
+        .transaction-details {
+          font-size: 11px;
+        }
+      }
+    }
+
+    .dispute-form {
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .dialog-actions {
+        margin-top: 24px;
+        padding-top: 12px;
+        gap: 8px;
+
+        button {
+          padding: 8px 16px;
+          font-size: 12px;
+          flex: 1;
+          min-width: calc(50% - 4px);
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .dispute-dialog {
+    padding: 16px;
+
+    .dialog-header {
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      flex-direction: column;
+
+      .transaction-info {
+        h2 {
+          font-size: 16px;
+        }
+
+        .transaction-details {
+          font-size: 10px;
+          word-break: break-word;
+        }
+      }
+
+      .close-btn {
+        align-self: flex-end;
+        margin-left: 0;
+        margin-top: -8px;
+      }
+    }
+
+    .dispute-form {
+      .form-group {
+        margin-bottom: 16px;
+
+        .form-label {
+          font-size: 11px;
+        }
+
+        textarea {
+          font-size: 14px; // Ensure minimum 16px to prevent zoom on iOS
+        }
+      }
+
+      .dialog-actions {
+        margin-top: 20px;
+        padding-top: 12px;
+        gap: 8px;
+        justify-content: stretch;
+
+        button {
+          padding: 10px 12px;
+          font-size: 12px;
+          flex: 1;
+          min-height: 40px;
+        }
+      }
+    }
+  }
+}

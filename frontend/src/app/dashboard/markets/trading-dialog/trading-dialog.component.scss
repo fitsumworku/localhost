@@ -240,4 +240,32 @@
       }
     }
   }
+
+  .order-outcome {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 16px;
+    padding: 12px;
+    border-left: 4px solid;
+    font-size: 13px;
+
+    &.success {
+      color: #176b35;
+      background: #edf9f0;
+      border-color: #51cf66;
+    }
+
+    &.warning {
+      color: #8a5200;
+      background: #fff8e6;
+      border-color: #ffa94d;
+    }
+
+    &.error {
+      color: #a61e2b;
+      background: #fff0f1;
+      border-color: #ff6b6b;
+    }
+  }
 }

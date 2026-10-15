@@ -5,7 +5,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../services/auth.service';
-import { LoginRequest } from '../models/auth.model';
+import { AuthResponse, LoginRequest } from '../models/auth.model';
 
 @Component({
   selector: 'app-login',
@@ -54,11 +54,10 @@ export class LoginComponent implements OnInit {
     const loginRequest: LoginRequest = this.loginForm.value;
 
     this.authService.login(loginRequest).subscribe({
-      next: (response: any) => {
+      next: (response: AuthResponse) => {
         this.isLoading.set(false);
-        // TODO: Save JWT token to sessionStorage when implementing JWT logic
-        // this.authService.saveToken(response.accessToken);
-        this.router.navigate(['/account-type']); // Navigate to account type selection
+        this.authService.saveToken(response.accessToken);
+        this.router.navigate([response.user.role === 'ADMIN' ? '/admin-dashboard' : '/client-dashboard']);
       },
       error: (error: HttpErrorResponse) => {
         this.isLoading.set(false);

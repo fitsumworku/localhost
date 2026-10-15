@@ -22,9 +22,15 @@ export class AuthService {
     return this.http.post<User>(`${this.apiUrl}/auth/register`, request);
   }
 
-  // TODO: Add JWT token management methods here when implementing JWT logic
-  // - saveToken(token: string): void
-  // - getToken(): string | null
-  // - removeToken(): void
-  // - isAuthenticated(): boolean
+  saveToken(token: string): void {
+    sessionStorage.setItem('access_token', token);
+  }
+
+  getToken(): string | null {
+    return sessionStorage.getItem('access_token');
+  }
+
+  removeToken(): void {
+    sessionStorage.removeItem('access_token');
+  }
 }

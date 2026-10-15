@@ -16,6 +16,7 @@ export interface User {
   userId: number;
   name: string;
   email: string;
+  role: 'CLIENT' | 'ADMIN';
   createdDate: string;
   status: string;
 }
