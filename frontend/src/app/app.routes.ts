@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { LoginComponent } from './auth/login/login.component';
 import { SignupComponent } from './auth/signup/signup.component';
 import { AuthLayoutComponent } from './auth/auth-layout/auth-layout.component';
-import { AccountTypeComponent } from './auth/account-type/account-type.component';
 import { SidebarLayoutComponent } from './dashboard/sidebar-layout/sidebar-layout.component';
 import { ClientDashboardComponent } from './dashboard/client-dashboard/client-dashboard.component';
 import { AdminDashboardComponent } from './dashboard/admin-dashboard/admin-dashboard.component';
@@ -19,10 +18,9 @@ export const routes: Routes = [
     component: AuthLayoutComponent,
     children: [
       { path: 'login', component: LoginComponent },
-      { path: 'signup', component: SignupComponent }
-    ]
+      { path: 'signup', component: SignupComponent },
+    ],
   },
-  { path: 'account-type', component: AccountTypeComponent },
   {
     path: '',
     component: SidebarLayoutComponent,
@@ -33,7 +31,7 @@ export const routes: Routes = [
       { path: 'compare', component: CompareMarketsComponent },
       { path: 'transactions', component: TransactionHistoryComponent },
       { path: 'disputes', component: ClientDisputesComponent },
-      { path: 'compliance', component: ComplianceComponent }
-    ]
-  }
+      { path: 'compliance', component: ComplianceComponent },
+    ],
+  },
 ];

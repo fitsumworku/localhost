@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { LoginRequest, SignupRequest, AuthResponse, User } from '../models/auth.model';
 
 interface StoredSession {
@@ -12,7 +12,7 @@ const SESSION_KEY = 'auth_session';
 
 // Authentication service for handling user login and signup
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AuthService {
   // Relative so it goes to the same origin as the page; proxy.conf.json (dev) forwards /api to Spring on :8081
@@ -21,7 +21,9 @@ export class AuthService {
   constructor(private http: HttpClient) {}
 
   login(request: LoginRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/login`, request);
+    return this.http
+      .post<AuthResponse>(`${this.apiUrl}/auth/login`, request)
+      .pipe(tap((response) => this.saveSession(response)));
   }
 
   // Returns the created user (201)
@@ -53,6 +55,11 @@ export class AuthService {
     } catch {
       // Storage blocked (e.g. some private windows); nothing to clear
     }
+  }
+
+  getRole(): string | null {
+    const user = this.getCurrentUser();
+    return user ? user.role : null;
   }
 
   // Store the login response; expiresInMs is turned into a fixed moment so it survives refreshes
