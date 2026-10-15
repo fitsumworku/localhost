@@ -1,0 +1,123 @@
+<div class="transaction-history-container">
+  <!-- Header -->
+  <div class="header">
+    <h1>Activity History</h1>
+    <p class="subtitle">View all your trades and transactions </p>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stats-grid">
+    <!-- Portfolio Value Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">PORTFOLIO_VALUE</p>
+        <mat-icon class="stat-icon">trending_up</mat-icon>
+      </div>
+      <h2 class="stat-value" *ngIf="portfolioMetrics as metrics; else portfolioLoading">{{ metrics.portfolioValue | currency }}</h2>
+      <ng-template #portfolioLoading><h2 class="stat-value">{{ isLoadingPortfolio ? 'Loading...' : '—' }}</h2></ng-template>
+    </div>
+
+    <!-- Cash Balance Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">CASH_BALANCE</p>
+        <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
+      </div>
+      <h2 class="stat-value" *ngIf="portfolioMetrics as metrics; else cashLoading">{{ metrics.cashBalance | currency }}</h2>
+      <ng-template #cashLoading><h2 class="stat-value">{{ isLoadingPortfolio ? 'Loading...' : '—' }}</h2></ng-template>
+    </div>
+
+    <!-- Buying Power Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">BUYING_POWER</p>
+        <mat-icon class="stat-icon">shopping_cart</mat-icon>
+      </div>
+      <h2 class="stat-value" *ngIf="portfolioMetrics as metrics; else buyingPowerLoading">{{ metrics.buyingPower | currency }}</h2>
+      <ng-template #buyingPowerLoading><h2 class="stat-value">{{ isLoadingPortfolio ? 'Loading...' : '—' }}</h2></ng-template>
+    </div>
+
+    <!-- Total Return Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">TOTAL_RETURN</p>
+        <mat-icon class="stat-icon">show_chart</mat-icon>
+      </div>
+      <h2 class="stat-value" *ngIf="portfolioMetrics as metrics; else returnLoading">{{ metrics.totalReturn | currency }}</h2>
+      <ng-template #returnLoading><h2 class="stat-value">{{ isLoadingPortfolio ? 'Loading...' : '—' }}</h2></ng-template>
+    </div>
+  </div>
+
+  <!-- Activity History Table -->
+  <div class="transaction-section">
+    <div class="section-header">
+      <h2>Activity History</h2>
+      <p class="subtitle">All trades, deposits, and withdrawals</p>
+    </div>
+
+    <!-- Scrollable Table -->
+    <div class="table-container">
+      <table class="transactions-table">
+        <thead>
+          <tr>
+            <th class="col-date">Date</th>
+            <th class="col-asset">Asset</th>
+            <th class="col-type">Type</th>
+            <th class="col-amount">Amount</th>
+            <th class="col-price">Price</th>
+            <th class="col-pnl">P&L</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let activity of transactionData" class="transaction-row" [class.transaction-type]="isTransactionActivity(activity.type)">
+            <td class="col-date">{{ activity.date }}</td>
+            <td class="col-asset">{{ activity.asset }}</td>
+            <td class="col-type">
+              <span
+                class="type-badge"
+                [style.backgroundColor]="getTypeColor(activity.type)"
+              >
+                {{ activity.type.toUpperCase() }}
+              </span>
+            </td>
+            <td class="col-amount">{{ activity.amount }}</td>
+            <td class="col-price">
+              <span *ngIf="activity.price !== undefined">${{ activity.price }}</span>
+              <span *ngIf="activity.price === undefined" class="text-muted">—</span>
+            </td>
+            <td class="col-pnl">
+              <span *ngIf="activity.pnl !== undefined" [style.color]="getPnlColor(activity.pnl)">
+                {{ activity.pnl > 0 ? '+' : '' }}${{ activity.pnl }}
+              </span>
+              <span *ngIf="activity.pnl === undefined" class="text-muted">—</span>
+            </td>
+            <td class="col-actions">
+              <button
+                mat-icon-button
+                (click)="openDisputeDialog(activity)"
+                title="Dispute transaction"
+                class="action-btn"
+              >
+                <mat-icon>flag</mat-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="isLoading" class="no-transactions">
+      <mat-icon class="empty-icon">hourglass_empty</mat-icon>
+      <p>Loading transaction history...</p>
+    </div>
+    <div *ngIf="!isLoading && errorMessage" class="no-transactions">
+      <mat-icon class="empty-icon">error_outline</mat-icon>
+      <p>{{ errorMessage }}</p>
+    </div>
+    <div *ngIf="!isLoading && !errorMessage && transactionData.length === 0" class="no-transactions">
+      <mat-icon class="empty-icon">receipt_long</mat-icon>
+      <p>No activity yet</p>
+    </div>
+  </div>
+</div>

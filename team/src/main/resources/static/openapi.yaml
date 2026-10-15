@@ -1,0 +1,297 @@
+openapi: 3.0.3
+info:
+  title: Trading API
+  version: 1.0.0
+  description: REST API for trading app.
+
+servers:
+  - url: http://localhost:8081
+
+tags:
+  - name: authentication
+  - name: accounts
+
+paths:
+  #Authentication
+  /auth/register:
+    post:
+      summary: New user sign up
+      tags:
+        - authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          description: Email already registered
+
+  /auth/login:
+    post:
+      summary: Log in
+      tags:
+        - authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Wrong email or password
+
+  /auth/logout:
+    post:
+      summary: Log out
+      tags:
+        - authentication
+      responses:
+        "200":
+          description: Logged out
+        "401":
+          description: Failed to log out
+
+  /auth/me:
+    get:
+      summary: Get a user's details
+      tags:
+        - authentication
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+
+  #Accounts
+  /accounts:
+    post:
+      summary: Open a new account for a user
+      tags:
+        - accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+    get:
+      summary: List a user's accounts
+      tags:
+        - accounts
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+
+  /accounts/{accountId}:
+    get:
+      summary: Get one account
+      tags:
+        - accounts
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "404":
+          description: Account not found
+
+  /accounts/{accountId}/balance:
+    get:
+      summary: Get an account's cash balance
+      tags:
+        - accounts
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Account balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountBalance"
+        "404":
+          description: Account not found
+
+  /accounts/{accountId}/positions:
+    get:
+      summary: Get the securities held in an account
+      tags:
+        - accounts
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of positions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Position"
+        "404":
+          description: Account not found
+
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          example: Big Sai
+        email:
+          type: string
+          example: bigsai@gmail.com
+        password:
+          type: string
+          example: Password123
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          example: bigsai@gmail.com
+        password:
+          type: string
+          example: Password123
+
+    CreateAccountRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: integer
+          example: 1
+
+    User:
+      type: object
+      required: [userId, name, email, createdDate, status]
+      properties:
+        userId:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Ahhhrjun
+        email:
+          type: string
+          example: Ahhhrjun@gmail.com
+        createdDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED]
+
+    Account:
+      type: object
+      required: [accountId, userId, createdDate, status]
+      properties:
+        accountId:
+          type: integer
+          example: 1
+        userId:
+          type: integer
+          example: 1
+        createdDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED]
+
+    AccountBalance:
+      type: object
+      properties:
+        accountId:
+          type: integer
+          example: 1
+        cashBalance:
+          type: number
+          example: 10250.50
+
+    Position:
+      type: object
+      properties:
+        positionId:
+          type: integer
+          example: 7
+        accountId:
+          type: integer
+          example: 1
+        securityId:
+          type: integer
+          example: 3
+        totalShares:
+          type: number
+          example: 25
+        averagePrice:
+          type: number
+          example: 195.01
+        updatedDate:
+          type: string
+          format: date-time

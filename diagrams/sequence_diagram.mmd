@@ -1,0 +1,218 @@
+sequenceDiagram
+    participant Client
+    participant ClientController
+    participant ClientService
+    participant AuthService
+    participant AccountService
+    participant OrderService
+    participant ExecutionService
+    participant TradeService
+    participant TransactionService
+    participant Database
+
+    %% PHASE 1: USER AUTHENTICATION
+    Note over Client,Database: PHASE 1: USER SIGN IN & VALIDATION
+    
+    Client->>ClientController: POST /login (email, password)
+    ClientController->>AuthService: validateCredentials(email, password)
+    
+    AuthService->>Database: findUserByEmail(email)
+    Database-->>AuthService: User object
+    
+    AuthService->>AuthService: comparePasswordHash()
+    alt Invalid Credentials
+        AuthService-->>ClientController: AuthenticationException
+        ClientController-->>Client: 401 Unauthorized
+    else Valid Credentials
+        AuthService->>AuthService: generateSessionToken()
+        AuthService-->>ClientController: SessionToken + Client data
+        ClientController-->>Client: 200 OK (Session established)
+    end
+
+    %% PHASE 2: PLACE ORDER
+    Note over Client,Database: PHASE 2: CLIENT PLACES ORDER
+    
+    Client->>ClientController: POST /orders (orderId, securityId, quantity, limitPrice)
+    ClientController->>ClientService: validateClientEligibility(clientId)
+    
+    ClientService->>Database: getClientById(clientId)
+    Database-->>ClientService: Client object
+    
+    alt Client Blacklisted or KYC Not Verified
+        ClientService-->>ClientController: ClientNotEligibleException
+        ClientController-->>Client: 403 Forbidden
+    else Client Eligible
+        ClientController->>OrderService: createOrder(Order)
+        OrderService->>OrderService: validateOrderData()
+        
+        alt Invalid Order (quantity=0, price<0, etc)
+            OrderService-->>ClientController: InvalidOrderException
+            ClientController-->>Client: 400 Bad Request
+        else Valid Order Data
+            OrderService->>OrderService: calculateRequiredCash()
+            Note over OrderService: Required = quantity × limitPrice
+            
+            OrderService->>AccountService: reserveCash(accountId, requiredCash)
+            AccountService->>Database: getAccount(accountId)
+            Database-->>AccountService: Account object
+            
+            alt Insufficient Cash
+                AccountService-->>OrderService: InsufficientFundsException
+                OrderService-->>ClientController: InsufficientFundsException
+                ClientController-->>Client: 402 Payment Required
+            else Sufficient Cash
+                AccountService->>AccountService: account.cashLedger -= requiredCash
+                AccountService->>Database: saveAccount(account)
+                Database-->>AccountService: Account saved
+                
+                OrderService->>Database: saveOrder(Order)
+                Database-->>OrderService: Order with ID
+                
+                OrderService->>Database: createTransaction(RESERVATION, amount, orderId)
+                Database-->>OrderService: Transaction recorded
+                
+                OrderService-->>ClientController: Order created
+                ClientController-->>Client: 201 Created (Order Confirmation)
+            end
+        end
+    end
+
+    %% PHASE 3: ORDER EXECUTION
+    Note over Client,Database: PHASE 3: ORDER EXECUTION (Exchange Match)
+    
+    rect rgb(200, 150, 255)
+    Note over ExecutionService,Database: Async: Executed by Market Data System
+    ExecutionService->>Database: pollPendingOrders()
+    Database-->>ExecutionService: List of PENDING Orders
+    
+    ExecutionService->>ExecutionService: matchWithExchangePrice()
+    
+    alt Order Cannot Be Filled (price gap, no counterparty)
+        ExecutionService->>OrderService: updateOrderStatus(orderId, REJECTED)
+        OrderService->>Database: updateOrder(status=REJECTED)
+        Database-->>OrderService: Order updated
+        
+        OrderService->>AccountService: releaseReservedCash(accountId, amount)
+        AccountService->>AccountService: account.cashLedger += reservedAmount
+        AccountService->>Database: saveAccount(account)
+        Database-->>AccountService: Account saved
+        
+        OrderService->>Database: createTransaction(RESERVATION_RELEASE, amount, orderId)
+        Database-->>OrderService: Transaction recorded
+    else Order Matches Exchange
+        ExecutionService->>ExecutionService: validateExecutionPrice()
+        Note over ExecutionService: Check: executionPrice <= limitPrice
+        
+        alt Price Exceeds Limit (BUY order and price too high, etc)
+            ExecutionService->>OrderService: updateOrderStatus(orderId, REJECTED)
+            OrderService->>Database: updateOrder(status=REJECTED)
+            OrderService->>AccountService: releaseReservedCash(accountId, amount)
+            AccountService->>Database: saveAccount(account)
+            OrderService->>Database: createTransaction(RESERVATION_RELEASE, amount, orderId)
+        else Execution Valid
+            ExecutionService->>Database: createExecution(Execution)
+            Note over Database: executionId, orderId, quantityFilled, executionPrice, exchangeTradeId
+            Database-->>ExecutionService: Execution saved
+            
+            ExecutionService->>OrderService: updateOrderStatus(orderId, FILLED)
+            OrderService->>Database: updateOrder(filledQuantity, averageFilledPrice, status=FILLED)
+            Database-->>OrderService: Order updated
+            
+            ExecutionService->>ExecutionService: calculateActualCost()
+            Note over ExecutionService: actualCost = quantity × executionPrice + fees
+        end
+    end
+    end
+
+    %% PHASE 4: TRADE RECORDING
+    Note over Client,Database: PHASE 4: OFFICIAL TRADE RECORDING
+    
+    ExecutionService->>TradeService: createTrade(Execution)
+    
+    TradeService->>Database: getTrade(orderId)
+    Database-->>TradeService: Trade object (if exists)
+    
+    alt First Execution for this Order
+        TradeService->>Database: saveTrade(new Trade)
+        Database-->>TradeService: Trade with ID
+        Note over Database: tradeId, orderId, executionList=[exec1]
+    else Partial Fill (Multiple Executions)
+        TradeService->>Database: getTrade(orderId)
+        Database-->>TradeService: Existing Trade
+        TradeService->>TradeService: addExecutionToTrade(execution)
+        Note over TradeService: Update aggregated values
+        TradeService->>Database: updateTrade(Trade)
+        Database-->>TradeService: Trade updated
+    end
+
+    %% PHASE 5: TRANSACTION & LEDGER UPDATE
+    Note over Client,Database: PHASE 5: TRANSACTION & LEDGER POSTING (T+2 Settlement)
+    
+    rect rgb(200, 200, 255)
+    Note over TradeService,Database: Scheduled Job: Runs every minute, checks for T+2 trades
+    
+    TradeService->>Database: getSettledTrades(settlementDate <= today)
+    Database-->>TradeService: List of EXECUTED trades ready to settle
+    
+    loop For each settled trade
+        TradeService->>ExecutionService: validateExecutionSettlement(executionId)
+        ExecutionService->>Database: getExecution(executionId)
+        Database-->>ExecutionService: Execution object
+        
+        alt Settlement Validation Fails
+            ExecutionService-->>TradeService: SettlementException
+            TradeService->>Database: logFailedSettlement(error)
+        else Settlement Valid
+            TradeService->>TransactionService: createTransaction(TRADE, tradeId, amount)
+            
+            TransactionService->>TransactionService: calculateFinalAmount()
+            Note over TransactionService: finalAmount = (qty × execPrice) + brokerFee
+            
+            TransactionService->>Database: saveTransaction(Transaction)
+            Database-->>TransactionService: Transaction recorded
+            
+            TransactionService->>AccountService: postToLedger(accountId, -finalAmount)
+            Note over AccountService: Debit: Remove cash from account
+            
+            AccountService->>AccountService: updateAccountPosition()
+            AccountService->>Database: createOrUpdateAccountPosition()
+            Note over Database: Add shares to portfolio, track avg cost basis
+            
+            AccountService->>Database: saveAccount(account)
+            Database-->>AccountService: Account saved
+            
+            TradeService->>Database: updateTrade(status=SETTLED)
+            Database-->>TradeService: Trade status updated
+            
+            ExecutionService->>Database: updateExecution(status=SETTLED)
+            Database-->>ExecutionService: Execution status updated
+            
+            TradeService->>Database: createAuditLog(TRADE_SETTLED, tradeId)
+            Database-->>TradeService: Audit logged
+        end
+    end
+    end
+
+    %% PHASE 6: CLIENT CONFIRMATION
+    Note over Client,Database: PHASE 6: CLIENT GETS CONFIRMATION (WebSocket/Polling)
+    
+    Client->>ClientController: GET /orders/{orderId}/status
+    ClientController->>OrderService: getOrderDetails(orderId)
+    OrderService->>Database: getOrder(orderId)
+    Database-->>OrderService: Order object
+    
+    OrderService->>TradeService: getTrade(orderId)
+    Database-->>TradeService: Trade object (if exists)
+    
+    OrderService->>TransactionService: getTransactionsByTrade(tradeId)
+    Database-->>TransactionService: List of Transactions
+    
+    OrderService-->>ClientController: Complete Order+Trade+Transaction data
+    ClientController-->>Client: 200 OK (Detailed order confirmation)
+
+    Note over Client: Display:
+    Note over Client: ✓ Order placed at: 14:30:25
+    Note over Client: ✓ Execution: 100 shares @ $149.50
+    Note over Client: ✓ Trade settled at: 14:30:27 (T+2 from 14:30:25)
+    Note over Client: ✓ Cash deducted: $14,950.00 + $50 fee = $15,000.00
+    Note over Client: ✓ Shares in portfolio: 100 @ avg cost $150.00

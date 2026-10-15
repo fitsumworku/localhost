@@ -1,4 +1,4 @@
-// Jenkinsfile only pertains to cleaning, packaging, and building the starter folder into a docker image
+// Jenkinsfile only pertains to cleaning, packaging, and building the team folder into a docker image
 // Not related to the separate dockerfile for the postgres instance
 pipeline {
 
@@ -16,12 +16,12 @@ pipeline {
         // Building image stage
         stage('Build Image') {
             steps {
-                sh 'mvn -B clean package -DskipTests -f starter/pom.xml'
-                sh 'docker build -t team-skeleton:latest -f starter/Dockerfile starter/'
+                sh 'mvn -B clean package -DskipTests -f team/pom.xml'
+                sh 'docker build -t team-skeleton:latest -f team/Dockerfile team/'
             }
         }
         
-        // To create a new docker container on the starter folder
+        // To create a new docker container on the team folder
         stage('Smoke Test') {
             steps {
                 sh 'docker run --rm team-skeleton:latest'

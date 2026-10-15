@@ -1,0 +1,65 @@
+<div class="sidebar-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>Localhost Trading Site</h2>
+    </div>
+
+    <nav class="sidebar-menu">
+      <div class="menu-section">
+        <p class="menu-label">MAIN_MENU</p>
+        <ul class="menu-list">
+          <li *ngFor="let item of menuItems" (click)="navigateTo(item.route)" class="menu-item">
+            <mat-icon>{{ item.icon }}</mat-icon>
+            <span>{{ item.label }}</span>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button mat-raised-button class="logout-button" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Top Header with Account Selector -->
+    <div class="top-header" *ngIf="!isAdminDashboard">
+      <div class="header-content">
+        <h1>{{ selectedAccount ? ('Account ' + selectedAccount.accountId) : 'Accounts' }}</h1>
+        <div class="account-selector-wrapper">
+          <mat-form-field appearance="outline" class="account-selector">
+            <mat-label>Account</mat-label>
+            <mat-select [value]="selectedAccount" (selectionChange)="selectAccount($event.value)">
+              <mat-option *ngFor="let account of accounts" [value]="account">
+                Account {{ account.accountId }} ({{ account.currency }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+          <button mat-icon-button class="add-account-btn" (click)="openAddAccountDialog()" title="Add new account">
+            <mat-icon>add</mat-icon>
+          </button>
+        </div>
+        <div class="cash-actions" *ngIf="selectedAccount">
+          <button mat-stroked-button type="button" (click)="openCashMovement('deposit')">
+            <mat-icon>add_circle</mat-icon>
+            Deposit
+          </button>
+          <button mat-stroked-button type="button" (click)="openCashMovement('withdrawal')">
+            <mat-icon>remove_circle</mat-icon>
+            Withdraw
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page Content -->
+    <div class="page-content">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+</div>

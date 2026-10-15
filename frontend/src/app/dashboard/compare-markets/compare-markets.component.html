@@ -1,0 +1,181 @@
+<div class="compare-container">
+  <!-- Header -->
+  <div class="header">
+    <h1>Compare Markets</h1>
+    <p class="subtitle">Compare up to two assets side by side</p>
+  </div>
+
+  <!-- Time Period Selection -->
+  <div class="time-period-section">
+    <button
+      *ngFor="let period of timePeriods"
+      mat-stroked-button
+      [class.active]="selectedPeriod === period"
+      (click)="selectPeriod(period)"
+      class="period-btn"
+    >
+      {{ period }}
+    </button>
+  </div>
+
+  <!-- Search Section -->
+  <div class="search-section">
+    <p class="search-label">Select Assets to Compare</p>
+    <div class="search-input-wrapper">
+      <mat-form-field class="search-field">
+        <mat-label>Search by ticker or name...</mat-label>
+        <input
+          matInput
+          [(ngModel)]="searchQuery"
+          (input)="onSearchChange()"
+          placeholder="e.g., AAPL, Microsoft"
+        />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <!-- Search Results Dropdown -->
+      <div class="search-results" *ngIf="showSearchResults">
+        <div
+          *ngFor="let asset of getFilteredAssets()"
+          class="result-item"
+          (click)="selectAsset(asset, selectedAssets[0] === null ? 0 : 1)"
+        >
+          <div class="result-symbol">{{ asset.symbol }}</div>
+          <div class="result-name">{{ asset.name }}</div>
+        </div>
+        <div *ngIf="getFilteredAssets().length === 0" class="no-results">
+          No assets found
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparison Cards -->
+  <div class="comparison-container">
+    <!-- Asset 1 -->
+    <div class="asset-card">
+      <div *ngIf="!selectedAssets[0]" class="empty-state">
+        <mat-icon class="empty-icon">add_circle_outline</mat-icon>
+        <p>Select an asset to compare</p>
+      </div>
+
+      <div *ngIf="selectedAssets[0]" class="asset-content">
+        <!-- Card Header -->
+        <div class="card-header">
+          <div class="asset-info">
+            <h2 class="symbol">{{ selectedAssets[0].symbol }}</h2>
+            <p class="name">{{ selectedAssets[0].name }}</p>
+          </div>
+          <button
+            mat-icon-button
+            class="remove-btn"
+            (click)="removeAsset(0)"
+            title="Remove asset"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <!-- Chart Placeholder -->
+        <div class="chart-placeholder">
+          <svg viewBox="0 0 100 200" preserveAspectRatio="none">
+            <polyline
+              points="0,150 10,140 20,145 30,120 40,110 50,115 60,90 70,85 80,95 90,70 100,75"
+              fill="none"
+              stroke="#06402B"
+              stroke-width="2"
+            />
+          </svg>
+        </div>
+
+        <!-- Asset Details -->
+        <div class="asset-details">
+          <div class="detail-row">
+            <span class="label">Current Price</span>
+            <span class="value">${{ selectedAssets[0].price }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">24h Change</span>
+            <span
+              class="value"
+              [style.color]="getChangeColor(selectedAssets[0].change24h)"
+            >
+              {{ selectedAssets[0].changePercent }}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Volume</span>
+            <span class="value">{{ selectedAssets[0].volume }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Market Cap</span>
+            <span class="value">{{ selectedAssets[0].marketCap }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Asset 2 -->
+    <div class="asset-card">
+      <div *ngIf="!selectedAssets[1]" class="empty-state">
+        <mat-icon class="empty-icon">add_circle_outline</mat-icon>
+        <p>Select an asset to compare</p>
+      </div>
+
+      <div *ngIf="selectedAssets[1]" class="asset-content">
+        <!-- Card Header -->
+        <div class="card-header">
+          <div class="asset-info">
+            <h2 class="symbol">{{ selectedAssets[1].symbol }}</h2>
+            <p class="name">{{ selectedAssets[1].name }}</p>
+          </div>
+          <button
+            mat-icon-button
+            class="remove-btn"
+            (click)="removeAsset(1)"
+            title="Remove asset"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <!-- Chart Placeholder -->
+        <div class="chart-placeholder">
+          <svg viewBox="0 0 100 200" preserveAspectRatio="none">
+            <polyline
+              points="0,100 10,95 20,100 30,80 40,75 50,80 60,60 70,55 80,65 90,50 100,55"
+              fill="none"
+              stroke="#06402B"
+              stroke-width="2"
+            />
+          </svg>
+        </div>
+
+        <!-- Asset Details -->
+        <div class="asset-details">
+          <div class="detail-row">
+            <span class="label">Current Price</span>
+            <span class="value">${{ selectedAssets[1].price }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">24h Change</span>
+            <span
+              class="value"
+              [style.color]="getChangeColor(selectedAssets[1].change24h)"
+            >
+              {{ selectedAssets[1].changePercent }}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Volume</span>
+            <span class="value">{{ selectedAssets[1].volume }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Market Cap</span>
+            <span class="value">{{ selectedAssets[1].marketCap }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

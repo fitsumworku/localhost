@@ -1,0 +1,69 @@
+<!-- Background is rendered by AuthLayoutComponent -->
+<main class="card">
+  <div class="brand">
+    <div class="brand-mark">
+      <mat-icon>trending_up</mat-icon>
+    </div>
+    <span class="brand-name">Localhost</span>
+  </div>
+
+  <h1 class="title">Welcome back</h1>
+  <p class="subtitle">Sign in to continue to your portfolio</p>
+
+  <div *ngIf="errorMessage()" class="error-message" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ errorMessage() }}</span>
+  </div>
+
+  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="form" novalidate>
+    <!-- Email -->
+    <div class="field" [class.invalid]="email?.invalid && email?.touched">
+      <mat-icon class="field-icon">mail_outline</mat-icon>
+      <input id="email" type="email" formControlName="email" placeholder=" " autocomplete="email" />
+      <label for="email">Email address</label>
+    </div>
+    <p class="field-error" *ngIf="email?.touched && email?.hasError('required')">
+      Email is required
+    </p>
+    <p class="field-error" *ngIf="email?.touched && email?.hasError('email')">
+      Please enter a valid email
+    </p>
+
+    <!-- Password -->
+    <div class="field" [class.invalid]="password?.invalid && password?.touched">
+      <mat-icon class="field-icon">lock_outline</mat-icon>
+      <input
+        id="password"
+        [type]="hidePassword ? 'password' : 'text'"
+        formControlName="password"
+        placeholder=" "
+        autocomplete="current-password"
+      />
+      <label for="password">Password</label>
+      <button
+        type="button"
+        class="toggle-visibility"
+        (click)="togglePasswordVisibility()"
+        [attr.aria-label]="hidePassword ? 'Show password' : 'Hide password'"
+      >
+        <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+      </button>
+    </div>
+    <p class="field-error" *ngIf="password?.touched && password?.hasError('required')">
+      Password is required
+    </p>
+    <p class="field-error" *ngIf="password?.touched && password?.hasError('minlength')">
+      Password must be at least 6 characters
+    </p>
+
+    <button type="submit" class="submit" [disabled]="isLoading()">
+      <span *ngIf="!isLoading()">Log in</span>
+      <span *ngIf="isLoading()" class="spinner" aria-label="Logging in"></span>
+    </button>
+  </form>
+
+  <p class="switch-auth">
+    Don't have an account?
+    <button type="button" class="link" (click)="navigateToSignup()">Create one</button>
+  </p>
+</main>

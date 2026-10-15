@@ -1,0 +1,79 @@
+<div class="disputes-container">
+  <!-- Header -->
+  <div class="header">
+    <h1>Client Disputes</h1>
+    <p class="subtitle">Manage and resolve client disputes</p>
+  </div>
+
+  <!-- Search and Filter Section -->
+  <div class="search-filter-section">
+    <div class="search-bar">
+      <mat-form-field class="search-field">
+        <mat-label>Search by Client ID or reason...</mat-label>
+        <input
+          matInput
+          [(ngModel)]="searchQuery"
+          (input)="onSearchChange()"
+          placeholder="e.g., CL-18482, Unauthorized"
+        />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+    </div>
+
+    <div class="filter-buttons">
+      <button
+        *ngFor="let status of statusOptions"
+        mat-stroked-button
+        [class.active]="isStatusFilterActive(status.value)"
+        (click)="selectStatusFilter(status.value)"
+        class="filter-btn"
+      >
+        {{ status.label }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Disputes Table -->
+  <div class="table-section">
+    <div class="table-container">
+      <table class="disputes-table">
+        <thead>
+          <tr>
+            <th class="col-date">Date</th>
+            <th class="col-client-id">Client ID</th>
+            <th class="col-reason">Reason</th>
+            <th class="col-amount">Disputed Amount</th>
+            <th class="col-status">Status</th>
+            <th class="col-owner">Assigned Owner</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let dispute of displayedDisputes"
+            class="dispute-row"
+            (click)="openDisputeDetail(dispute)"
+          >
+            <td class="col-date">{{ dispute.date }}</td>
+            <td class="col-client-id">{{ dispute.clientId }}</td>
+            <td class="col-reason">{{ dispute.reason }}</td>
+            <td class="col-amount">${{ dispute.disputedAmount }}</td>
+            <td class="col-status">
+              <span
+                class="status-badge"
+                [style.backgroundColor]="getStatusColor(dispute.status)"
+              >
+                {{ getStatusLabel(dispute.status) }}
+              </span>
+            </td>
+            <td class="col-owner">{{ dispute.assignedOwner }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="displayedDisputes.length === 0" class="no-disputes">
+      <mat-icon class="empty-icon">folder_open</mat-icon>
+      <p>No disputes found</p>
+    </div>
+  </div>
+</div>

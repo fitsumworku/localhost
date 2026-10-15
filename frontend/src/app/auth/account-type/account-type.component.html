@@ -1,0 +1,46 @@
+<div class="account-type-container">
+  <div class="account-type-card">
+    <h1 class="account-type-title">Choose an account type</h1>
+    <p class="account-type-subtitle">Select the account that best fits your needs to continue.</p>
+
+    <div class="account-options">
+      <!-- Client Account Option -->
+      <mat-card
+        class="account-option"
+        [class.selected]="isSelected('client')"
+        (click)="selectAccountType('client')"
+        [style.opacity]="isLoading && !isSelected('client') ? '0.5' : '1'"
+        [style.pointer-events]="isLoading && !isSelected('client') ? 'none' : 'auto'"
+      >
+        <mat-card-content>
+          <div class="account-icon">
+            <mat-icon>person</mat-icon>
+          </div>
+          <h2 class="account-name">Client Account</h2>
+          <p class="account-description">
+            Access your personal dashboard, view your portfolio, and manage your trading activity.
+          </p>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Admin Account Option -->
+      <mat-card
+        class="account-option"
+        [class.selected]="isSelected('admin')"
+        (click)="selectAccountType('admin')"
+        [style.opacity]="isLoading && !isSelected('admin') ? '0.5' : '1'"
+        [style.pointer-events]="isLoading && !isSelected('admin') ? 'none' : 'auto'"
+      >
+        <mat-card-content>
+          <div class="account-icon admin-icon">
+            <mat-icon>admin_panel_settings</mat-icon>
+          </div>
+          <h2 class="account-name">Admin Account</h2>
+          <p class="account-description">
+            Access your personal dashboard, view your portfolio, and manage your trading activity.
+          </p>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+</div>

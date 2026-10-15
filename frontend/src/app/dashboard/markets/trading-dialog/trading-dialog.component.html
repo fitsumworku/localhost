@@ -1,0 +1,84 @@
+<div class="trading-dialog">
+  <!-- Header -->
+  <div class="dialog-header">
+    <div>
+      <h2 class="asset-name">{{ data.symbol }}</h2>
+      <p class="asset-price">{{ data.price | currency }}</p>
+    </div>
+    <button mat-icon-button (click)="close()" class="close-btn">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Transaction Type -->
+  <div class="transaction-type">
+    <button
+      [class.active]="transactionType === 'buy'"
+      (click)="selectTransactionType('buy')"
+      class="type-btn buy-btn"
+    >
+      BUY
+    </button>
+    <button
+      [class.active]="transactionType === 'sell'"
+      (click)="selectTransactionType('sell')"
+      class="type-btn sell-btn"
+    >
+      SELL
+    </button>
+  </div>
+
+  <!-- Form -->
+  <form [formGroup]="tradeForm" class="trade-form">
+    <!-- Quantity -->
+    <div class="form-group">
+      <label class="form-label">Quantity</label>
+      <div class="quantity-input">
+        <button type="button" class="qty-btn" (click)="adjustQuantity(-1)" [disabled]="isSubmitting">-</button>
+        <mat-form-field class="qty-field">
+          <input
+            matInput
+            type="number"
+            formControlName="quantity"
+            placeholder="0"
+          />
+        </mat-form-field>
+        <button type="button" class="qty-btn" (click)="adjustQuantity(1)" [disabled]="isSubmitting">+</button>
+      </div>
+    </div>
+
+    <!-- Estimated Total -->
+    <div class="estimated-section">
+      <div class="estimated-label">Estimated Total</div>
+      <div class="estimated-value">
+        {{ estimatedTotal | currency }}
+      </div>
+      <p class="estimated-note">
+        Based on current price of {{ data.price | currency }}
+      </p>
+    </div>
+
+    <!-- Action Button -->
+    <button
+      type="button"
+      mat-raised-button
+      class="action-btn"
+      [class.buy]="transactionType === 'buy'"
+      [class.sell]="transactionType === 'sell'"
+      (click)="onSubmit()"
+      [disabled]="!tradeForm.valid || isSubmitting"
+    >
+      Place {{ transactionType === 'buy' ? 'Buy' : 'Sell' }} Order
+    </button>
+    <div
+      *ngIf="orderOutcome"
+      class="order-outcome"
+      [class.success]="orderOutcome.tone === 'success'"
+      [class.warning]="orderOutcome.tone === 'warning'"
+      [class.error]="orderOutcome.tone === 'error'"
+    >
+      <strong>{{ orderOutcome.title }}</strong>
+      <span>{{ orderOutcome.detail }}</span>
+    </div>
+  </form>
+</div>

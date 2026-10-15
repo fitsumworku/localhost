@@ -1,0 +1,256 @@
+@use 'auth-tokens' as *;
+
+// Card + form styles shared by the login and signup pages.
+// The background lives in AuthLayoutComponent so it persists between them.
+
+:host {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  max-width: 420px;
+}
+
+// ============ Card ============
+
+.card {
+  width: 100%;
+  padding: 44px 40px 36px;
+  box-sizing: border-box;
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: 20px;
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 60px rgba(46, 229, 157, 0.08);
+  animation: rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, $accent, #0f8f5c);
+  box-shadow: 0 0 20px rgba(46, 229, 157, 0.45);
+
+  mat-icon { color: $bg; font-size: 22px; width: 22px; height: 22px; }
+}
+
+.brand-name {
+  color: $text;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.title {
+  margin: 0;
+  color: $text;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin: 6px 0 28px;
+  color: $muted;
+  font-size: 14px;
+}
+
+// ============ Form ============
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  border-radius: 12px;
+  background: rgba(2, 15, 10, 0.55);
+  border: 1px solid rgba(232, 255, 245, 0.1);
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &:focus-within {
+    border-color: $accent;
+    box-shadow: 0 0 0 4px rgba(46, 229, 157, 0.12);
+  }
+
+  &.invalid { border-color: $error; }
+
+  input {
+    flex: 1;
+    height: 100%;
+    min-width: 0;
+    padding: 18px 12px 0 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: $text;
+    font: inherit;
+    font-size: 15px;
+
+    // Keep Chrome's autofill from painting the field white/yellow
+    &:-webkit-autofill {
+      -webkit-text-fill-color: $text;
+      transition: background-color 9999s;
+    }
+  }
+
+  // Floating label: sits in the middle, moves up when focused or filled
+  label {
+    position: absolute;
+    left: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $muted;
+    font-size: 15px;
+    pointer-events: none;
+    transition: all 0.18s ease;
+  }
+
+  input:focus + label,
+  input:not(:placeholder-shown) + label {
+    top: 14px;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    color: $accent;
+  }
+}
+
+.field-icon {
+  margin: 0 12px 0 16px;
+  color: $muted;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+
+  .field:focus-within & { color: $accent; }
+}
+
+.toggle-visibility {
+  display: grid;
+  place-items: center;
+  margin-right: 8px;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: $muted;
+  cursor: pointer;
+
+  &:hover { color: $text; background: rgba(232, 255, 245, 0.06); }
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.field-error {
+  margin: -6px 0 0 4px;
+  color: $error;
+  font-size: 12px;
+}
+
+.submit {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, $accent, $accent-strong);
+  color: $bg;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(46, 229, 157, 0.28);
+  transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+    box-shadow: 0 14px 36px rgba(46, 229, 157, 0.4);
+  }
+
+  &:active:not(:disabled) { transform: translateY(0); }
+  &:disabled { opacity: 0.7; cursor: progress; }
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(2, 15, 10, 0.3);
+  border-top-color: $bg;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 122, 122, 0.1);
+  border: 1px solid rgba(255, 122, 122, 0.3);
+  color: $error;
+  font-size: 13px;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
+}
+
+.success-message {
+  @extend .error-message;
+  background: rgba(46, 229, 157, 0.1);
+  border-color: rgba(46, 229, 157, 0.3);
+  color: $accent;
+}
+
+.switch-auth {
+  margin: 24px 0 0;
+  text-align: center;
+  color: $muted;
+  font-size: 14px;
+}
+
+.link {
+  padding: 0;
+  margin-left: 4px;
+  border: none;
+  background: none;
+  color: $accent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
+}
+
+// ============ Small screens ============
+
+@media (max-width: 480px) {
+  .card { padding: 36px 24px 28px; border-radius: 16px; }
+  .title { font-size: 24px; }
+}

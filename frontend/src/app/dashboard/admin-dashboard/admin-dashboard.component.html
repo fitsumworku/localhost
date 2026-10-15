@@ -1,0 +1,99 @@
+<div class="admin-dashboard">
+  <div class="dashboard-header">
+    <h1>Trading Overview</h1>
+    <p class="subtitle">Client activity and market performance across all accounts</p>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stats-grid">
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <p class="stat-label">TOTAL_TRADING_VOLUME</p>
+        <!-- <h2 class="stat-value">{{ totalTradingVolume }}</h2>
+        <p class="stat-change positive">
+          <mat-icon>trending_up</mat-icon>
+          {{ volumeChange }} vs prior period
+        </p> -->
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <p class="stat-label">ACTIVE_CLIENTS</p>
+        <!-- <h2 class="stat-value">{{ activeClients }}</h2>
+        <p class="stat-change positive">
+          <mat-icon>trending_up</mat-icon>
+          {{ activeClientsChange }}
+        </p> -->
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <p class="stat-label">TRADES_EXECUTED</p>
+        <!-- <h2 class="stat-value">{{ tradesExecuted }}</h2>
+        <p class="stat-change positive">
+          <mat-icon>trending_up</mat-icon>
+          {{ tradesChange }}
+        </p> -->
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Client Trading Volume Chart Section -->
+  <mat-card class="chart-card">
+    <mat-card-header>
+      <mat-card-title>CLIENT_TRADING_VOLUME</mat-card-title>
+    </mat-card-header>
+    
+    <mat-card-content>
+      <div class="chart-placeholder">
+        <!-- Chart will be rendered here -->
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Most Active Instruments Section -->
+  <div class="dashboard-section">
+    <h2 class="section-title">MOST_ACTIVE_INSTRUMENTS</h2>
+    <mat-card class="data-card">
+      <table mat-table [dataSource]="instrumentsData" class="instruments-table">
+        <!-- Instrument Column -->
+        <ng-container matColumnDef="instrument">
+          <th mat-header-cell *matHeaderCellDef>Instrument</th>
+          <td mat-cell *matCellDef="let element">{{ element.instrument }}</td>
+        </ng-container>
+
+        <!-- Market Column -->
+        <ng-container matColumnDef="market">
+          <th mat-header-cell *matHeaderCellDef>Market</th>
+          <td mat-cell *matCellDef="let element">{{ element.market }}</td>
+        </ng-container>
+
+        <!-- Volume Column -->
+        <ng-container matColumnDef="volume">
+          <th mat-header-cell *matHeaderCellDef>Volume</th>
+          <td mat-cell *matCellDef="let element">{{ element.volume }}</td>
+        </ng-container>
+
+        <!-- Trades Column -->
+        <ng-container matColumnDef="trades">
+          <th mat-header-cell *matHeaderCellDef>Trades</th>
+          <td mat-cell *matCellDef="let element">{{ element.trades }}</td>
+        </ng-container>
+
+        <!-- Share Column -->
+        <ng-container matColumnDef="share">
+          <th mat-header-cell *matHeaderCellDef>Share</th>
+          <td mat-cell *matCellDef="let element">{{ element.share }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="instrumentsColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: instrumentsColumns;"></tr>
+      </table>
+      <div *ngIf="instrumentsData.length === 0" class="empty-state">
+        <p>No data to display</p>
+      </div>
+    </mat-card>
+  </div>
+</div>

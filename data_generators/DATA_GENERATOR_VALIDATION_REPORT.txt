@@ -1,0 +1,152 @@
+
+==========================================================================================
+                    DATA GENERATOR VALIDATION & BUSINESS RULES REPORT                     
+==========================================================================================
+Report Generated: 2026-10-05 15:35:41
+Workspace: C:\Users\Administrator\localhost\data_generators
+
+==========================================================================================
+                            1. GENERATED FILES & RECORD COUNTS                            
+==========================================================================================
+[FAIL] Roles                                 0 records
+[OK] Users                              1000 records
+[OK] Accounts                           2419 records
+[OK] Account_Cash_Balances              2419 records
+[OK] Securities                         1000 records
+[OK] Orders                            36319 records
+[OK] Order_Reservations                36319 records
+[OK] Executions                        27282 records
+[OK] Trades                            20228 records
+[OK] Transactions                       9735 records
+[OK] Cash_Ledger                       28473 records
+[OK] Account_Positions                  2069 records
+[OK] Disputes                            983 records
+
+TOTAL                            168246 records
+
+==========================================================================================
+                               2. BUSINESS RULE VALIDATIONS                               
+==========================================================================================
+
+[RULE 1] CAPITAL MANAGEMENT: BUY Orders Reserve Cash, SELL Orders Don't
+  [OK] BUY orders with Reserved_Cash: 25429
+  [OK] SELL orders with NULL cash: 10890
+
+[RULE 2] ORDER STATUS LIFECYCLE: SUBMITTED → ACCEPTED → IN_EXECUTION → Terminal
+  Status Distribution:
+    ACCEPTED          9062 ( 25.0%)
+    CANCELLED         1816 (  5.0%)
+    FILLED            3541 (  9.7%)
+    IN_EXECUTION     14679 ( 40.4%)
+    REJECTED          1808 (  5.0%)
+    SUBMITTED         5413 ( 14.9%)
+
+[RULE 3] EXECUTION STATUS: FILLED | REJECTED | FAILED (no PARTIALLY_FILLED)
+  Execution Status Distribution:
+    FAILED            2299 (  8.4%)
+    FILLED           20228 ( 74.1%)
+    REJECTED          4755 ( 17.4%)
+  [OK] No PARTIALLY_FILLED executions found
+
+[RULE 4] TRADE SETTLEMENT: Settlement_Date >= Trade_Date (T+2 logic)
+  [OK] Valid settlements (>= Trade_Date): 20228
+
+[RULE 5] ACCOUNT POSITIONS: Quantity > 0 Only (Closed Positions Excluded)
+  [OK] Total positions with Quantity > 0: 2069
+  [OK] Positions with Quantity <= 0: 0 (correctly excluded)
+
+[RULE 6] CASH LEDGER: Running_Balance >= 0 For All Entries
+  [OK] Entries with Running_Balance >= 0: 28473
+  [OK] Entries with Running_Balance < 0: 0 (should be 0)
+
+[RULE 7] TRANSACTION STATUS: PENDING | COMPLETED | FAILED
+  Transaction Status Distribution:
+    COMPLETED         8245 ( 84.7%)
+    FAILED             385 (  4.0%)
+    PENDING           1105 ( 11.4%)
+
+[RULE 8] DISPUTES: Admin Assignment & Status Lifecycle
+  [OK] Disputes with Admin_ID assigned: 983
+  Dispute Status Distribution:
+    ESCALATED          181 ( 18.4%)
+    OPEN               184 ( 18.7%)
+    REJECTED           206 ( 21.0%)
+    RESOLVED           206 ( 21.0%)
+    UNDER_REVIEW       206 ( 21.0%)
+
+==========================================================================================
+                                3. SAMPLE OUTPUT BY TABLE                                 
+==========================================================================================
+
+[Users Table (First 3 Rows)]
+  INSERT INTO Users (User_ID, Name, Email, Password_Hash, Created_Date, Status, Role_ID) VALUES (1, 'Linda Mclaughlin', 'benjaminguerra@exa...
+  INSERT INTO Users (User_ID, Name, Email, Password_Hash, Created_Date, Status, Role_ID) VALUES (2, 'Karen Hess', 'wballard@example.org', '...
+  INSERT INTO Users (User_ID, Name, Email, Password_Hash, Created_Date, Status, Role_ID) VALUES (3, 'Carrie Davis', 'bellrebecca@example.ne...
+
+[Accounts Table (First 3 Rows)]
+  INSERT INTO Accounts (Account_ID, User_ID, Created_Date) VALUES (1, 1, '2025-03-30 00:00:00');
+  INSERT INTO Accounts (Account_ID, User_ID, Created_Date) VALUES (2, 1, '2024-09-16 00:00:00');
+  INSERT INTO Accounts (Account_ID, User_ID, Created_Date) VALUES (3, 1, '2024-03-08 00:00:00');
+
+[Securities Table (First 3 Rows)]
+  INSERT INTO Securities (Security_ID, Ticker, Name, Asset_Type, Exchange, Status, Sector, Quote_Currency, Base_Currency) VALUES (1, 'NKZJU...
+  INSERT INTO Securities (Security_ID, Ticker, Name, Asset_Type, Exchange, Status, Sector, Quote_Currency, Base_Currency) VALUES (2, 'KID',...
+  INSERT INTO Securities (Security_ID, Ticker, Name, Asset_Type, Exchange, Status, Sector, Quote_Currency, Base_Currency) VALUES (3, 'CZBPU...
+
+[Orders Table (First 3 Rows)]
+  INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Client_Request_ID, Side, Requested_Amount, Quantity_Ordered, Order_Status, Created...
+  INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Client_Request_ID, Side, Requested_Amount, Quantity_Ordered, Order_Status, Created...
+  INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Client_Request_ID, Side, Requested_Amount, Quantity_Ordered, Order_Status, Created...
+
+[Executions Table (First 3 Rows)]
+  INSERT INTO Executions (Execution_ID, Order_ID, Account_ID, Security_ID, Side, Status_Of_Execution, Started_At, Finished_At, Quote_Price,...
+  INSERT INTO Executions (Execution_ID, Order_ID, Account_ID, Security_ID, Side, Status_Of_Execution, Started_At, Finished_At, Quote_Price,...
+  INSERT INTO Executions (Execution_ID, Order_ID, Account_ID, Security_ID, Side, Status_Of_Execution, Started_At, Finished_At, Quote_Price,...
+
+[Trades Table (First 3 Rows)]
+  INSERT INTO Trades (Trade_ID, Execution_ID, Account_ID, Trade_Date, Settlement_Date) VALUES (1, 2, 1, '2026-08-15 17:51:31', '2026-08-17 ...
+  INSERT INTO Trades (Trade_ID, Execution_ID, Account_ID, Trade_Date, Settlement_Date) VALUES (2, 5, 1, '2026-10-04 10:48:39', '2026-10-06 ...
+  INSERT INTO Trades (Trade_ID, Execution_ID, Account_ID, Trade_Date, Settlement_Date) VALUES (3, 7, 1, '2026-07-09 12:47:56', '2026-07-11 ...
+
+[Transactions Table (First 3 Rows)]
+  INSERT INTO Transactions (Transaction_ID, Account_ID, Client_Request_ID, Transaction_Amount, Transaction_Type, Transaction_Date, Transact...
+  INSERT INTO Transactions (Transaction_ID, Account_ID, Client_Request_ID, Transaction_Amount, Transaction_Type, Transaction_Date, Transact...
+  INSERT INTO Transactions (Transaction_ID, Account_ID, Client_Request_ID, Transaction_Amount, Transaction_Type, Transaction_Date, Transact...
+
+[Cash_Ledger Table (First 3 Rows)]
+  INSERT INTO Cash_Ledger (Account_ID, Transaction_ID, Trade_ID, Entry_Type, Debit_Amount, Credit_Amount, Running_Balance, Entry_Date) VALU...
+  INSERT INTO Cash_Ledger (Account_ID, Transaction_ID, Trade_ID, Entry_Type, Debit_Amount, Credit_Amount, Running_Balance, Entry_Date) VALU...
+  INSERT INTO Cash_Ledger (Account_ID, Transaction_ID, Trade_ID, Entry_Type, Debit_Amount, Credit_Amount, Running_Balance, Entry_Date) VALU...
+
+[Account_Positions Table (First 3 Rows)]
+  INSERT INTO Account_Positions (Account_ID, Security_ID, Quantity, Average_Price, Updated_Date) VALUES (1, 982, 825.279059173044, 1.000000...
+  INSERT INTO Account_Positions (Account_ID, Security_ID, Quantity, Average_Price, Updated_Date) VALUES (2, 80, 444.201393944285, 1.0000000...
+  INSERT INTO Account_Positions (Account_ID, Security_ID, Quantity, Average_Price, Updated_Date) VALUES (3, 502, 961.052282558574, 1.000000...
+
+[Disputes Table (First 3 Rows)]
+  INSERT INTO Disputes (Dispute_ID, Account_ID, Admin_ID, Transaction_ID, Trade_ID, Dispute_Type, Status, Date_Created, Date_Resolved) VALU...
+  INSERT INTO Disputes (Dispute_ID, Account_ID, Admin_ID, Transaction_ID, Trade_ID, Dispute_Type, Status, Date_Created, Date_Resolved) VALU...
+  INSERT INTO Disputes (Dispute_ID, Account_ID, Admin_ID, Transaction_ID, Trade_ID, Dispute_Type, Status, Date_Created, Date_Resolved) VALU...
+
+==========================================================================================
+                             4. COMPREHENSIVE DATA STATISTICS                             
+==========================================================================================
+
+Table Record Counts:
+Table Name                             Records   Percentage
+------------------------------------------------------------
+Account_Cash_Balances                     2419         1.4%
+Account_Positions                         2069         1.2%
+Accounts                                  2419         1.4%
+Cash_Ledger                              28473        16.9%
+Disputes                                   983         0.6%
+Executions                               27282        16.2%
+Order_Reservations                       36319        21.6%
+Orders                                   36319        21.6%
+Roles                                        0         0.0%
+Securities                                1000         0.6%
+Trades                                   20228        12.0%
+Transactions                              9735         5.8%
+Users                                     1000         0.6%
+------------------------------------------------------------
+TOTAL                                   168246       100.0%
