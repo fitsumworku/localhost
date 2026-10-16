@@ -1,10 +1,5 @@
 import { ChangeDetectorRef, Component, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatTableModule } from '@angular/material/table';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTabsModule } from '@angular/material/tabs';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { AccountPosition, AccountService } from '../services/account.service';
@@ -16,8 +11,8 @@ import {
   PageResponse,
   TransactionHistoryService,
 } from '../activity-history/services/transaction-history.service';
-
-export type TimePeriod = '1W' | '1M' | '1Y';
+import { ValueChartComponent } from './value-chart/value-chart.component';
+import { PortfolioTrackerService, ValuePoint } from './portfolio-tracker.service';
 
 interface Activity {
   date: string;
@@ -25,14 +20,22 @@ interface Activity {
   type: 'buy' | 'sell' | 'deposit' | 'withdrawal';
   amount: number;
   price?: number;
-  pnl?: number;
 }
 
 interface PortfolioMetrics {
   portfolioValue: number;
-  cashBalance: number;
   buyingPower: number;
-  totalReturn: number;
+}
+
+interface Holding {
+  ticker: string;
+  name: string;
+  shares: number;
+  avgCost: number;
+  currentPrice: number;
+  totalValue: number;
+  return: number;
+  priceIsLive: boolean;
 }
 
 @Component({
@@ -40,33 +43,19 @@ interface PortfolioMetrics {
   templateUrl: './client-dashboard.component.html',
   styleUrl: './client-dashboard.component.scss',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatCardModule,
-    MatButtonModule,
-    MatTableModule,
-    MatIconModule,
-    MatTabsModule
-  ]
+  imports: [CommonModule, ValueChartComponent],
 })
 export class ClientDashboardComponent {
-  selectedPeriod: TimePeriod = '1W';
-  timePeriods: TimePeriod[] = ['1W', '1M', '1Y'];
-
   portfolioMetrics: PortfolioMetrics | null = null;
   portfolioError = '';
   isLoadingPortfolio = false;
 
-  // Holdings table
-  displayedColumns: string[] = ['asset', 'shares', 'avgCost', 'currentPrice', 'totalValue', 'dayChange'];
-  holdingsData: any[] = [];
+  holdingsData: Holding[] = [];
 
-  // Recent activity table
-  activityColumns: string[] = ['symbol', 'action', 'price', 'date'];
-  activityData: any[] = [];
+  // Portfolio graph: a dot each time the portfolio value changes
+  chartPoints: ValuePoint[] = [];
 
-  // Transaction activity table
-  transactionColumns: string[] = ['date', 'asset', 'type', 'amount'];
+  activityData: Activity[] = [];
   transactionData: Activity[] = [];
   isLoadingHistory = false;
   historyError = '';
@@ -75,6 +64,7 @@ export class ClientDashboardComponent {
     private accountService: AccountService,
     private historyService: TransactionHistoryService,
     private marketData: MarketDataService,
+    private tracker: PortfolioTrackerService,
     private changeDetector: ChangeDetectorRef,
   ) {
     effect(() => {
@@ -85,18 +75,18 @@ export class ClientDashboardComponent {
       } else {
         this.portfolioMetrics = null;
         this.portfolioError = 'Select an account to view portfolio metrics.';
+        this.holdingsData = [];
         this.activityData = [];
         this.transactionData = [];
+        this.chartPoints = [];
         this.historyError = 'Select an account to view activity.';
       }
     });
-
   }
 
   private loadPortfolio(accountId: number): void {
     this.isLoadingPortfolio = true;
     this.portfolioError = '';
-    console.log('[ClientDashboard] Loading portfolio metrics', { accountId });
 
     forkJoin({
       balance: this.accountService.balance(accountId),
@@ -110,11 +100,11 @@ export class ClientDashboardComponent {
         const quoteRequests: Record<number, ReturnType<MarketDataService['quote']>> = {};
         holdings.forEach(position => quoteRequests[position.securityId] = this.marketData.quote(position.securityId));
         if (holdings.length === 0) {
-          this.applyPortfolioMetrics(balance, holdings, {});
+          this.applyPortfolioMetrics(accountId, balance, holdings, {});
           return;
         }
         forkJoin(quoteRequests).subscribe({
-          next: (quotes: Record<number, MarketQuote>) => this.applyPortfolioMetrics(balance, holdings, quotes),
+          next: (quotes: Record<number, MarketQuote>) => this.applyPortfolioMetrics(accountId, balance, holdings, quotes),
           error: (error: unknown) => {
             console.error('[ClientDashboard] Failed to load portfolio quotes', { accountId, error });
             this.portfolioError = 'Portfolio prices are currently unavailable.';
@@ -132,44 +122,41 @@ export class ClientDashboardComponent {
   }
 
   private applyPortfolioMetrics(
+    accountId: number,
     balance: { cashBalance: number; availableCash: number },
     holdings: AccountPosition[],
     quotes: Record<number, MarketQuote>,
   ): void {
     let marketValue = 0;
-    let totalReturn = 0;
     this.holdingsData = holdings.map(position => {
       const quote = quotes[position.securityId];
       const currentPrice = quote?.price ?? position.averagePrice;
       const totalValue = position.quantity * currentPrice;
+      const cost = position.quantity * position.averagePrice;
       marketValue += totalValue;
-      totalReturn += position.quantity * (currentPrice - position.averagePrice);
       return {
-        asset: position.name,
+        ticker: position.ticker,
+        name: position.name,
         shares: position.quantity,
         avgCost: position.averagePrice,
         currentPrice,
         totalValue,
-        dayChange: quote?.stale ? 'Stale' : quote?.marketState ?? 'Unavailable',
+        return: Math.round((totalValue - cost) * 100) / 100,
+        priceIsLive: !!quote,
       };
     });
     this.portfolioMetrics = {
+      // Cash is still part of what the account is worth, it just isn't shown as its own card
       portfolioValue: balance.cashBalance + marketValue,
-      cashBalance: balance.cashBalance,
       buyingPower: balance.availableCash,
-      totalReturn,
     };
-    console.log('[ClientDashboard] Portfolio metrics loaded', {
-      holdings: holdings.length,
-      ...this.portfolioMetrics,
-    });
+    this.chartPoints = this.tracker.record(accountId, this.portfolioMetrics.portfolioValue);
     this.changeDetector.markForCheck();
   }
 
   private loadHistory(accountId: number): void {
     this.isLoadingHistory = true;
     this.historyError = '';
-    console.log('[ClientDashboard] Loading history for account', accountId);
 
     forkJoin({
       cash: this.historyService.cashTransactions(accountId),
@@ -187,11 +174,7 @@ export class ClientDashboardComponent {
         const cashContent = this.contentOf(cash);
         const orderContent = this.contentOf(orders);
         const tradeContent = this.contentOf(trades);
-        console.log('[ClientDashboard] History response counts', {
-          cash: cashContent.length,
-          orders: orderContent.length,
-          trades: tradeContent.length,
-        });
+
         const activities: Activity[] = [
           ...cashContent.map((transaction: CashTransaction) => ({
             date: transaction.transactionDate,
@@ -214,17 +197,11 @@ export class ClientDashboardComponent {
             amount: trade.cashAmount,
             price: trade.priceOfExecution,
           })),
-        ];
+        ].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 
         this.activityData = activities
           .filter(activity => activity.type === 'buy' || activity.type === 'sell')
-          .slice(0, 5)
-          .map(activity => ({
-            symbol: activity.asset,
-            action: activity.type === 'buy' ? 'Buy' : 'Sell',
-            price: activity.price === undefined ? '--' : `$${activity.price}`,
-            date: activity.date,
-          }));
+          .slice(0, 5);
         this.transactionData = activities
           .filter(activity => activity.type === 'deposit' || activity.type === 'withdrawal')
           .slice(0, 5);
@@ -244,20 +221,4 @@ export class ClientDashboardComponent {
     return Array.isArray(page?.content) ? page.content : [];
   }
 
-  selectPeriod(period: TimePeriod): void {
-    this.selectedPeriod = period;
-    // TODO: Fetch performance data for selected period
-  }
-
-  getTransactionTypeColor(type: string): string {
-    const colors: { [key: string]: string } = {
-      'deposit': '#339af0',    // blue
-      'withdrawal': '#ffa94d'  // orange
-    };
-    return colors[type] || '#999';
-  }
-
-  getTransactionTypeBadgeClass(type: string): string {
-    return `badge-${type}`;
-  }
 }

@@ -1,300 +1,184 @@
+@use '../ui' as *;
+
 .client-dashboard {
-  max-width: 90%;
-  margin: 0 auto;
+  @include page;
+}
+
+.page-header {
+  @include page-header;
+}
+
+.card {
+  @include card;
+  padding: 20px 24px;
+}
+
+.card-title {
+  @include card-title;
+  margin-bottom: 12px;
+}
+
+.label {
+  @include label;
+  margin: 0;
+}
+
+.muted {
+  color: $muted;
+}
+
+.up {
+  color: $up;
+}
+
+.down {
+  color: $down;
+}
+
+// ---------- Account value ----------
+
+.value-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.value-header {
   display: flex;
   flex-direction: column;
 }
 
-// Wrap each section in a box container
-.section-wrapper {
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 24px;
-  margin-bottom: 24px;
-  transition: all 0.3s ease;
-
-  &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  &:last-child {
-    margin-bottom: 0;
-  }
+.caption {
+  margin: 0;
+  font-size: 13px;
+  color: $muted;
 }
 
-// Material Card base styling
-mat-card {
-  box-sizing: border-box;
+.hero {
+  margin: 6px 0 4px;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.1;
 }
 
-mat-card-content,
-mat-card-header {
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
+// ---------- Supporting figures ----------
 
-.stats-grid {
+.stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(clamp(200px, 22vw, 350px), 1fr));
-  gap: clamp(1rem, 2vw, 1.5rem);
-  margin-bottom: clamp(2rem, 4vw, 2.5rem);
-  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
 }
 
-.stat-card {
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: clamp(0.4rem, 0.8vw, 0.6rem);
-  padding: clamp(1rem, 2vw, 1.75rem);
-  transition: all 0.2s ease;
-
-  &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border-color: #06402b;
-  }
-
-  mat-card-content {
-    padding: 0;
-    margin: 0;
-  }
-
-  .stat-label {
-    font-size: clamp(0.7rem, 1.5vw, 0.875rem);
-    font-weight: 600;
-    color: #888888;
-    margin: 0 0 clamp(0.6rem, 1.2vw, 0.95rem) 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .stat-value {
-    font-size: clamp(1.5rem, 4vw, 2rem);
-    font-weight: 600;
-    color: #1a1a1a;
-    margin: 0 0 clamp(0.4rem, 0.8vw, 0.6rem) 0;
-  }
-
-  .stat-change {
-    font-size: clamp(0.8rem, 1.6vw, 0.95rem);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: clamp(0.2rem, 0.4vw, 0.3rem);
-
-    &.positive {
-      color: #06a85d;
-
-      mat-icon {
-        color: #06a85d;
-        font-size: clamp(1rem, 1.5vw, 1.25rem);
-        width: clamp(1rem, 1.5vw, 1.25rem);
-        height: clamp(1rem, 1.5vw, 1.25rem);
-      }
-    }
-  }
-
-  .stat-subtext {
-    font-size: clamp(0.7rem, 1.5vw, 0.875rem);
-    color: #888888;
-    margin: 0;
-  }
+.stat-value {
+  margin: 6px 0 2px;
+  font-size: 26px;
+  font-weight: 700;
 }
 
-.chart-card {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  margin-bottom: 0;
-  padding: 0;
-  box-shadow: none;
-
-  mat-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 0 0 clamp(1rem, 2vw, 1.5rem) 0;
-    padding: 0;
-
-    mat-card-title {
-      font-size: clamp(0.8rem, 2vw, 1rem);
-      color: #1a1a1a;
-      margin: 0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-  }
-
-  .time-period-buttons {
-    display: flex;
-    gap: clamp(0.4rem, 0.8vw, 0.6rem);
-    flex-wrap: wrap;
-
-    button {
-      font-size: clamp(0.7rem, 1.5vw, 0.875rem);
-      padding: clamp(0.3rem, 0.6vw, 0.5rem) clamp(0.6rem, 1.2vw, 1rem);
-      min-width: auto;
-      border-color: #d0d0d0;
-      color: #666666;
-
-      &.active {
-        background: #06402B !important;
-        color: #ffffff !important;
-        border-color: #06402B !important;
-      }
-
-      &:hover:not(.active) {
-        border-color: #06402B;
-        color: #06402B;
-      }
-    }
-  }
-
-  mat-card-content {
-    padding: 0;
-    margin: 0;
-  }
+.stat-note {
+  margin: 0;
+  font-size: 13px;
+  color: $muted;
 }
 
-.chart-placeholder {
-  width: 100%;
-  height: clamp(200px, 40vh, 400px);
-  background: linear-gradient(135deg, #f5f5f7 0%, #ebebf0 100%);
-  border-radius: clamp(0.3rem, 0.6vw, 0.5rem);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #999999;
-  font-size: clamp(0.8rem, 1.5vw, 1rem);
+// ---------- Holdings ----------
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 0 -8px;
 }
 
-.dashboard-section {
-  margin-bottom: clamp(2rem, 4vw, 2.5rem);
-
-  &:last-child {
-    margin-bottom: 0;
-  }
+table {
+  @include table;
 }
 
-.section-title {
-  font-size: clamp(0.8rem, 1.8vw, 1rem);
+.ticker {
+  display: block;
   font-weight: 600;
-  color: #1a1a1a;
-  margin: 0 0 clamp(0.8rem, 1.5vw, 1rem) 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.data-card {
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: clamp(0.4rem, 0.8vw, 0.6rem);
+.name {
+  display: block;
+  font-size: 12px;
+  color: $muted;
+}
+
+.stale {
+  color: $muted;
+  cursor: help;
+}
+
+.empty {
+  @include empty-state;
+  margin: 0;
+}
+
+// ---------- Recent activity ----------
+
+.activity {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
   padding: 0;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
-  table {
-    width: 100%;
-    background: #ffffff;
+  li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid $hairline;
 
-    th {
-      background: #f9f9fb;
-      font-weight: 600;
-      font-size: clamp(0.7rem, 1.5vw, 0.875rem);
-      color: #1a1a1a;
-      padding: clamp(0.8rem, 1.5vw, 1.25rem);
-      text-align: left;
-      border-bottom: 1px solid #e0e0e0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    td {
-      padding: clamp(0.8rem, 1.5vw, 1.25rem);
-      font-size: clamp(0.8rem, 1.6vw, 0.95rem);
-      color: #1a1a1a;
-      border-bottom: 1px solid #f0f0f0;
-
-      &:first-child {
-        font-weight: 500;
-      }
-    }
-
-    tr:last-child td {
+    &:last-child {
       border-bottom: none;
     }
-
-    tbody tr:hover {
-      background: #fafafa;
-    }
-  }
-}
-
-.empty-state {
-  padding: clamp(2rem, 5vw, 4rem) clamp(1rem, 2vw, 1.5rem);
-  text-align: center;
-  color: #999999;
-  font-size: clamp(0.8rem, 1.5vw, 1rem);
-
-  p {
-    margin: 0;
-  }
-}
-
-// Badge styling for transaction type
-.badge {
-  display: inline-block;
-  padding: clamp(0.25rem, 0.5vw, 0.375rem) clamp(0.5rem, 1vw, 0.75rem);
-  border-radius: 4px;
-  font-size: clamp(0.7rem, 1.3vw, 0.8rem);
-  font-weight: 600;
-  color: #ffffff;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-
-  &.badge-deposit {
-    background-color: #339af0;
   }
 
-  &.badge-withdrawal {
-    background-color: #ffa94d;
+  .list-main {
+    flex: 1;
+    min-width: 0;
   }
-}
 
-// Transaction table styling (inherits from .data-card)
-.transaction-table {
-  width: 100%;
-  background: #ffffff;
-
-  th {
-    background: #f9f9fb;
+  .num {
+    font-variant-numeric: tabular-nums;
     font-weight: 600;
-    font-size: clamp(0.7rem, 1.5vw, 0.875rem);
-    color: #1a1a1a;
-    padding: clamp(0.8rem, 1.5vw, 1.25rem);
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  }
+}
+
+.badge {
+  min-width: 72px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(232, 255, 245, 0.06);
+  color: $muted;
+
+  &.buy,
+  &.deposit {
+    background: rgba(46, 229, 157, 0.12);
+    color: $accent;
   }
 
-  td {
-    padding: clamp(0.8rem, 1.5vw, 1.25rem);
-    font-size: clamp(0.8rem, 1.6vw, 0.95rem);
-    color: #1a1a1a;
-    border-bottom: 1px solid #f0f0f0;
+  &.sell,
+  &.withdrawal {
+    background: rgba(255, 122, 122, 0.12);
+    color: $down;
+  }
+}
 
-    &:first-child {
-      font-weight: 500;
-    }
+@media (max-width: 600px) {
+  .card {
+    padding: 16px;
   }
 
-  tr:last-child td {
-    border-bottom: none;
-  }
-
-  tbody tr:hover {
-    background: #fafafa;
+  .hero {
+    font-size: 34px;
   }
 }

@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
@@ -12,6 +12,7 @@ import { RouterOutlet } from '@angular/router';
 import { AddAccountDialogComponent } from './add-account-dialog/add-account-dialog.component';
 import { Account, AccountPage, AccountService } from '../services/account.service';
 import { CashMovementDialogComponent } from './cash-movement-dialog/cash-movement-dialog.component';
+import { AuthService } from '../../auth/services/auth.service';
 
 @Component({
   selector: 'app-sidebar-layout',
@@ -27,7 +28,9 @@ import { CashMovementDialogComponent } from './cash-movement-dialog/cash-movemen
     MatSelectModule,
     MatFormFieldModule,
     MatDialogModule,
-    RouterOutlet
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
   ]
 })
 export class SidebarLayoutComponent {
@@ -50,27 +53,28 @@ export class SidebarLayoutComponent {
     { label: 'Settings', icon: 'settings', route: '/settings' }
   ];
 
-  isAdminDashboard = false;
+  // From the logged-in user's role, so admins keep the admin menu on every admin page
+  readonly isAdmin: boolean;
 
-  constructor(private router: Router, private dialog: MatDialog, private accountService: AccountService) {
-    // Determine which dashboard we're on
-    this.isAdminDashboard = router.url.includes('admin-dashboard');
-    if (!this.isAdminDashboard) {
+  constructor(
+    private router: Router,
+    private dialog: MatDialog,
+    private accountService: AccountService,
+    private authService: AuthService,
+  ) {
+    this.isAdmin = this.authService.getCurrentUser()?.role === 'ADMIN';
+    if (!this.isAdmin) {
       this.loadAccounts();
     }
   }
 
   logout(): void {
-    // TODO: Clear sessionStorage and perform logout
+    this.authService.clearSession();
     this.router.navigate(['/login']);
   }
 
-  navigateTo(route: string): void {
-    this.router.navigate([route]);
-  }
-
   get menuItems() {
-    return this.isAdminDashboard ? this.adminMenuItems : this.clientMenuItems;
+    return this.isAdmin ? this.adminMenuItems : this.clientMenuItems;
   }
 
   selectAccount(account: Account): void {
@@ -84,6 +88,7 @@ export class SidebarLayoutComponent {
     const dialogRef = this.dialog.open(CashMovementDialogComponent, {
       width: '420px',
       data: { accountId: this.selectedAccount.accountId, type },
+      panelClass: ['dark-ui', 'app-dialog'],
     });
 
     dialogRef.afterClosed().subscribe((completed: boolean) => {
@@ -107,7 +112,7 @@ export class SidebarLayoutComponent {
       maxWidth: '400px',
       minWidth: '250px',
       disableClose: false,
-      panelClass: 'add-account-dialog-panel'
+      panelClass: ['add-account-dialog-panel', 'dark-ui', 'app-dialog'],
     });
 
     dialogRef.afterClosed().subscribe((accountName: string) => {

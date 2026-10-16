@@ -1,57 +1,46 @@
-import { ChangeDetectorRef, Component, Inject } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, Inject, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { HttpErrorResponse } from '@angular/common/http';
 import { v4 as uuidv4 } from 'uuid';
-import { OrderOperationResponse, OrderService, PlaceOrderRequest } from '../services/order.service';
+import { OrderDetails, OrderOperationResponse, OrderService, PlaceOrderRequest } from '../services/order.service';
 
 interface TradeData {
   accountId: number;
   securityId: number;
   symbol: string;
+  name: string;
   price: number;
-}
-
-interface OrderSummary {
-  orderId: number;
-  status: string;
-  message: string;
+  currency: string;
+  isOpen: boolean;
 }
 
 interface OrderOutcome {
-  tone: 'success' | 'warning' | 'error';
+  tone: 'success' | 'warning' | 'error' | 'pending';
   title: string;
   detail: string;
 }
 
+const PENDING_STATUSES = ['SUBMITTED', 'ACCEPTED', 'IN_EXECUTION'];
+const POLL_INTERVAL_MS = 2000;
+const POLL_LIMIT = 15; // ~30 seconds; the order worker runs every 5s
+
 @Component({
   selector: 'app-trading-dialog',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    ReactiveFormsModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatIconModule,
-  ],
+  imports: [CommonModule, ReactiveFormsModule, MatDialogModule, MatIconModule],
   templateUrl: './trading-dialog.component.html',
   styleUrl: './trading-dialog.component.scss',
 })
 export class TradingDialogComponent {
   transactionType: 'buy' | 'sell' = 'buy';
   tradeForm: FormGroup;
-  estimatedTotal = 0;
   isSubmitting = false;
   orderOutcome: OrderOutcome | null = null;
-  orderSummary: OrderSummary | null = null;
+
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: TradeData,
@@ -60,56 +49,59 @@ export class TradingDialogComponent {
     private orderService: OrderService,
     private changeDetector: ChangeDetectorRef,
   ) {
+    // The backend takes BUY orders as a USD amount (2 decimals) and SELL orders as a quantity
     this.tradeForm = this.fb.group({
-      quantity: [10, [Validators.required, Validators.min(1)]],
+      amount: [100, [Validators.required, Validators.min(0.01)]],
+      quantity: [1, [Validators.required, Validators.min(0.000000000001)]],
     });
+    inject(DestroyRef).onDestroy(() => this.stopPolling());
+  }
 
-    this.calculateEstimatedTotal();
-    this.tradeForm.valueChanges.subscribe(() => this.calculateEstimatedTotal());
+  get isUsd(): boolean {
+    return !this.data.currency || this.data.currency === 'USD';
+  }
+
+  get canSubmit(): boolean {
+    const control = this.tradeForm.get(this.transactionType === 'buy' ? 'amount' : 'quantity');
+    return !!control?.valid && !this.isSubmitting && this.orderOutcome?.tone !== 'pending';
+  }
+
+  // Rough preview only; the order executes at the live bid/ask when it fills
+  get estimate(): string {
+    if (this.transactionType === 'buy') {
+      const amount = Number(this.tradeForm.get('amount')?.value) || 0;
+      if (!this.isUsd) return 'Converted from USD when the order fills';
+      return `≈ ${this.formatQuantity(amount / this.data.price)} ${this.data.symbol}`;
+    }
+    const quantity = Number(this.tradeForm.get('quantity')?.value) || 0;
+    const proceeds = quantity * this.data.price;
+    return `≈ ${proceeds.toLocaleString('en-US', { style: 'currency', currency: this.data.currency || 'USD' })}`;
   }
 
   selectTransactionType(type: 'buy' | 'sell'): void {
     this.transactionType = type;
-  }
-
-  calculateEstimatedTotal(): void {
-    const quantity = this.tradeForm.get('quantity')?.value || 0;
-    this.estimatedTotal = quantity * this.data.price;
-  }
-
-  adjustQuantity(delta: number): void {
-    const control = this.tradeForm.get('quantity');
-    const quantity = Number(control?.value) || 0;
-    control?.setValue(Math.max(1, quantity + delta));
+    this.orderOutcome = null;
   }
 
   onSubmit(): void {
-    if (!this.tradeForm.valid || this.isSubmitting) return;
+    if (!this.canSubmit) return;
 
     this.isSubmitting = true;
     this.orderOutcome = null;
-    this.orderSummary = null;
-    const quantity = Number(this.tradeForm.get('quantity')?.value);
+    const isBuy = this.transactionType === 'buy';
     const request: PlaceOrderRequest = {
       clientRequestId: uuidv4(),
       securityId: this.data.securityId,
-      side: this.transactionType === 'buy' ? 'B' : 'S',
-      requestedAmount: this.transactionType === 'buy' ? this.estimatedTotal : null,
-      quantityOrdered: this.transactionType === 'sell' ? quantity : null,
+      side: isBuy ? 'B' : 'S',
+      requestedAmount: isBuy ? Math.round(Number(this.tradeForm.get('amount')?.value) * 100) / 100 : null,
+      quantityOrdered: isBuy ? null : Number(Number(this.tradeForm.get('quantity')?.value).toFixed(12)),
     };
-    console.log('[TradingDialog] Submitting order', {
-      accountId: this.data.accountId,
-      securityId: request.securityId,
-      side: request.side,
-      clientRequestId: request.clientRequestId,
-    });
 
     this.orderService.placeOrder(this.data.accountId, request).subscribe({
       next: (response: OrderOperationResponse) => {
         this.isSubmitting = false;
         const order = response.details?.order;
         if (!order) {
-          console.error('[TradingDialog] Invalid order response', { response });
           this.orderOutcome = {
             tone: 'error',
             title: 'Order response incomplete',
@@ -118,65 +110,74 @@ export class TradingDialogComponent {
           this.changeDetector.markForCheck();
           return;
         }
-        const status = order.orderStatus.toUpperCase();
-        const message = response.details.lastExecutionMessage || '';
-        this.orderSummary = { orderId: order.orderId, status, message };
-        console.log('[TradingDialog] Order response', {
-          accountId: this.data.accountId,
-          orderId: order.orderId,
-          status,
-          replayed: response.replayed,
-          reservation: response.details.reservation,
-          executionAttempts: response.details.executionAttempts,
-          lastExecutionMessage: message,
-        });
-        this.orderOutcome = this.normalizeOrderOutcome(order.orderId, status, order.rejectionReason, response.replayed);
-        this.changeDetector.markForCheck();
+        this.showOrder(response.details, response.replayed);
+        if (PENDING_STATUSES.includes(order.orderStatus.toUpperCase()) && !response.replayed) {
+          this.pollOrder(order.orderId, 0);
+        }
       },
       error: (error: HttpErrorResponse) => {
         this.isSubmitting = false;
-        const rejectedResponse = error.error as OrderOperationResponse | undefined;
-        const rejectedOrder = rejectedResponse?.details?.order;
+        const rejectedOrder = (error.error as OrderOperationResponse | undefined)?.details?.order;
         if (error.status === 409 && rejectedOrder) {
-          const status = rejectedOrder.orderStatus.toUpperCase();
-          const reason = rejectedOrder.rejectionReason || 'The order did not meet the execution requirements.';
-          this.orderSummary = {
-            orderId: rejectedOrder.orderId,
-            status,
-            message: this.clientReason(reason),
-          };
           this.orderOutcome = {
             tone: 'warning',
-            title: `Order #${rejectedOrder.orderId} rejected and recorded`,
-            detail: this.clientReason(reason),
+            title: `Order #${rejectedOrder.orderId} rejected`,
+            detail: this.clientReason(rejectedOrder.rejectionReason),
           };
-          console.warn('[TradingDialog] Order rejected and recorded', {
-            accountId: this.data.accountId,
-            orderId: rejectedOrder.orderId,
-            side: request.side,
-            status,
-            reason,
-            reservation: rejectedResponse?.details?.reservation,
-          });
-          this.changeDetector.markForCheck();
-          return;
+        } else {
+          console.error('[TradingDialog] Order submission failed', { status: error.status, error: error.error });
+          this.orderOutcome = {
+            tone: 'error',
+            title: 'Order could not be submitted',
+            detail: error.error?.message || 'Check your connection and try again.',
+          };
         }
-        console.error('[TradingDialog] Order submission failed', {
-          accountId: this.data.accountId,
-          securityId: this.data.securityId,
-          side: request.side,
-          status: error.status,
-          errorCode: error.error?.code,
-          error: error.error,
-        });
-        this.orderOutcome = {
-          tone: 'error',
-          title: 'Order could not be submitted',
-          detail: error.error?.message || 'Check your connection and try again.',
-        };
         this.changeDetector.markForCheck();
       },
     });
+  }
+
+  // Follow the order until the background worker fills (or rejects) it
+  private pollOrder(orderId: number, attempt: number): void {
+    if (attempt >= POLL_LIMIT) {
+      this.orderOutcome = {
+        tone: 'warning',
+        title: `Order #${orderId} is still waiting`,
+        detail: this.data.isOpen
+          ? 'It will fill shortly. You can close this window; it stays in your activity.'
+          : 'The market is closed, so it will fill when trading opens. It stays in your activity.',
+      };
+      this.changeDetector.markForCheck();
+      return;
+    }
+    this.pollTimer = setTimeout(() => {
+      this.orderService.getOrder(this.data.accountId, orderId).subscribe({
+        next: (details: OrderDetails) => {
+          this.showOrder(details, false);
+          if (PENDING_STATUSES.includes(details.order.orderStatus.toUpperCase())) {
+            this.pollOrder(orderId, attempt + 1);
+          }
+        },
+        error: () => this.pollOrder(orderId, attempt + 1),
+      });
+    }, POLL_INTERVAL_MS);
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer) clearTimeout(this.pollTimer);
+    this.pollTimer = null;
+  }
+
+  private showOrder(details: OrderDetails, replayed: boolean): void {
+    const { orderId, orderStatus, rejectionReason } = details.order;
+    this.orderOutcome = this.normalizeOrderOutcome(
+      orderId,
+      orderStatus.toUpperCase(),
+      rejectionReason,
+      replayed,
+      details.lastExecutionMessage,
+    );
+    this.changeDetector.markForCheck();
   }
 
   private normalizeOrderOutcome(
@@ -184,39 +185,41 @@ export class TradingDialogComponent {
     status: string,
     rejectionReason: string | null,
     replayed: boolean,
+    lastExecutionMessage: string | null,
   ): OrderOutcome {
     if (status === 'REJECTED') {
-      return {
-        tone: 'warning',
-        title: `Order #${orderId} rejected and recorded`,
-        detail: this.clientReason(rejectionReason),
-      };
+      return { tone: 'warning', title: `Order #${orderId} rejected`, detail: this.clientReason(rejectionReason) };
     }
     if (replayed) {
       return {
         tone: 'warning',
         title: `Order #${orderId} already submitted`,
-        detail: 'The original order is still tracked in transaction history.',
+        detail: 'The original order is still tracked in your activity.',
       };
     }
-    if (status === 'ACCEPTED' || status === 'IN_EXECUTION') {
+    if (PENDING_STATUSES.includes(status)) {
       return {
-        tone: 'success',
+        tone: 'pending',
         title: `Order #${orderId} accepted`,
-        detail: 'Your order is waiting for market execution and remains visible in transaction history.',
+        detail: lastExecutionMessage
+          ? `Waiting to fill: ${this.clientReason(lastExecutionMessage)}`
+          : 'Waiting for the market to fill it…',
       };
     }
     if (status === 'FILLED') {
       return {
         tone: 'success',
         title: `Order #${orderId} filled`,
-        detail: 'Your trade was completed and is available in transaction history.',
+        detail: 'Your trade is complete and now shows in your portfolio.',
       };
+    }
+    if (status === 'CANCELLED') {
+      return { tone: 'warning', title: `Order #${orderId} cancelled`, detail: 'Any reserved cash or shares were released.' };
     }
     return {
       tone: 'warning',
       title: `Order #${orderId}: ${status}`,
-      detail: 'The latest order state is available in transaction history.',
+      detail: 'The latest order state is available in your activity.',
     };
   }
 
@@ -225,13 +228,21 @@ export class TradingDialogComponent {
       case 'INSUFFICIENT_AVAILABLE_QUANTITY':
         return 'You do not have enough available shares to sell. A pending buy order does not become sellable until it executes.';
       case 'INSUFFICIENT_AVAILABLE_CASH':
-        return 'There is not enough available cash for this buy order. Check pending reservations or deposit more cash.';
+        return 'There is not enough available cash for this buy order. Deposit more cash or wait for pending orders.';
       case 'MARKET_CLOSED':
-        return 'The market is currently closed. Your accepted order will remain pending until execution is available.';
+        return 'The market is currently closed. The order will fill when trading opens.';
+      case 'QUOTE_TOO_OLD':
+      case 'INVALID_QUOTE_TIME':
+        return 'No fresh price is available right now (check the server clock).';
       default:
         return reason || 'The order did not meet the execution requirements.';
     }
   }
+
+  private formatQuantity(quantity: number): string {
+    return quantity.toLocaleString('en-US', { maximumFractionDigits: quantity < 1 ? 6 : 4 });
+  }
+
   close(): void {
     this.dialogRef.close();
   }

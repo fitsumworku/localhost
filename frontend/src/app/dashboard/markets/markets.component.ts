@@ -1,79 +1,100 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTableModule } from '@angular/material/table';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { HttpErrorResponse } from '@angular/common/http';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { TradingDialogComponent } from './trading-dialog/trading-dialog.component';
 import { MarketDataService, MarketQuote, Security, SecurityPage } from './services/market-data.service';
 import { AccountService } from '../services/account.service';
+
+type AssetFilter = 'all' | 'equity' | 'etf' | 'crypto' | 'forex';
 
 interface MarketAsset {
   securityId: number;
   symbol: string;
   name: string;
-  price: number | null;
-  change24h: number | null;
-  changePercent: string;
-  volume: string;
-  marketCap: string;
   type: string;
+  price: number | null;
+  currency: string;
+  marketState: MarketQuote['marketState'] | null;
+  stale: boolean;
+  quoteStatus: 'loading' | 'ready' | 'unavailable';
 }
 
 @Component({
   selector: 'app-markets',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatButtonModule,
-    MatIconModule,
-    MatTableModule,
-    MatDialogModule,
-  ],
+  imports: [CommonModule, FormsModule, MatIconModule, MatDialogModule],
   templateUrl: './markets.component.html',
   styleUrl: './markets.component.scss',
 })
 export class MarketsComponent implements OnInit {
   searchQuery = '';
-  selectedFilter = 'all';
-
-  allMarketAssets: MarketAsset[] = [];
-  errorMessage = '';
+  selectedFilter: AssetFilter = 'all';
+  readonly filters: { value: AssetFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'equity', label: 'Stocks' },
+    { value: 'etf', label: 'ETFs' },
+    { value: 'crypto', label: 'Crypto' },
+    { value: 'forex', label: 'FX' },
+  ];
 
   marketAssets: MarketAsset[] = [];
-  displayedColumns: string[] = ['symbol', 'price', 'change', 'volume', 'marketCap'];
+  errorMessage = '';
+  isLoading = false;
+
+  // Searching waits until typing pauses, so each keystroke doesn't cost a round of quotes
+  private readonly search$ = new Subject<string>();
 
   constructor(
     private dialog: MatDialog,
     private marketData: MarketDataService,
     private accountService: AccountService,
     private changeDetector: ChangeDetectorRef,
-  ) {}
+  ) {
+    this.search$
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(inject(DestroyRef)))
+      .subscribe(() => this.loadSecurities());
+  }
 
   ngOnInit(): void {
     this.loadSecurities();
   }
 
+  onSearchChange(): void {
+    this.search$.next(this.searchQuery.trim());
+  }
+
+  selectFilter(filter: AssetFilter): void {
+    if (filter === this.selectedFilter) return;
+    this.selectedFilter = filter;
+    this.loadSecurities();
+  }
+
   private loadSecurities(): void {
     this.errorMessage = '';
-    console.log('[Markets] Loading securities', { search: this.searchQuery });
-    this.marketData.listSecurities(this.searchQuery).subscribe({
+    this.isLoading = true;
+
+    // The backend only searches by text, and sorts by ticker, so crypto (X:...) and FX
+    // (FX:...) never appear in the first page. Their ticker prefix finds them instead.
+    const text = this.searchQuery.trim();
+    const query = text || (this.selectedFilter === 'crypto' ? 'X:' : this.selectedFilter === 'forex' ? 'FX:' : '');
+
+    this.marketData.listSecurities(query).subscribe({
       next: (page: SecurityPage) => {
-        console.log('[Markets] Securities loaded', { count: page.content.length, total: page.totalElements });
-        this.allMarketAssets = page.content.map((security: Security) => this.toMarketAsset(security));
+        this.isLoading = false;
+        this.marketAssets = page.content
+          .map((security: Security) => this.toMarketAsset(security))
+          .filter((asset) => this.selectedFilter === 'all' || asset.type === this.selectedFilter);
         this.loadQuotes();
         this.changeDetector.markForCheck();
       },
       error: (error: HttpErrorResponse) => {
-        console.error('[Markets] Failed to load securities', { search: this.searchQuery, error });
-        this.allMarketAssets = [];
+        console.error('[Markets] Failed to load securities', { search: query, error });
+        this.isLoading = false;
         this.marketAssets = [];
         this.errorMessage = 'Market data is currently unavailable.';
         this.changeDetector.markForCheck();
@@ -81,26 +102,25 @@ export class MarketsComponent implements OnInit {
     });
   }
 
+  // Only the rows on screen are quoted
   private loadQuotes(): void {
-    this.allMarketAssets.forEach(asset => {
+    this.marketAssets.forEach((asset) => {
       this.marketData.quote(asset.securityId).subscribe({
         next: (quote: MarketQuote) => {
-          console.log('[Markets] Quote loaded', { securityId: asset.securityId, symbol: asset.symbol, quote });
           asset.price = quote.price;
-          asset.changePercent = quote.stale ? 'Stale' : quote.marketState;
-          this.filterAssets();
+          asset.currency = quote.currency || asset.currency;
+          asset.marketState = quote.marketState;
+          asset.stale = quote.stale;
+          asset.quoteStatus = 'ready';
           this.changeDetector.markForCheck();
         },
         error: (error: HttpErrorResponse) => {
           console.error('[Markets] Failed to load quote', { securityId: asset.securityId, symbol: asset.symbol, error });
-          asset.price = null;
-          asset.changePercent = 'Unavailable';
-          this.filterAssets();
+          asset.quoteStatus = 'unavailable';
           this.changeDetector.markForCheck();
         },
       });
     });
-    this.filterAssets();
   }
 
   private toMarketAsset(security: Security): MarketAsset {
@@ -108,71 +128,48 @@ export class MarketsComponent implements OnInit {
       securityId: security.securityId,
       symbol: security.ticker,
       name: security.name,
-      price: null,
-      change24h: null,
-      changePercent: 'Loading',
-      volume: '--',
-      marketCap: '--',
       type: security.assetType.toLowerCase(),
+      price: null,
+      currency: security.quoteCurrency,
+      marketState: null,
+      stale: false,
+      quoteStatus: 'loading',
     };
   }
 
-  filterAssets(): void {
-    let filtered = this.allMarketAssets;
-
-    // Apply asset type filter
-    if (this.selectedFilter !== 'all') {
-      filtered = filtered.filter(asset => asset.type === this.selectedFilter);
-    }
-
-    // Apply search filter
-    if (this.searchQuery.trim()) {
-      const query = this.searchQuery.toLowerCase();
-      filtered = filtered.filter(asset => asset.symbol.toLowerCase().includes(query));
-    }
-
-    this.marketAssets = filtered;
+  // Crypto trades around the clock; the backend treats it as always open
+  isOpen(asset: MarketAsset): boolean {
+    return asset.type === 'crypto' || asset.marketState === 'open';
   }
 
-  onSearchChange(): void {
-    this.loadSecurities();
-  }
-
-  selectFilter(filter: string): void {
-    this.selectedFilter = filter;
-    this.filterAssets();
-  }
-
-  isFilterActive(filter: string): boolean {
-    return this.selectedFilter === filter;
+  typeLabel(type: string): string {
+    return this.filters.find((filter) => filter.value === type)?.label ?? type;
   }
 
   openTradingDialog(asset: MarketAsset): void {
     const accountId = this.accountService.selectedAccount()?.accountId;
-    if (!accountId || asset.price === null) {
-      console.warn('[Markets] Cannot open trading dialog', {
+    if (!accountId) {
+      this.errorMessage = 'Create or select an account first (top right).';
+      return;
+    }
+    if (asset.price === null) {
+      this.errorMessage = `Waiting for a live price for ${asset.symbol}. Try again in a moment.`;
+      return;
+    }
+    this.errorMessage = '';
+    this.dialog.open(TradingDialogComponent, {
+      width: '440px',
+      maxWidth: '92vw',
+      data: {
         accountId,
         securityId: asset.securityId,
         symbol: asset.symbol,
-        hasPrice: asset.price !== null,
-      });
-      this.errorMessage = 'Select an account and wait for a live price before placing an order.';
-      return;
-    }
-    console.log('[Markets] Opening trading dialog', {
-      accountId,
-      securityId: asset.securityId,
-      symbol: asset.symbol,
-      price: asset.price,
+        name: asset.name,
+        price: asset.price,
+        currency: asset.currency,
+        isOpen: this.isOpen(asset),
+      },
+      panelClass: ['dark-ui', 'app-dialog'],
     });
-    this.dialog.open(TradingDialogComponent, {
-      width: '500px',
-      data: { ...asset, accountId },
-      disableClose: false,
-    });
-  }
-
-  getChangeColor(change: number | null): string {
-    return change === null ? '#6c757d' : change >= 0 ? '#51cf66' : '#ff6b6b';
   }
 }

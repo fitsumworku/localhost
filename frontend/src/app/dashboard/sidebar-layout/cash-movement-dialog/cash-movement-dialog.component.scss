@@ -1,34 +1,6 @@
+@use '../dialog' as *;
+
 .cash-dialog {
-  min-width: 320px;
-  padding: 8px;
-}
-
-.dialog-header,
-.dialog-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.dialog-header {
-  margin-bottom: 16px;
-}
-
-.dialog-header h2 {
-  margin: 0;
-}
-
-mat-form-field {
-  width: 100%;
-}
-
-.error {
-  color: #b3261e;
-  margin: 0 0 16px;
-}
-
-.dialog-actions {
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 8px;
+  @include dialog;
+  min-width: 300px;
 }

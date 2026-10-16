@@ -49,4 +49,9 @@ export class OrderService {
   placeOrder(accountId: number, request: PlaceOrderRequest): Observable<OrderOperationResponse> {
     return this.http.post<OrderOperationResponse>(`${this.apiUrl}/${accountId}/orders`, request);
   }
+
+  // Latest state of one order (used to follow it from ACCEPTED to FILLED)
+  getOrder(accountId: number, orderId: number): Observable<OrderDetails> {
+    return this.http.get<OrderDetails>(`${this.apiUrl}/${accountId}/orders/${orderId}`);
+  }
 }

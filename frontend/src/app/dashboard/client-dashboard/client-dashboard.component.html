@@ -1,205 +1,114 @@
 <div class="client-dashboard">
-  <div class="dashboard-header">
-    <h1>Portfolio Dashboard</h1>
-    <p class="subtitle">Track your portfolio performance and holdings</p>
+  <header class="page-header">
+    <h1>Portfolio</h1>
+    <p>Your account value, holdings and recent activity</p>
+  </header>
+
+  <!-- Portfolio value: headline figure + graph -->
+  <section class="card value-card">
+    <div class="value-header">
+      <p class="label">Portfolio value</p>
+      <h2 class="hero" *ngIf="portfolioMetrics as metrics; else valueLoading">{{ metrics.portfolioValue | currency }}</h2>
+      <ng-template #valueLoading>
+        <h2 class="hero muted">{{ isLoadingPortfolio ? 'Loading…' : '—' }}</h2>
+      </ng-template>
+      <p class="caption">{{ portfolioError || 'The graph adds a point each time your portfolio value changes' }}</p>
+    </div>
+
+    <app-value-chart [points]="chartPoints" />
+  </section>
+
+  <!-- Supporting figures -->
+  <div class="stats">
+    <section class="card stat">
+      <p class="label">Buying power</p>
+      <p class="stat-value">{{ portfolioMetrics ? (portfolioMetrics.buyingPower | currency) : '—' }}</p>
+      <p class="stat-note">Cash available for new orders</p>
+    </section>
+    <section class="card stat">
+      <p class="label">Holdings</p>
+      <p class="stat-value">{{ holdingsData.length }}</p>
+      <p class="stat-note">{{ holdingsData.length === 1 ? 'Position' : 'Positions' }} in this account</p>
+    </section>
   </div>
 
-  <!-- Stat Cards -->
-  <div class="stats-grid">
-    <mat-card class="stat-card">
-      <mat-card-content>
-        <p class="stat-label">PORTFOLIO_VALUE</p>
-        <h2 class="stat-value" *ngIf="portfolioMetrics as metrics; else portfolioLoading">{{ metrics.portfolioValue | currency }}</h2>
-        <ng-template #portfolioLoading><h2 class="stat-value">{{ isLoadingPortfolio ? 'Loading...' : '—' }}</h2></ng-template>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="stat-card">
-      <mat-card-content>
-        <p class="stat-label">CASH_BALANCE</p>
-        <h2 class="stat-value" *ngIf="portfolioMetrics as metrics; else cashLoading">{{ metrics.cashBalance | currency }}</h2>
-        <ng-template #cashLoading><h2 class="stat-value">{{ isLoadingPortfolio ? 'Loading...' : '—' }}</h2></ng-template>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="stat-card">
-      <mat-card-content>
-        <p class="stat-label">BUYING_POWER</p>
-        <h2 class="stat-value" *ngIf="portfolioMetrics as metrics; else buyingPowerLoading">{{ metrics.buyingPower | currency }}</h2>
-        <ng-template #buyingPowerLoading><h2 class="stat-value">{{ isLoadingPortfolio ? 'Loading...' : '—' }}</h2></ng-template>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="stat-card">
-      <mat-card-content>
-        <p class="stat-label">TOTAL_RETURN</p>
-        <h2 class="stat-value" *ngIf="portfolioMetrics as metrics; else returnLoading">{{ metrics.totalReturn | currency }}</h2>
-        <ng-template #returnLoading><h2 class="stat-value">{{ isLoadingPortfolio ? 'Loading...' : '—' }}</h2></ng-template>
-      </mat-card-content>
-    </mat-card>
-  </div>
-
-  <!-- Performance Chart Section -->
-  <mat-card class="chart-card">
-    <mat-card-header>
-      <mat-card-title>PERFORMANCE_CHART</mat-card-title>
-      <div class="time-period-buttons">
-        <button
-          *ngFor="let period of timePeriods"
-          mat-stroked-button
-          [class.active]="selectedPeriod === period"
-          (click)="selectPeriod(period)"
-        >
-          {{ period }}
-        </button>
-      </div>
-    </mat-card-header>
-    <mat-card-content>
-      <div class="chart-placeholder">
-        <!-- Chart will be rendered here -->
-      </div>
-    </mat-card-content>
-  </mat-card>
-
-  <!-- Current Holdings Section -->
-  <div class="dashboard-section">
-    <h2 class="section-title">CURRENT_HOLDINGS</h2>
-    <mat-card class="data-card">
-      <table mat-table [dataSource]="holdingsData" class="holdings-table">
-        <!-- Asset Column -->
-        <ng-container matColumnDef="asset">
-          <th mat-header-cell *matHeaderCellDef>Asset</th>
-          <td mat-cell *matCellDef="let element">{{ element.asset }}</td>
-        </ng-container>
-
-        <!-- Shares Column -->
-        <ng-container matColumnDef="shares">
-          <th mat-header-cell *matHeaderCellDef>Shares</th>
-          <td mat-cell *matCellDef="let element">{{ element.shares }}</td>
-        </ng-container>
-
-        <!-- Avg Cost Column -->
-        <ng-container matColumnDef="avgCost">
-          <th mat-header-cell *matHeaderCellDef>Avg Cost</th>
-          <td mat-cell *matCellDef="let element">{{ element.avgCost | currency }}</td>
-        </ng-container>
-
-        <!-- Current Price Column -->
-        <ng-container matColumnDef="currentPrice">
-          <th mat-header-cell *matHeaderCellDef>Current Price</th>
-          <td mat-cell *matCellDef="let element">{{ element.currentPrice | currency }}</td>
-        </ng-container>
-
-        <!-- Total Value Column -->
-        <ng-container matColumnDef="totalValue">
-          <th mat-header-cell *matHeaderCellDef>Total Value</th>
-          <td mat-cell *matCellDef="let element">{{ element.totalValue | currency }}</td>
-        </ng-container>
-
-        <!-- Day Change Column -->
-        <ng-container matColumnDef="dayChange">
-          <th mat-header-cell *matHeaderCellDef>Day Change</th>
-          <td mat-cell *matCellDef="let element">{{ element.dayChange }}</td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  <!-- Holdings -->
+  <section class="card">
+    <h3 class="card-title">Holdings</h3>
+    <div class="table-wrap">
+      <table *ngIf="holdingsData.length > 0">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th class="num">Shares</th>
+            <th class="num">Avg cost</th>
+            <th class="num">Price</th>
+            <th class="num">Value</th>
+            <th class="num">Return</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let holding of holdingsData">
+            <td>
+              <span class="ticker">{{ holding.ticker }}</span>
+              <span class="name">{{ holding.name }}</span>
+            </td>
+            <td class="num">{{ holding.shares | number: '1.0-6' }}</td>
+            <td class="num">{{ holding.avgCost | currency }}</td>
+            <td class="num">
+              {{ holding.currentPrice | currency }}
+              <span class="stale" *ngIf="!holding.priceIsLive" title="Live price unavailable; showing average cost">*</span>
+            </td>
+            <td class="num">{{ holding.totalValue | currency }}</td>
+            <td class="num" [class.up]="holding.return > 0" [class.down]="holding.return < 0">
+              {{ holding.return > 0 ? '+' : '' }}{{ holding.return | currency }}
+            </td>
+          </tr>
+        </tbody>
       </table>
-      <div *ngIf="holdingsData.length === 0" class="empty-state">
-        <p>No holdings to display</p>
-      </div>
-    </mat-card>
+    </div>
+    <p class="empty" *ngIf="holdingsData.length === 0">
+      {{ isLoadingPortfolio ? 'Loading holdings…' : 'No holdings yet. Buy something on the Markets page.' }}
+    </p>
+  </section>
+
+  <!-- Recent activity -->
+  <div class="activity">
+    <section class="card">
+      <h3 class="card-title">Recent trades</h3>
+      <ul class="list" *ngIf="activityData.length > 0">
+        <li *ngFor="let item of activityData">
+          <span class="badge" [class.buy]="item.type === 'buy'" [class.sell]="item.type === 'sell'">
+            {{ item.type === 'buy' ? 'Buy' : 'Sell' }}
+          </span>
+          <span class="list-main">
+            <span class="ticker">{{ item.asset }}</span>
+            <span class="name">{{ item.date | date: 'MMM d, h:mm a' }}</span>
+          </span>
+          <span class="num">{{ item.price !== undefined ? (item.price | currency) : 'Pending' }}</span>
+        </li>
+      </ul>
+      <p class="empty" *ngIf="activityData.length === 0">
+        {{ isLoadingHistory ? 'Loading…' : historyError || 'No trades yet' }}
+      </p>
+    </section>
+
+    <section class="card">
+      <h3 class="card-title">Cash activity</h3>
+      <ul class="list" *ngIf="transactionData.length > 0">
+        <li *ngFor="let item of transactionData">
+          <span class="badge" [class.deposit]="item.type === 'deposit'" [class.withdrawal]="item.type === 'withdrawal'">
+            {{ item.type === 'deposit' ? 'Deposit' : 'Withdrawal' }}
+          </span>
+          <span class="list-main">
+            <span class="name">{{ item.date | date: 'MMM d, h:mm a' }}</span>
+          </span>
+          <span class="num">{{ item.type === 'deposit' ? '+' : '−' }}{{ item.amount | currency }}</span>
+        </li>
+      </ul>
+      <p class="empty" *ngIf="transactionData.length === 0">
+        {{ isLoadingHistory ? 'Loading…' : historyError || 'No cash activity yet' }}
+      </p>
+    </section>
   </div>
-
-  <!-- Recent Activity Section -->
-  <div class="dashboard-section">
-    <h2 class="section-title">Recent Trading Activity</h2>
-    <mat-card class="data-card">
-      <table mat-table [dataSource]="activityData" class="activity-table">
-        <!-- Symbol Column -->
-        <ng-container matColumnDef="symbol">
-          <th mat-header-cell *matHeaderCellDef>Symbol</th>
-          <td mat-cell *matCellDef="let element">{{ element.symbol }}</td>
-        </ng-container>
-
-        <!-- Action Column -->
-        <ng-container matColumnDef="action">
-          <th mat-header-cell *matHeaderCellDef>Action</th>
-          <td mat-cell *matCellDef="let element">{{ element.action }}</td>
-        </ng-container>
-
-        <!-- Price Column -->
-        <ng-container matColumnDef="price">
-          <th mat-header-cell *matHeaderCellDef>Price</th>
-          <td mat-cell *matCellDef="let element">{{ element.price }}</td>
-        </ng-container>
-
-        <!-- Time Column -->
-        <ng-container matColumnDef="date">
-          <th mat-header-cell *matHeaderCellDef>Date</th>
-          <td mat-cell *matCellDef="let element">{{ element.date }}</td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="activityColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: activityColumns;"></tr>
-      </table>
-      <div *ngIf="isLoadingHistory" class="empty-state">
-        <p>Loading activity...</p>
-      </div>
-      <div *ngIf="!isLoadingHistory && historyError" class="empty-state">
-        <p>{{ historyError }}</p>
-      </div>
-      <div *ngIf="!isLoadingHistory && !historyError && activityData.length === 0" class="empty-state">
-        <p>No recent activity</p>
-      </div>
-    </mat-card>
-  </div>
-
-  <!-- Transaction Activity Section -->
-  <div class="dashboard-section">
-    <h2 class="section-title">Recent Transaction Activity</h2>
-    <mat-card class="data-card">
-      <table mat-table [dataSource]="transactionData" class="transaction-table">
-        <!-- Date Column -->
-        <ng-container matColumnDef="date">
-          <th mat-header-cell *matHeaderCellDef>Date</th>
-          <td mat-cell *matCellDef="let element">{{ element.date }}</td>
-        </ng-container>
-
-        <!-- Asset Column -->
-        <ng-container matColumnDef="asset">
-          <th mat-header-cell *matHeaderCellDef>Asset</th>
-          <td mat-cell *matCellDef="let element">{{ element.asset }}</td>
-        </ng-container>
-
-        <!-- Type Column -->
-        <ng-container matColumnDef="type">
-          <th mat-header-cell *matHeaderCellDef>Type</th>
-          <td mat-cell *matCellDef="let element">
-            <span class="badge" [ngClass]="getTransactionTypeBadgeClass(element.type)" [style.background-color]="getTransactionTypeColor(element.type)">
-              {{ element.type | titlecase }}
-            </span>
-          </td>
-        </ng-container>
-
-        <!-- Amount Column -->
-        <ng-container matColumnDef="amount">
-          <th mat-header-cell *matHeaderCellDef>Amount</th>
-          <td mat-cell *matCellDef="let element">{{ element.amount | currency }}</td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="transactionColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: transactionColumns;"></tr>
-      </table>
-      <div *ngIf="isLoadingHistory" class="empty-state">
-        <p>Loading transactions...</p>
-      </div>
-      <div *ngIf="!isLoadingHistory && historyError" class="empty-state">
-        <p>{{ historyError }}</p>
-      </div>
-      <div *ngIf="!isLoadingHistory && !historyError && transactionData.length === 0" class="empty-state">
-        <p>No transactions to display</p>
-      </div>
-    </mat-card>
-  </div>
- 
+</div>

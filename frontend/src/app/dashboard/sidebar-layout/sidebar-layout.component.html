@@ -1,26 +1,29 @@
-<div class="sidebar-layout">
+<div class="sidebar-layout" [class.dark-ui]="!isAdmin">
   <!-- Sidebar -->
   <aside class="sidebar">
-    <div class="sidebar-header">
-      <h2>Localhost Trading Site</h2>
+    <div class="brand">
+      <div class="brand-mark">
+        <mat-icon>trending_up</mat-icon>
+      </div>
+      <span class="brand-name">Localhost</span>
     </div>
 
     <nav class="sidebar-menu">
-      <div class="menu-section">
-        <p class="menu-label">MAIN_MENU</p>
-        <ul class="menu-list">
-          <li *ngFor="let item of menuItems" (click)="navigateTo(item.route)" class="menu-item">
+      <p class="menu-label">Menu</p>
+      <ul class="menu-list">
+        <li *ngFor="let item of menuItems">
+          <a class="menu-item" [routerLink]="item.route" routerLinkActive="active">
             <mat-icon>{{ item.icon }}</mat-icon>
             <span>{{ item.label }}</span>
-          </li>
-        </ul>
-      </div>
+          </a>
+        </li>
+      </ul>
     </nav>
 
     <div class="sidebar-footer">
-      <button mat-raised-button class="logout-button" (click)="logout()">
+      <button type="button" class="logout-button" (click)="logout()">
         <mat-icon>logout</mat-icon>
-        Logout
+        <span>Log out</span>
       </button>
     </div>
   </aside>
@@ -28,31 +31,35 @@
   <!-- Main Content -->
   <main class="main-content">
     <!-- Top Header with Account Selector -->
-    <div class="top-header" *ngIf="!isAdminDashboard">
+    <div class="top-header" *ngIf="!isAdmin">
       <div class="header-content">
         <h1>{{ selectedAccount ? ('Account ' + selectedAccount.accountId) : 'Accounts' }}</h1>
-        <div class="account-selector-wrapper">
-          <mat-form-field appearance="outline" class="account-selector">
+        <div class="header-actions">
+          <mat-form-field appearance="outline" class="account-selector" subscriptSizing="dynamic">
             <mat-label>Account</mat-label>
-            <mat-select [value]="selectedAccount" (selectionChange)="selectAccount($event.value)">
+            <mat-select
+              panelClass="dark-ui"
+              [value]="selectedAccount"
+              (selectionChange)="selectAccount($event.value)"
+            >
               <mat-option *ngFor="let account of accounts" [value]="account">
                 Account {{ account.accountId }} ({{ account.currency }})
               </mat-option>
             </mat-select>
           </mat-form-field>
-          <button mat-icon-button class="add-account-btn" (click)="openAddAccountDialog()" title="Add new account">
+          <button type="button" class="icon-button" (click)="openAddAccountDialog()" title="Add new account" aria-label="Add new account">
             <mat-icon>add</mat-icon>
           </button>
-        </div>
-        <div class="cash-actions" *ngIf="selectedAccount">
-          <button mat-stroked-button type="button" (click)="openCashMovement('deposit')">
-            <mat-icon>add_circle</mat-icon>
-            Deposit
-          </button>
-          <button mat-stroked-button type="button" (click)="openCashMovement('withdrawal')">
-            <mat-icon>remove_circle</mat-icon>
-            Withdraw
-          </button>
+          <ng-container *ngIf="selectedAccount">
+            <button type="button" class="ghost-button" (click)="openCashMovement('deposit')">
+              <mat-icon>add_circle_outline</mat-icon>
+              Deposit
+            </button>
+            <button type="button" class="ghost-button" (click)="openCashMovement('withdrawal')">
+              <mat-icon>remove_circle_outline</mat-icon>
+              Withdraw
+            </button>
+          </ng-container>
         </div>
       </div>
     </div>

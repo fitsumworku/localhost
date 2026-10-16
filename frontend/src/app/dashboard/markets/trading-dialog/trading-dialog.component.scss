@@ -1,271 +1,267 @@
+@use '../../ui' as *;
+
 .trading-dialog {
   padding: 24px;
-  width: 100%;
+  color: $text;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
 
-  .dialog-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 24px;
+.dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
 
-    .asset-name {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin: 0 0 4px 0;
-    }
+.symbol {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
 
-    .asset-price {
-      font-size: 14px;
-      color: #666;
-      margin: 0;
-    }
+.name {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: $muted;
+}
 
-    .close-btn {
-      color: #666;
-    }
+.close-btn {
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: $muted;
+  cursor: pointer;
+
+  &:hover {
+    color: $text;
+    background: rgba(232, 255, 245, 0.06);
+  }
+}
+
+.price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 20px;
+}
+
+.price {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: $muted;
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: $muted;
   }
 
-  // Transaction Type
-  .transaction-type {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 24px;
-
-    .type-btn {
-      padding: 12px 16px;
-      font-size: 14px;
-      font-weight: 600;
-      border: 2px solid #e0e0e0;
-      background: white;
-      cursor: pointer;
-      border-radius: 4px;
-      transition: all 0.3s ease;
-
-      &.buy-btn {
-        &.active {
-          background-color: #51cf66;
-          color: white;
-          border-color: #51cf66;
-        }
-
-        &:hover:not(.active) {
-          border-color: #51cf66;
-          color: #51cf66;
-        }
-      }
-
-      &.sell-btn {
-        &.active {
-          background-color: #ff6b6b;
-          color: white;
-          border-color: #ff6b6b;
-        }
-
-        &:hover:not(.active) {
-          border-color: #ff6b6b;
-          color: #ff6b6b;
-        }
-      }
-    }
+  &.open .dot {
+    background: $accent;
+    box-shadow: 0 0 8px rgba(46, 229, 157, 0.8);
   }
+}
 
-  // Order Type Section
-  .order-type-section {
-    margin-bottom: 24px;
+.side-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  border-radius: 12px;
+  background: rgba(2, 15, 10, 0.55);
+  border: 1px solid $hairline;
 
-    .section-label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #666;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-
-    .order-type-buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-
-      .order-btn {
-        padding: 12px 16px;
-        font-size: 14px;
-        font-weight: 500;
-        border: 1px solid #e0e0e0;
-        background: white;
-        cursor: pointer;
-        border-radius: 4px;
-        transition: all 0.3s ease;
-
-        &:hover {
-          border-color: #06402b;
-          color: #06402b;
-        }
-
-        &.active {
-          background-color: #06402b;
-          color: white;
-          border-color: #06402b;
-        }
-      }
-    }
-  }
-
-  // Form
-  .trade-form {
-    .form-group {
-      margin-bottom: 20px;
-
-      .form-label {
-        display: block;
-        font-size: 12px;
-        font-weight: 600;
-        color: #666;
-        text-transform: uppercase;
-        margin-bottom: 8px;
-      }
-
-      .quantity-input {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-
-        .qty-btn {
-          width: 40px;
-          height: 40px;
-          padding: 0;
-          border: 1px solid #e0e0e0;
-          background: white;
-          cursor: pointer;
-          border-radius: 4px;
-          font-size: 16px;
-          transition: all 0.3s ease;
-
-          &:hover {
-            border-color: #06402b;
-            color: #06402b;
-          }
-        }
-
-        .qty-field {
-          flex: 1;
-
-          input {
-            text-align: center;
-            font-size: 16px;
-            font-weight: 500;
-          }
-        }
-      }
-
-      mat-form-field {
-        width: 100%;
-
-        ::ng-deep .mat-mdc-form-field {
-          width: 100%;
-        }
-      }
-    }
-  }
-
-  // Estimated Section
-  .estimated-section {
-    background: #f9f9fb;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 16px;
-    margin: 24px 0;
-
-    .estimated-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #666;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-
-    .estimated-value {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-bottom: 8px;
-    }
-
-    .estimated-note {
-      font-size: 12px;
-      color: #999;
-      margin: 0;
-    }
-  }
-
-  // Action Button
-  .action-btn {
-    width: 100%;
-    padding: 12px 16px;
+  button {
+    padding: 10px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: $muted;
+    font: inherit;
     font-size: 14px;
     font-weight: 600;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
     cursor: pointer;
-    transition: all 0.3s ease;
 
-    &.buy {
-      background-color: #51cf66;
-      color: white;
-
-      &:hover:not(:disabled) {
-        background-color: #40c057;
-      }
-
-      &:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-      }
+    &.buy.active {
+      background: rgba(46, 229, 157, 0.14);
+      color: $accent;
     }
 
-    &.sell {
-      background-color: #ff6b6b;
-      color: white;
-
-      &:hover:not(:disabled) {
-        background-color: #ff5252;
-      }
-
-      &:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-      }
+    &.sell.active {
+      background: rgba(255, 122, 122, 0.14);
+      color: $down;
     }
   }
+}
 
-  .order-outcome {
+.trade-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  @include label;
+}
+
+.input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: rgba(2, 15, 10, 0.55);
+  border: 1px solid rgba(232, 255, 245, 0.1);
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &:focus-within {
+    border-color: $accent;
+    box-shadow: 0 0 0 4px rgba(46, 229, 157, 0.12);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: $text;
+    font: inherit;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .prefix,
+  .suffix {
+    color: $muted;
+    font-size: 14px;
+  }
+}
+
+.estimate {
+  margin: 0;
+  font-size: 13px;
+  color: $muted;
+}
+
+.submit {
+  display: grid;
+  place-items: center;
+  height: 50px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, $accent, $accent-strong);
+  color: $bg;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(46, 229, 157, 0.25);
+  transition: filter 0.15s, transform 0.15s;
+
+  &.sell {
+    background: linear-gradient(135deg, #ff8f8f, #e86161);
+    box-shadow: 0 10px 30px rgba(255, 122, 122, 0.22);
+  }
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(2, 15, 10, 0.3);
+  border-top-color: $bg;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.outcome {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid $hairline;
+  background: rgba(232, 255, 245, 0.04);
+  font-size: 13px;
+
+  mat-icon {
+    flex-shrink: 0;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  div {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin-top: 16px;
-    padding: 12px;
-    border-left: 4px solid;
-    font-size: 13px;
-
-    &.success {
-      color: #176b35;
-      background: #edf9f0;
-      border-color: #51cf66;
-    }
-
-    &.warning {
-      color: #8a5200;
-      background: #fff8e6;
-      border-color: #ffa94d;
-    }
-
-    &.error {
-      color: #a61e2b;
-      background: #fff0f1;
-      border-color: #ff6b6b;
-    }
+    gap: 2px;
   }
+
+  span {
+    color: $muted;
+  }
+
+  &.success {
+    border-color: rgba(46, 229, 157, 0.35);
+    background: rgba(46, 229, 157, 0.08);
+
+    mat-icon { color: $accent; }
+  }
+
+  &.pending mat-icon {
+    color: $accent;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  &.warning {
+    border-color: rgba(255, 196, 92, 0.35);
+    background: rgba(255, 196, 92, 0.08);
+
+    mat-icon { color: #ffc45c; }
+  }
+
+  &.error {
+    border-color: rgba(255, 122, 122, 0.35);
+    background: rgba(255, 122, 122, 0.08);
+
+    mat-icon { color: $down; }
+  }
+}
+
+@keyframes pulse {
+  50% { opacity: 0.4; }
 }

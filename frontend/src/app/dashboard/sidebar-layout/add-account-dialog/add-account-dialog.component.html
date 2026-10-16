@@ -1,7 +1,7 @@
 <div class="add-account-dialog">
   <div class="dialog-header">
     <h2>Add a New Account</h2>
-    <button mat-icon-button (click)="onCancel()" class="close-button">
+    <button type="button" (click)="onCancel()" class="close-button" aria-label="Close">
       <mat-icon>close</mat-icon>
     </button>
   </div>
@@ -21,10 +21,10 @@
     </div>
 
     <div class="dialog-actions">
-      <button mat-stroked-button type="button" (click)="onCancel()">
+      <button type="button" class="secondary" (click)="onCancel()">
         Cancel
       </button>
-      <button mat-raised-button color="primary" type="submit" [disabled]="!form.valid">
+      <button type="submit" class="primary" [disabled]="!form.valid">
         Create Account
       </button>
     </div>

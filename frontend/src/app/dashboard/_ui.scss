@@ -1,0 +1,151 @@
+// Shared look for the client pages (portfolio, markets): the same dark green
+// glass style as the login/signup cards.
+@forward '../auth/auth-tokens';
+@use '../auth/auth-tokens' as *;
+
+$card-bg: rgba(6, 28, 20, 0.55);
+$hairline: rgba(232, 255, 245, 0.08);
+$up: #2ee59d;
+$down: #ff7a7a;
+
+@mixin page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: $text;
+}
+
+@mixin page-header {
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+  }
+
+  p {
+    margin: 4px 0 0;
+    color: $muted;
+    font-size: 14px;
+  }
+}
+
+@mixin card {
+  background: $card-bg;
+  border: 1px solid $border;
+  border-radius: 16px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+@mixin card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: $text;
+}
+
+@mixin label {
+  font-size: 12px;
+  font-weight: 500;
+  color: $muted;
+}
+
+// Segmented pill buttons (time ranges, filters)
+@mixin pills {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(2, 15, 10, 0.55);
+  border: 1px solid $hairline;
+
+  button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: $muted;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+      color: $text;
+    }
+
+    &.active {
+      background: rgba(46, 229, 157, 0.14);
+      color: $accent;
+    }
+  }
+}
+
+@mixin table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 500;
+    color: $muted;
+    border-bottom: 1px solid $hairline;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 14px 16px;
+    border-bottom: 1px solid $hairline;
+    color: $text;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@mixin empty-state {
+  padding: 28px 16px;
+  text-align: center;
+  color: $muted;
+  font-size: 14px;
+}
+
+@mixin primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, $accent, $accent-strong);
+  color: $bg;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.15s;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}

@@ -1,0 +1,70 @@
+<div class="chart" *ngIf="geometry() as g; else noData">
+  <svg
+    [attr.width]="width()"
+    [attr.height]="height"
+    role="img"
+    [attr.aria-label]="summary()"
+    tabindex="0"
+    (pointermove)="onPointerMove($event)"
+    (pointerleave)="clearActive()"
+    (keydown)="onKeydown($event)"
+    (focus)="onFocus()"
+    (blur)="clearActive()"
+  >
+    <defs>
+      <linearGradient id="value-area" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#2ee59d" stop-opacity="0.14" />
+        <stop offset="100%" stop-color="#2ee59d" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+
+    <!-- Gridlines and y-axis values -->
+    <g *ngFor="let tick of g.yTicks">
+      <line class="grid" [attr.x1]="g.plotLeft" [attr.x2]="g.plotRight" [attr.y1]="tick.pos" [attr.y2]="tick.pos" />
+      <text class="axis" [attr.x]="g.plotLeft - 10" [attr.y]="tick.pos" text-anchor="end" dominant-baseline="middle">
+        {{ tick.label }}
+      </text>
+    </g>
+
+    <!-- x-axis times -->
+    <text
+      *ngFor="let tick of g.xTicks; let first = first; let last = last"
+      class="axis"
+      [attr.x]="tick.pos"
+      [attr.y]="height - 8"
+      [attr.text-anchor]="last ? 'end' : first ? 'start' : 'middle'"
+    >
+      {{ tick.label }}
+    </text>
+
+    <path class="area" [attr.d]="g.area" fill="url(#value-area)" />
+    <path class="line" [attr.d]="g.line" pathLength="1" />
+
+    <!-- Current value marker -->
+    <circle class="end-dot" [attr.cx]="g.xy[g.xy.length - 1].x" [attr.cy]="g.xy[g.xy.length - 1].y" r="4" />
+
+    <!-- Hover / keyboard crosshair -->
+    <g *ngIf="active() as a">
+      <line class="crosshair" [attr.x1]="a.x" [attr.x2]="a.x" [attr.y1]="g.plotTop" [attr.y2]="g.plotBottom" />
+      <circle class="hover-dot" [attr.cx]="a.x" [attr.cy]="a.y" r="5" />
+    </g>
+  </svg>
+
+  <div
+    *ngIf="active() as a"
+    class="tooltip"
+    [class.flip]="a.flip"
+    [style.left.px]="a.x"
+    [style.top.px]="a.y"
+    aria-live="polite"
+  >
+    <strong>{{ a.value }}</strong>
+    <span>{{ a.detail }}</span>
+  </div>
+</div>
+
+<ng-template #noData>
+  <div class="no-data" [style.height.px]="height">
+    <p>The graph appears once your portfolio value has loaded.</p>
+  </div>
+</ng-template>

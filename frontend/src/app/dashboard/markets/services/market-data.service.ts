@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of, tap } from 'rxjs';
 
 export interface Security {
   securityId: number;
@@ -35,6 +35,11 @@ export interface MarketQuote {
 export class MarketDataService {
   private readonly apiUrl = '/api/securities';
 
+  // Every quote request costs one unit of the shared daily Fauxnance quota (via the
+  // backend), so a quote is reused for a short while instead of fetched again
+  private static readonly QUOTE_TTL_MS = 30_000;
+  private readonly quoteCache = new Map<number, { quote: MarketQuote; fetchedAt: number }>();
+
   constructor(private http: HttpClient) {}
 
   listSecurities(search = ''): Observable<SecurityPage> {
@@ -51,6 +56,12 @@ export class MarketDataService {
   }
 
   quote(securityId: number): Observable<MarketQuote> {
-    return this.http.get<MarketQuote>(`${this.apiUrl}/${securityId}/quote`);
+    const cached = this.quoteCache.get(securityId);
+    if (cached && Date.now() - cached.fetchedAt < MarketDataService.QUOTE_TTL_MS) {
+      return of(cached.quote);
+    }
+    return this.http
+      .get<MarketQuote>(`${this.apiUrl}/${securityId}/quote`)
+      .pipe(tap((quote) => this.quoteCache.set(securityId, { quote, fetchedAt: Date.now() })));
   }
 }
