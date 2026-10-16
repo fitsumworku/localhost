@@ -35,8 +35,10 @@ for user_id in range(1, num_users + 1):
         "email": fake.unique.email(),
         "password_hash": fake.password(length=60, special_chars=True, digits=True, upper_case=True, lower_case=True),
         "created_date": created_date,
+        "updated_date": created_date,
         "status": status,
-        "role_id": role_id
+        "role_id": role_id,
+        "token_version": 0,
     }
     users.append(user)
 
@@ -54,7 +56,8 @@ with open(output_path, "w") as f:
         password_hash = user["password_hash"].replace("'", "''")
         
         created_date_str = user['created_date'].strftime('%Y-%m-%d %H:%M:%S')
-        sql = f"INSERT INTO Users (User_ID, Name, Email, Password_Hash, Created_Date, Status, Role_ID) VALUES ({user['user_id']}, '{name}', '{email}', '{password_hash}', '{created_date_str}', '{user['status']}', {user['role_id']});\n"
+        updated_date_str = user['updated_date'].strftime('%Y-%m-%d %H:%M:%S')
+        sql = f"INSERT INTO Users (User_ID, Name, Email, Password_Hash, Role_ID, Status, Created_Date, Updated_Date, Token_Version) VALUES ({user['user_id']}, '{name}', '{email}', '{password_hash}', {user['role_id']}, '{user['status']}', '{created_date_str}', '{updated_date_str}', {user['token_version']});\n"
         f.write(sql)
 
 print(f"Generated {num_users} user records and saved to {output_path}")

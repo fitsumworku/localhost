@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+import json
+import logging
+import time
+from pathlib import Path
+from typing import Any, Callable
+
+import psycopg2
+import yaml
+from kafka import KafkaConsumer
+
+from src.loaders import apply_user_change
+from src.transformers import transform_user_event
+from src.validators import validate_user_change
+
+LOGGER = logging.getLogger("etl.cdc")
+RETRY_LIMIT = 3
+
+
+class CdcConsumer:
+    def __init__(
+        self,
+        config_path: Path,
+        full_refresh: Callable[[], dict[str, int]],
+        dead_letter_path: Path = Path("dead_letter.jsonl"),
+    ) -> None:
+        config = yaml.safe_load(config_path.read_text())
+        kafka_config = config["kafka"]
+        self.consumer = KafkaConsumer(
+            *kafka_config["topics"],
+            bootstrap_servers=kafka_config["bootstrap_servers"],
+            group_id=kafka_config["group_id"],
+            auto_offset_reset="earliest",
+            enable_auto_commit=False,
+            max_poll_interval_ms=7200000,
+            max_poll_records=1,
+            value_deserializer=lambda value: json.loads(value.decode("utf-8")),
+        )
+        self.olap = psycopg2.connect(**config["olap"])
+        self.full_refresh = full_refresh
+        self.dead_letter_path = dead_letter_path
+
+    @staticmethod
+    def _table(event: dict[str, Any]) -> str:
+        payload = event.get("payload", event)
+        return payload.get("source", {}).get("table", "unknown")
+
+    def _dead_letter(self, message: Any, error: Exception) -> None:
+        record = {
+            "topic": message.topic,
+            "partition": message.partition,
+            "offset": message.offset,
+            "error": str(error),
+            "value": message.value,
+        }
+        with self.dead_letter_path.open("a", encoding="utf-8") as output:
+            output.write(json.dumps(record, default=str) + "\n")
+
+    def _apply_users(self, event: dict[str, Any]) -> None:
+        change = transform_user_event(event)
+        if change is None:
+            return
+        validate_user_change(change)
+        apply_user_change(self.olap, change)
+
+    def _process_batch(self, messages: list[Any]) -> None:
+        needs_refresh = False
+        for message in messages:
+            table = self._table(message.value)
+            if table == "users":
+                self._apply_users(message.value)
+            elif table in {
+                "roles", "accounts", "account_cash_balances", "securities",
+                "account_positions", "orders", "order_reservations", "executions",
+                "trades", "transactions", "cash_ledger", "disputes",
+            }:
+                needs_refresh = True
+            else:
+                LOGGER.warning("Ignoring unsupported Debezium table: %s", table)
+        if needs_refresh:
+            self.olap.commit()
+            self.full_refresh()
+
+    def run(self, max_messages: int | None = None, idle_limit: int = 10) -> int:
+        processed = 0
+        idle_polls = 0
+        try:
+            while max_messages is None or processed < max_messages:
+                records = self.consumer.poll(timeout_ms=1000, max_records=1)
+                messages = [message for batch in records.values() for message in batch]
+                if not messages:
+                    idle_polls += 1
+                    if max_messages is not None and idle_polls >= idle_limit:
+                        break
+                    continue
+                idle_polls = 0
+                for attempt in range(RETRY_LIMIT):
+                    try:
+                        self._process_batch(messages)
+                        self.consumer.commit()
+                        processed += len(messages)
+                        break
+                    except Exception as error:
+                        self.olap.rollback()
+                        if attempt == RETRY_LIMIT - 1:
+                            for message in messages:
+                                self._dead_letter(message, error)
+                            raise
+                        LOGGER.exception("CDC batch failed; retrying")
+                        time.sleep(2 ** attempt)
+        finally:
+            self.consumer.close()
+            self.olap.close()
+        return processed

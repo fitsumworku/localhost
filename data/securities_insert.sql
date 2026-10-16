@@ -1,6 +1,6 @@
 -- Securities seed generated from universes/*.json
 -- Generator: data_generators/securities_universe_generator.py
--- Generated: 2026-10-07 08:27:56
+-- Generated: 2026-10-15 21:34:02
 -- Total records: 589
 -- Target table: Securities
 

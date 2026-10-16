@@ -3,43 +3,210 @@ ETL LOCAL INTEGRATION TESTING GUIDE
 Testing the Full ETL Flow on Your Feature Branch (Local/Dev Environment)
 ================================================================================
 
-VERSION: 1.0
+VERSION: 1.1
 ENVIRONMENT: Local Development (Windows/Linux/Mac)
 LAST UPDATED: 2026-10-08
-TARGET DURATION: 2-4 hours (complete end-to-end test)
+TARGET DURATION: Database validation now; full ETL test after ETL components are added
 
 ================================================================================
 OVERVIEW
 ================================================================================
 
-This guide covers complete end-to-end testing of the ETL pipeline on your local
-machine using your current OLTP and OLAP databases before AWS deployment.
+This guide describes the complete local ETL test, while distinguishing the portion
+that can run in the current repository from the portion that is not implemented yet.
+
+================================================================================
+CURRENT REPOSITORY STATUS - READ BEFORE RUNNING THIS GUIDE
+================================================================================
+
+AVAILABLE NOW:
+  ✅ Docker Compose PostgreSQL database: app, exposed on localhost:5432
+  ✅ OLTP schema: initdb/oltp_schema.sql
+  ✅ OLAP schema file: initdb/olap_schema.sql (not a separate Compose service)
+  ✅ Data generators: data_generators/
+  ✅ Generated SQL files: data/
+  ✅ Spring Boot application and frontend
+
+NOT AVAILABLE YET:
+  ⛔ Kafka service or Kafka broker in docker-compose.yaml
+  ⛔ Debezium/Kafka Connect service or connector configuration
+  ⛔ Python ETL project, requirements.txt, test_connectivity.py, src/, or tests/
+  ⛔ Airflow installation, DAG files, or airflow/dags/
+
+CURRENTLY RUNNABLE SCOPE:
+  Run Phase 0 first to add the missing services and source files.
+  Until Phase 0 passes, run only Phase 1 database checks and Phase 2
+  data-generation/load validation. After Phase 0 passes, continue with Phases 3-7.
+
+Do not create an empty requirements.txt or empty ETL directory. Those files must
+come from the actual ETL implementation because the later tests depend on them.
+
+================================================================================
+PHASE 0: PREPARE THE REPOSITORY FOR FULL ETL TESTING
+================================================================================
+
+Run this phase before Phase 1 when the goal is to test every service.
+The current repository does not contain these components yet.
+
+STEP 0.1: Add the Python ETL project
+──────────────────────────────────────
+
+Create this structure under the repository root:
+
+  etl_process/
+    requirements.txt
+    .env.example
+    test_connectivity.py
+    config/
+      database.yaml
+      table_mappings.json
+    src/
+      __init__.py
+      kafka_consumer.py
+      transformers.py
+      loaders.py
+      validators.py
+      monitoring.py
+    tests/
+      test_transformers.py
+      test_loaders.py
+      test_validators.py
+      test_integration.py
+
+The implementation must use the current local database contract:
+  OLTP/OLAP database host: localhost
+  PostgreSQL port: 5432
+  Database: app (current Compose setup)
+  PostgreSQL user: postgres
+  Kafka bootstrap server: localhost:9092
+
+Do not copy the old `oltp_db` and `olap_db` names into the local configuration
+unless separate databases are intentionally added to Docker Compose.
+
+STEP 0.2: Add pinned Python dependencies
+─────────────────────────────────────────
+
+Create `etl_process/requirements.txt` from the actual ETL implementation.
+It must include the packages imported by the source and tests, at minimum:
+
+  kafka-python
+  psycopg2-binary
+  SQLAlchemy
+  pydantic
+  python-dotenv
+  pytest
+  pytest-cov
+
+Pin versions after confirming compatibility with the selected Python version.
+Then run from PowerShell:
+
+  cd C:\Users\Administrator\localhost\etl_process
+  .\venv\Scripts\Activate.ps1
+  python -m pip install -r requirements.txt
+  python -c "import kafka, psycopg2, pytest; print('Python ETL dependencies ready')"
+
+STEP 0.3: Add Kafka and Kafka Connect to Docker Compose
+─────────────────────────────────────────────────────────
+
+Extend the root `docker-compose.yaml` with:
+  - A Kafka broker reachable from the host at localhost:9092.
+  - Its required coordination service, or a KRaft configuration.
+  - A Kafka Connect service reachable at localhost:8083.
+  - A Debezium PostgreSQL connector plugin installed in Kafka Connect.
+
+The services must share a Docker network and advertise a host-reachable Kafka
+listener. Verify the result from the repository root:
+
+  cd C:\Users\Administrator\localhost
+  docker compose config
+  docker compose up -d --build
+  docker compose ps
+  Test-NetConnection localhost -Port 9092
+  Invoke-WebRequest http://localhost:8083/connector-plugins
+
+Do not proceed until the broker and Kafka Connect endpoints respond.
+
+STEP 0.4: Add the Debezium connector configuration
+────────────────────────────────────────────────────
+
+Create a version-controlled template such as:
+
+  etl_process/config/debezium-connector.json
+
+It must reference the current PostgreSQL database (`app`), replication slot,
+publication, `pgoutput`, and the actual Compose network hostname for PostgreSQL.
+Keep passwords out of the committed JSON; inject them through environment
+variables or a local secret file.
+
+Register it only after PostgreSQL, Kafka, and Kafka Connect are healthy:
+
+  curl -X POST http://localhost:8083/connectors `
+    -H "Content-Type: application/json" `
+    --data-binary "@etl_process/config/debezium-connector.json"
+
+Verify:
+
+  curl http://localhost:8083/connectors/postgres-oltp-connector/status
+
+STEP 0.5: Add Airflow DAGs and task modules
+────────────────────────────────────────────
+
+Create:
+
+  airflow/
+    dags/
+      oltp_to_olap_dag.py
+      tasks/
+        validate_infrastructure.py
+        extract_kafka_metadata.py
+        dimension_load_daily.py
+        consume_kafka_events.py
+        transform_load_facts.py
+        refresh_aggregates.py
+        quality_checks.py
+        report_generation.py
+        monitor_pipeline_health.py
+
+The DAG must use the current `app` database and the same Kafka bootstrap server
+as the Python ETL configuration. Add Airflow provider dependencies separately
+from the ETL requirements if Airflow uses its own virtual environment.
+
+STEP 0.6: Add a readiness check before the full test
+──────────────────────────────────────────────────────
+
+The repository is ready for Phases 3-7 only when all checks below pass:
+
+  Test-Path C:\Users\Administrator\localhost\etl_process\requirements.txt
+  Test-Path C:\Users\Administrator\localhost\etl_process\test_connectivity.py
+  Test-Path C:\Users\Administrator\localhost\etl_process\src
+  Test-Path C:\Users\Administrator\localhost\etl_process\tests
+  Test-Path C:\Users\Administrator\localhost\airflow\dags
+  docker compose ps
+  Test-NetConnection localhost -Port 9092
+  Invoke-WebRequest http://localhost:8083/connector-plugins
+
+If any check fails, stop at Phase 0. Do not create placeholder files or mark
+the ETL test as passed.
 
 WHAT YOU'LL TEST:
   ✅ Data generator pipeline (13 SQL files)
-  ✅ Kafka connectivity and topic creation
-  ✅ Debezium CDC connector
-  ✅ Python ETL transformers
-  ✅ Data quality checks
-  ✅ Airflow DAG orchestration
-  ✅ Full end-to-end data flow (OLTP → Kafka → OLAP)
+  ✅ PostgreSQL schema and generated-data load
+  ⛔ Kafka connectivity and topic creation (service not present)
+  ⛔ Debezium CDC connector (service not present)
+  ⛔ Python ETL transformers (source not present)
+  ⛔ Data quality checks (ETL implementation not present)
+  ⛔ Airflow DAG orchestration (DAG source not present)
+  ⛔ Full end-to-end data flow (blocked by the items above)
 
 EXPECTED OUTCOME:
-  ✅ All data successfully transformed and loaded to OLAP
-  ✅ Data quality checks pass
-  ✅ Airflow DAG completes without errors
-  ✅ Pipeline ready for AWS deployment
+  ✅ Current outcome: PostgreSQL/data-generator checkpoint validated
+  ⛔ Full ETL outcome is pending the missing components listed above
 
 TIME ALLOCATION:
-  Phase 1: Setup & Connectivity (30 min)
-  Phase 2: Data Generation (15 min)
-  Phase 3: Kafka Setup (20 min)
-  Phase 4: Debezium Configuration (20 min)
-  Phase 5: Python Pipeline (45 min)
-  Phase 6: Airflow DAG (45 min)
-  Phase 7: Validation & Troubleshooting (30 min)
-  ─────────────────────────────────
-  TOTAL: ~3-4 hours
+  Phase 1: Docker/PostgreSQL checks (15 min)
+  Phase 2: Data generation and database load (15-30 min)
+  Current runnable scope: approximately 30-45 minutes
+  Future ETL phases: estimate only after Kafka, Debezium, Python, and Airflow are added
 
 ================================================================================
 PHASE 1: PRE-FLIGHT CHECKS (30 minutes)
@@ -49,7 +216,7 @@ STEP 1.1: Verify Local Databases Running
 ──────────────────────────────────────────
 
 OLTP Database Check:
-  psql -h localhost -U postgres -d oltp_db -c "SELECT COUNT(*) FROM users;"
+  psql -h localhost -p 5432 -U postgres -d app -c "SELECT COUNT(*) FROM users;"
   
   EXPECTED OUTPUT:
   count
@@ -60,7 +227,7 @@ OLTP Database Check:
   ✅ If you see row count > 0: OLTP is running and seeded
 
 OLAP Database Check:
-  psql -h localhost -U postgres -d olap_db -c "SELECT version();"
+  psql -h localhost -p 5432 -U postgres -d app -c "SELECT version();"
   
   EXPECTED OUTPUT:
   PostgreSQL X.X.X on ... (1 row)
@@ -75,9 +242,18 @@ Troubleshooting:
 STEP 1.2: Verify Python Environment
 ────────────────────────────────────
 
+REPOSITORY LOCATION NOTE:
+  The current repository does not contain an etl-pipeline directory or
+  requirements.txt. The integration documentation is located at:
+  c:\Users\Administrator\localhost\etl_process
+
+  Do not create an empty etl-pipeline file. The Python ETL source, requirements,
+  tests, and Airflow DAG files must be added before Steps 1.2 and Phases 5-6
+  can be executed.
+
 Create Virtual Environment:
-  cd c:\Users\Administrator\localhost\etl-pipeline
-  python3 -m venv venv
+  cd c:\Users\Administrator\localhost\etl_process
+  python -m venv venv
   
   # Activate:
   # Windows PowerShell:
@@ -91,10 +267,20 @@ Verify Python Version:
   EXPECTED: Python 3.10 or higher
 
 Install Dependencies:
-  pip install -r requirements.txt
-  
-  Verify key packages:
-  python -c "import kafka; import psycopg2; import pytest; print('✅ All packages installed')"
+  # This repository currently has no requirements.txt.
+  # Do not run pip install until the ETL implementation is added.
+  if (Test-Path requirements.txt) {
+      python -m pip install -r requirements.txt
+  } else {
+      Write-Host "BLOCKED: requirements.txt is not present"
+  }
+
+  # These imports are also blocked until the ETL project is added:
+  # python -c "import kafka; import psycopg2; import pytest; print('All packages installed')"
+
+CURRENT RESULT:
+  The virtual environment may exist, but Phase 1.2 is NOT COMPLETE until
+  requirements.txt and the ETL source are present.
 
 STEP 1.3: Verify Local Kafka Running
 ──────────────────────────────────────
@@ -126,8 +312,8 @@ Troubleshooting:
 STEP 1.4: Create Test Log Directory
 ────────────────────────────────────
 
-  mkdir -p c:\Users\Administrator\localhost\etl-pipeline\logs
-  mkdir -p c:\Users\Administrator\localhost\etl-pipeline\test_results
+  mkdir -p c:\Users\Administrator\localhost\etl_process\logs
+  mkdir -p c:\Users\Administrator\localhost\etl_process\test_results
 
 These directories will capture detailed logs during testing.
 
@@ -189,7 +375,37 @@ Verify File Format:
 ✅ PHASE 2 COMPLETE: Data generated and verified
 
 ================================================================================
-PHASE 3: KAFKA SETUP (20 minutes)
+ETL GATE - VERIFY PHASE 0 BEFORE CONTINUING
+================================================================================
+
+After Phase 2, verify the following prerequisites before attempting Phase 3:
+
+  Test-Path C:\Users\Administrator\localhost\etl_process\requirements.txt
+  Test-Path C:\Users\Administrator\localhost\etl_process\test_connectivity.py
+  Test-Path C:\Users\Administrator\localhost\etl_process\src
+  Test-Path C:\Users\Administrator\localhost\etl_process\tests
+  Test-Path C:\Users\Administrator\localhost\etl_process\airflow\dags
+
+Expected for a runnable full ETL test: each path check returns True and all
+service checks respond successfully.
+
+The full test cannot proceed until the ETL implementation supplies:
+  1. A Kafka broker and Kafka Connect/Debezium services or an approved local setup.
+  2. requirements.txt with pinned Python dependencies.
+  3. test_connectivity.py, src/, and tests/.
+  4. Airflow DAG files and task modules.
+  5. Configuration matching the current single app database, or a documented
+     separate OLTP/OLAP deployment.
+
+CURRENT CHECKPOINT:
+  ✅ PostgreSQL/data-generator validation complete
+  ⛔ Kafka/Debezium/Python/Airflow validation pending implementation
+
+If the checks fail, stop here, preserve the database volume, complete Phase 0,
+and resume at Phase 3. Do not create placeholder files to bypass this gate.
+
+================================================================================
+PHASE 3: KAFKA SETUP (requires Phase 0)
 ================================================================================
 
 STEP 3.1: Create Kafka Topics
@@ -241,7 +457,7 @@ Describe One Topic:
 ✅ PHASE 3 COMPLETE: Kafka topics ready
 
 ================================================================================
-PHASE 4: DEBEZIUM CDC CONFIGURATION (20 minutes)
+PHASE 4: DEBEZIUM CDC CONFIGURATION (requires Phase 0)
 ================================================================================
 
 STEP 4.1: Enable Logical Decoding on OLTP
@@ -342,14 +558,14 @@ Test CDC Event:
 ✅ PHASE 4 COMPLETE: Debezium capturing changes
 
 ================================================================================
-PHASE 5: PYTHON ETL PIPELINE (45 minutes)
+PHASE 5: PYTHON ETL PIPELINE (requires Phase 0)
 ================================================================================
 
 STEP 5.1: Test Database Connectivity
 ──────────────────────────────────────
 
 Run Connectivity Test:
-  cd c:\Users\Administrator\localhost\etl-pipeline
+  cd c:\Users\Administrator\localhost\etl_process
   
   # Make sure venv is activated
   .\venv\Scripts\Activate.ps1  # or source venv/bin/activate
@@ -384,7 +600,7 @@ STEP 5.2: Run Unit Tests
 ─────────────────────────
 
 Run All Tests:
-  pytest tests/ -v --tb=short 2>&1 | tee c:\Users\Administrator\localhost\etl-pipeline\test_results\unit_tests.log
+  pytest tests/ -v --tb=short 2>&1 | tee c:\Users\Administrator\localhost\etl_process\test_results\unit_tests.log
   
   EXPECTED OUTPUT:
   tests/test_transformers.py::test_user_transformer PASSED
@@ -441,7 +657,7 @@ Clean Up Test Database:
 ✅ PHASE 5 COMPLETE: Python pipeline tested
 
 ================================================================================
-PHASE 6: AIRFLOW DAG TESTING (45 minutes)
+PHASE 6: AIRFLOW DAG TESTING (requires Phase 0)
 ================================================================================
 
 STEP 6.1: Create Airflow Environment
@@ -607,7 +823,7 @@ Watch Logs in Real-Time:
 ✅ PHASE 6 COMPLETE: DAG executed successfully
 
 ================================================================================
-PHASE 7: VALIDATION & RESULTS (30 minutes)
+PHASE 7: VALIDATION & RESULTS (after Phases 3-6 pass)
 ================================================================================
 
 STEP 7.1: Verify Data Loaded to OLAP
@@ -706,7 +922,7 @@ Run Sample Queries with EXPLAIN ANALYZE:
   EXPECTED: Query execution time < 5 seconds
 
 Document Baseline Metrics:
-  Create file: c:\Users\Administrator\localhost\etl-pipeline\test_results\performance_baseline.txt
+  Create file: c:\Users\Administrator\localhost\etl_process\test_results\performance_baseline.txt
   
   Record:
   - Query execution times
@@ -757,7 +973,8 @@ Create Test Summary Report:
   ⚠️  Note: Backend schema may change - transformers will need updating
   
   RECOMMENDATION:
-  ✅ READY FOR AWS DEPLOYMENT (once backend schema stabilizes)
+    ⛔ NOT YET READY FOR AWS DEPLOYMENT: Python ETL, Kafka/Debezium, and Airflow
+      implementation must be added and tested first.
   
   NEXT STEPS:
   1. Document any backend schema changes
@@ -766,9 +983,9 @@ Create Test Summary Report:
   4. Deploy to AWS staging environment
   5. Run full end-to-end test on AWS
 
-Save to: c:\Users\Administrator\localhost\etl-pipeline\test_results\test_report_[DATE].txt
+Save to: c:\Users\Administrator\localhost\etl_process\test_results\test_report_[DATE].txt
 
-✅ PHASE 7 COMPLETE: All tests passed
+⛔ PHASE 7 NOT RUN: Phases 3-6 are blocked in the current repository
 
 ================================================================================
 TROUBLESHOOTING COMMON ISSUES
@@ -820,7 +1037,7 @@ Diagnosis:
   1. Check Airflow task logs for stack trace
   2. Verify database connectivity: psql -h localhost -U postgres
   3. Check Kafka connectivity: python -c "from kafka import KafkaConsumer"
-  4. Check file permissions: ls -la etl-pipeline/
+  4. Check file permissions: ls -la c:\Users\Administrator\localhost\etl_process\
 
 Resolution:
   1. Fix Python code based on error message
@@ -924,7 +1141,7 @@ SUPPORT & DOCUMENTATION
 For issues or questions:
   - Check TROUBLESHOOTING section in this document
   - Review Airflow logs: $AIRFLOW_HOME/logs/
-  - Check Python logs: c:\Users\Administrator\localhost\etl-pipeline\logs\
+  - Check Python logs: c:\Users\Administrator\localhost\etl_process\logs\
   - Search INTEGRATION_GUIDE.txt for detailed technical info
 
 Document updates:
