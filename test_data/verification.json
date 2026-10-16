@@ -1,0 +1,207 @@
+{
+  "source_project": "localhost(20261016-011409).zip",
+  "source_schema": "initdb/oltp_schema.sql",
+  "source_schema_sha256": "40ed2e1a3dc84085dda6a89e1a7207c518ca4904d90a850bab39c33ebaa04c77",
+  "database": {
+    "engine": "PGlite (PostgreSQL-compatible; no Docker)",
+    "cases": [
+      {
+        "name": "default",
+        "counts": {
+          "roles": 2,
+          "users": 32,
+          "accounts": 60,
+          "account_cash_balances": 60,
+          "securities": 569,
+          "orders": 789,
+          "order_reservations": 684,
+          "executions": 681,
+          "trades": 582,
+          "account_positions": 243,
+          "transactions": 318,
+          "cash_ledger": 0,
+          "disputes": 0,
+          "audit_logs": 0
+        },
+        "manifest_mismatches": [],
+        "check_count": 37,
+        "violations": [],
+        "passed": true
+      },
+      {
+        "name": "repeat_load_is_atomic_refusal",
+        "aborted": true,
+        "sqlstate": "23514",
+        "detail": "Failing row contains (demo_emails_must_be_new, f).",
+        "counts_unchanged": true,
+        "passed": true
+      },
+      {
+        "name": "validator_detects_corrupted_cash_and_cost",
+        "check_count": 37,
+        "violations": [
+          {
+            "check_name": "cash_balance_matches_complete_history",
+            "violations": 1
+          },
+          {
+            "check_name": "positions_match_trading_history",
+            "violations": 1
+          }
+        ],
+        "passed": true
+      },
+      {
+        "name": "full",
+        "counts": {
+          "roles": 2,
+          "users": 32,
+          "accounts": 60,
+          "account_cash_balances": 60,
+          "securities": 569,
+          "orders": 789,
+          "order_reservations": 684,
+          "executions": 681,
+          "trades": 582,
+          "account_positions": 243,
+          "transactions": 318,
+          "cash_ledger": 846,
+          "disputes": 20,
+          "audit_logs": 96
+        },
+        "manifest_mismatches": [],
+        "check_count": 37,
+        "violations": [],
+        "passed": true
+      },
+      {
+        "name": "pending",
+        "counts": {
+          "roles": 2,
+          "users": 12,
+          "accounts": 19,
+          "account_cash_balances": 19,
+          "securities": 569,
+          "orders": 252,
+          "order_reservations": 219,
+          "executions": 213,
+          "trades": 182,
+          "account_positions": 76,
+          "transactions": 100,
+          "cash_ledger": 265,
+          "disputes": 20,
+          "audit_logs": 33
+        },
+        "manifest_mismatches": [],
+        "check_count": 37,
+        "violations": [],
+        "passed": true
+      },
+      {
+        "name": "reordered_existing_security_ids",
+        "check_count": 37,
+        "violations": [],
+        "security_count": 569,
+        "orders_using_existing_ids": 789,
+        "passed": true
+      },
+      {
+        "name": "conflicting_existing_ticker_refused",
+        "aborted": true,
+        "sqlstate": "23514",
+        "detail": "Failing row contains (existing_securities_must_match_universes, f).",
+        "counts_unchanged": true,
+        "passed": true
+      },
+      {
+        "name": "lowercase_existing_ticker_refused",
+        "aborted": true,
+        "sqlstate": "23514",
+        "detail": "Failing row contains (existing_securities_must_match_universes, f).",
+        "counts_unchanged": true,
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "application_checks": [
+    {
+      "check": "Full seed passes all 37 validation checks",
+      "passed": true
+    },
+    {
+      "check": "Current application starts and validates schema with full dataset",
+      "passed": true
+    },
+    {
+      "check": "Application seeder reuses all 569 catalog rows",
+      "passed": true
+    },
+    {
+      "check": "Wrong demo password is rejected",
+      "passed": true
+    },
+    {
+      "check": "Demo login succeeds: client01@paysprint.test",
+      "passed": true
+    },
+    {
+      "check": "Client 01 sees exactly one seeded account",
+      "passed": true
+    },
+    {
+      "check": "Seeded cash is accessible and has no active default reservations",
+      "passed": true
+    },
+    {
+      "check": "Seeded order history is accessible",
+      "passed": true
+    },
+    {
+      "check": "Seeded trade/execution history is accessible",
+      "passed": true
+    },
+    {
+      "check": "Seeded positions are accessible",
+      "passed": true
+    },
+    {
+      "check": "Optional seeded disputes are accessible through implemented API",
+      "passed": true
+    },
+    {
+      "check": "Demo login succeeds: client02@paysprint.test",
+      "passed": true
+    },
+    {
+      "check": "Client 02 has both empty and cash-only accounts",
+      "passed": true
+    },
+    {
+      "check": "Another client cannot read client 01 account",
+      "passed": true
+    },
+    {
+      "check": "Demo login succeeds: admin01@paysprint.test",
+      "passed": true
+    },
+    {
+      "check": "Admin can read all 60 seeded accounts",
+      "passed": true
+    },
+    {
+      "check": "Suspended demo client cannot log in",
+      "passed": true
+    },
+    {
+      "check": "Seeded JWT can be revoked by logout",
+      "passed": true
+    }
+  ],
+  "maven_package": "passed; tests skipped as in project Dockerfile",
+  "byte_identical_regeneration": {
+    "default": true,
+    "full": true
+  },
+  "limits": "PGlite PostgreSQL-compatible engine; no Docker Engine, native concurrency test, live Fauxnance calls, or full application JUnit run."
+}
