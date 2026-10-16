@@ -18,32 +18,6 @@
     </mat-form-field>
   </div>
 
-  <!-- Trending Assets Section -->
-  <div class="trending-section">
-    <h2>Trending Assets</h2>
-    <div class="trending-grid">
-      <div class="trending-card" *ngFor="let asset of trendingAssets">
-        <div class="trending-header">
-          <span class="symbol">{{ asset.symbol }}</span>
-          <span class="change" [style.color]="getChangeColor(asset.change)">
-            {{ asset.changePercent }}
-          </span>
-        </div>
-        <div class="trending-price">${{ asset.price }}</div>
-        <div class="trending-chart">
-          <svg viewBox="0 0 100 50" preserveAspectRatio="none">
-            <polyline
-              points="0,40 10,35 20,38 30,30 40,25 50,28 60,20 70,22 80,15 90,18 100,10"
-              fill="none"
-              stroke="#06402B"
-              stroke-width="2"
-            />
-          </svg>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Market Assets Section -->
   <div class="market-section">
     <div class="section-header">
@@ -110,8 +84,11 @@
       </table>
     </div>
 
-    <div *ngIf="marketAssets.length === 0" class="no-results">
-      <p>No assets found matching your search.</p>
+    <div *ngIf="errorMessage" class="no-results">
+      <p>{{ errorMessage }}</p>
+    </div>
+    <div *ngIf="!errorMessage && marketAssets.length === 0" class="no-results">
+      <p>Loading market data...</p>
     </div>
   </div>
 </div>

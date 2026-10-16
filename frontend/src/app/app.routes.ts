@@ -7,7 +7,7 @@ import { ClientDashboardComponent } from './dashboard/client-dashboard/client-da
 import { AdminDashboardComponent } from './dashboard/admin-dashboard/admin-dashboard.component';
 import { MarketsComponent } from './dashboard/markets/markets.component';
 import { CompareMarketsComponent } from './dashboard/compare-markets/compare-markets.component';
-import { TransactionHistoryComponent } from './dashboard/transaction-history/transaction-history.component';
+import { TransactionHistoryComponent } from './dashboard/activity-history/activity-history.component';
 import { ClientDisputesComponent } from './dashboard/client-disputes/client-disputes.component';
 import { ComplianceComponent } from './dashboard/compliance/compliance.component';
 
