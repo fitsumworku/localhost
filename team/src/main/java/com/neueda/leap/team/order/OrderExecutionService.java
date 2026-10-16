@@ -94,8 +94,29 @@ public class OrderExecutionService {
                 """,o.id(),o.accountId(),o.securityId(),o.side(),ts(o.updatedAt()),ts(now),p.quotePrice(),p.quote().currency(),
                 ts(p.quote().asOf()),p.quote().source(),p.fxRate(),p.fxQuote()==null?null:ts(p.fxQuote().asOf()),
                 p.fxQuote()==null?null:p.fxQuote().source(),quantity,p.usdPrice());
-        repo.update("INSERT INTO trades(execution_id,account_id,trade_date,settlement_date) VALUES (?,?,?,?)",
-                execution,o.accountId(),ts(now),ts(now));
+        long tradeId=repo.insert("INSERT INTO trades(execution_id,account_id,trade_date,settlement_date) VALUES (?,?,?,?) RETURNING trade_id",
+            execution,o.accountId(),ts(now),ts(now));
+
+        repo.update("""
+            INSERT INTO cash_ledger(
+            account_id,
+            trade_id,
+            entry_type,
+            debit_amount,
+            credit_amount,
+            running_balance,
+            entry_date)
+            VALUES (?,?,?,?,?,?,?)
+            """,
+            o.accountId(),
+            tradeId,
+            buy?"BUY":"SELL",
+            buy?BigDecimal.ZERO:cash,
+            buy?cash:BigDecimal.ZERO,
+            newBalance,
+            ts(now));
+
+        
         repo.update("""
                 INSERT INTO account_positions(account_id,security_id,quantity,average_price,updated_date) VALUES (?,?,?,?,?)
                 ON CONFLICT (account_id,security_id) DO UPDATE SET quantity=EXCLUDED.quantity,

@@ -19,14 +19,17 @@ public class AccountCashService {
     private static final BigDecimal MAX_BALANCE = new BigDecimal("999999999999999999.99");
     private final AccountAccessService access;
     private final AccountCashBalanceRepository balances;
+    private final CashLedgerEntryRepository ledgerEntries;
     private final CashTransactionRepository transactions;
     private final AccountQueryRepository queries;
     private final Clock clock;
 
     public AccountCashService(AccountAccessService access, AccountCashBalanceRepository balances,
+            CashLedgerEntryRepository ledgerEntries,
             CashTransactionRepository transactions,
             AccountQueryRepository queries, Clock clock) {
         this.access = access; this.balances = balances; this.transactions = transactions;
+        this.ledgerEntries = ledgerEntries;
         this.queries = queries; this.clock = clock;
     }
 
@@ -87,6 +90,7 @@ public class AccountCashService {
         transaction.complete(now);
         transactions.saveAndFlush(transaction);
         balance.changeBalance(after, now);
+        ledgerEntries.save(new CashLedgerEntry(transaction, after, now));
         balances.flush();
         return new CashOperationResponse(queries.transaction(accountId, transaction.getId()).orElseThrow(), false);
     }
