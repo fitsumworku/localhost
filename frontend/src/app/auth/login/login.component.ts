@@ -5,7 +5,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../services/auth.service';
-import { AuthResponse, LoginRequest } from '../models/auth.model';
+import { LoginRequest } from '../models/auth.model';
 
 @Component({
   selector: 'app-login',
@@ -34,7 +34,7 @@ export class LoginComponent implements OnInit {
   initializeForm(): void {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+      password: ['', [Validators.required, Validators.minLength(12)]],
     });
   }
 
@@ -54,10 +54,14 @@ export class LoginComponent implements OnInit {
     const loginRequest: LoginRequest = this.loginForm.value;
 
     this.authService.login(loginRequest).subscribe({
-      next: (response: AuthResponse) => {
+      next: () => {
         this.isLoading.set(false);
-        this.authService.saveToken(response.accessToken);
-        this.router.navigate([response.user.role === 'ADMIN' ? '/admin-dashboard' : '/client-dashboard']);
+
+        if (this.authService.getRole() === 'ADMIN') {
+          this.router.navigate(['/admin-dashboard']);
+        } else {
+          this.router.navigate(['/client-dashboard']);
+        }
       },
       error: (error: HttpErrorResponse) => {
         this.isLoading.set(false);
