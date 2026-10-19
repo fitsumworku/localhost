@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, finalize, tap } from 'rxjs';
 import { LoginRequest, SignupRequest, AuthResponse, User } from '../models/auth.model';
 
 interface StoredSession {
@@ -29,6 +29,12 @@ export class AuthService {
   // Returns the created user (201)
   signup(request: SignupRequest): Observable<User> {
     return this.http.post<User>(`${this.apiUrl}/auth/register`, request);
+  }
+
+  logout(): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/auth/logout`, {}).pipe(
+      finalize(() => this.clearSession()),
+    );
   }
 
   // The JWT to send as "Authorization: Bearer <token>", or null if missing/expired

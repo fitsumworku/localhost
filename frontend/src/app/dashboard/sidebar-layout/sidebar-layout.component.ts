@@ -42,8 +42,7 @@ export class SidebarLayoutComponent {
     { label: 'Portfolio', icon: 'work_bag', route: '/client-dashboard' },
     { label: 'Markets', icon: 'trending_up', route: '/markets' },
     { label: 'Compare Markets', icon: 'join_inner', route: '/compare' },
-    { label: 'Transaction History', icon: 'history', route: '/transactions' },
-    { label: 'Settings', icon: 'settings', route: '/settings' }
+    { label: 'Transaction History', icon: 'history', route: '/transactions' }
   ];
 
   adminMenuItems = [
@@ -69,8 +68,10 @@ export class SidebarLayoutComponent {
   }
 
   logout(): void {
-    this.authService.clearSession();
-    this.router.navigate(['/login']);
+    this.authService.logout().subscribe({
+      next: () => this.router.navigate(['/login']),
+      error: () => this.router.navigate(['/login']),
+    });
   }
 
   get menuItems() {
