@@ -68,16 +68,16 @@ export class DisputeDetailDialogComponent {
     });
   }
 
-  getStatusColor(status: DisputeStatus): string {
+  getStatusTone(status: DisputeStatus): string {
     switch (status) {
       case 'open':
-        return '#ff9800';
+        return 'warning';
       case 'in-review':
-        return '#2196f3';
+        return 'info';
       case 'resolved':
-        return '#51cf66';
+        return 'positive';
       default:
-        return '#999';
+        return '';
     }
   }
 

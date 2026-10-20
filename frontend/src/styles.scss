@@ -12,9 +12,9 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-// Dark Material tokens for the client area (portfolio, markets and their dialogs),
-// matching the login/signup look. Scoped to a class so the admin pages, which are
-// still light, are unaffected.
+// Dark Material tokens for the pages inside the sidebar layout and their dialogs,
+// matching the login/signup look. Overlays (dialogs, select panels) render
+// outside the layout, so they opt in with panelClass: 'dark-ui'.
 .dark-ui {
   color-scheme: dark;
   @include mat.theme((
@@ -35,7 +35,7 @@ body {
   --mat-sys-outline-variant: rgba(232, 255, 245, 0.08);
 }
 
-// Dialogs opened from the client area: glass card like the login card
+// Dialogs opened from the sidebar layout: glass card like the login card
 .app-dialog {
   @include mat.dialog-overrides((
     container-color: #08201a,

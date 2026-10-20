@@ -1,8 +1,5 @@
 import { ChangeDetectorRef, Component, OnInit, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
@@ -28,7 +25,6 @@ export interface Activity {
 
 interface PortfolioMetrics {
   portfolioValue: number;
-  cashBalance: number;
   buyingPower: number;
   totalReturn: number;
 }
@@ -40,9 +36,6 @@ interface PortfolioMetrics {
   standalone: true,
   imports: [
     CommonModule,
-    MatCardModule,
-    MatButtonModule,
-    MatTableModule,
     MatIconModule,
     MatDialogModule
   ]
@@ -135,7 +128,6 @@ export class TransactionHistoryComponent {
     });
     this.portfolioMetrics = {
       portfolioValue: balance.cashBalance + marketValue,
-      cashBalance: balance.cashBalance,
       buyingPower: balance.availableCash,
       totalReturn,
     };
@@ -230,31 +222,22 @@ export class TransactionHistoryComponent {
       maxHeight: '90vh',
       data: activity,
       disableClose: false,
-      panelClass: 'dispute-dialog-panel'
+      panelClass: ['dark-ui', 'app-dialog']
     });
   }
 
-  getTypeColor(type: string): string {
+  getTypeTone(type: string): string {
     switch(type) {
       case 'buy':
-        return '#51cf66';
+        return 'positive';
       case 'sell':
-        return '#ff6b6b';
+        return 'negative';
       case 'deposit':
-        return '#339af0';
+        return 'info';
       case 'withdrawal':
-        return '#ffa94d';
+        return 'warning';
       default:
-        return '#868e96';
+        return '';
     }
-  }
-
-  getPnlColor(pnl: number | undefined): string {
-    if (pnl === undefined) return '#868e96';
-    return pnl >= 0 ? '#51cf66' : '#ff6b6b';
-  }
-
-  isTransactionActivity(type: string): boolean {
-    return type === 'deposit' || type === 'withdrawal';
   }
 }

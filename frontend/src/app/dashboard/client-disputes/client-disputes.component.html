@@ -1,79 +1,65 @@
-<div class="disputes-container">
-  <!-- Header -->
-  <div class="header">
+<div class="disputes">
+  <header class="page-header">
     <h1>Client Disputes</h1>
-    <p class="subtitle">Manage and resolve client disputes</p>
-  </div>
+    <p>Manage and resolve client disputes</p>
+  </header>
 
-  <!-- Search and Filter Section -->
-  <div class="search-filter-section">
-    <div class="search-bar">
-      <mat-form-field class="search-field">
-        <mat-label>Search by Client ID or reason...</mat-label>
-        <input
-          matInput
-          [(ngModel)]="searchQuery"
-          (input)="onSearchChange()"
-          placeholder="e.g., CL-18482, Unauthorized"
-        />
-        <mat-icon matSuffix>search</mat-icon>
-      </mat-form-field>
-    </div>
+  <!-- Filters: one row above the table -->
+  <div class="toolbar">
+    <label class="search">
+      <mat-icon>search</mat-icon>
+      <input
+        type="search"
+        placeholder="Search by client ID or reason"
+        [(ngModel)]="searchQuery"
+        (input)="onSearchChange()"
+        aria-label="Search disputes"
+      />
+    </label>
 
-    <div class="filter-buttons">
+    <div class="pills" role="group" aria-label="Status">
       <button
         *ngFor="let status of statusOptions"
-        mat-stroked-button
+        type="button"
         [class.active]="isStatusFilterActive(status.value)"
+        [attr.aria-pressed]="isStatusFilterActive(status.value)"
         (click)="selectStatusFilter(status.value)"
-        class="filter-btn"
       >
         {{ status.label }}
       </button>
     </div>
   </div>
 
-  <!-- Disputes Table -->
-  <div class="table-section">
-    <div class="table-container">
-      <table class="disputes-table">
+  <section class="card">
+    <div class="table-wrap">
+      <table *ngIf="displayedDisputes.length > 0">
         <thead>
           <tr>
-            <th class="col-date">Date</th>
-            <th class="col-client-id">Client ID</th>
-            <th class="col-reason">Reason</th>
-            <th class="col-amount">Disputed Amount</th>
-            <th class="col-status">Status</th>
-            <th class="col-owner">Assigned Owner</th>
+            <th>Date</th>
+            <th>Client ID</th>
+            <th>Reason</th>
+            <th class="num">Disputed amount</th>
+            <th>Status</th>
+            <th>Assigned owner</th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            *ngFor="let dispute of displayedDisputes"
-            class="dispute-row"
-            (click)="openDisputeDetail(dispute)"
-          >
-            <td class="col-date">{{ dispute.date }}</td>
-            <td class="col-client-id">{{ dispute.clientId }}</td>
-            <td class="col-reason">{{ dispute.reason }}</td>
-            <td class="col-amount">${{ dispute.disputedAmount }}</td>
-            <td class="col-status">
-              <span
-                class="status-badge"
-                [style.backgroundColor]="getStatusColor(dispute.status)"
-              >
+          <tr *ngFor="let dispute of displayedDisputes" class="row" (click)="openDisputeDetail(dispute)">
+            <td class="muted">{{ dispute.date }}</td>
+            <td class="id">{{ dispute.clientId }}</td>
+            <td>{{ dispute.reason }}</td>
+            <td class="num">{{ dispute.disputedAmount | currency }}</td>
+            <td>
+              <span class="badge" [ngClass]="getStatusTone(dispute.status)">
                 {{ getStatusLabel(dispute.status) }}
               </span>
             </td>
-            <td class="col-owner">{{ dispute.assignedOwner }}</td>
+            <td>{{ dispute.assignedOwner }}</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div *ngIf="displayedDisputes.length === 0" class="no-disputes">
-      <mat-icon class="empty-icon">folder_open</mat-icon>
-      <p>No disputes found</p>
-    </div>
-  </div>
+    <p *ngIf="displayedDisputes.length === 0" class="empty">No disputes found</p>
+  </section>
 </div>

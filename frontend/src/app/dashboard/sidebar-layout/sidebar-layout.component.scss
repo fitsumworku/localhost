@@ -5,13 +5,9 @@ $sidebar-width: 220px;
 .sidebar-layout {
   display: flex;
   height: 100vh;
-  background: #f5f5f7; // admin pages are still light
+  // Same dark green backdrop as the login page, for client and admin pages
+  background: radial-gradient(ellipse at 80% -10%, #06301f 0%, $bg 55%);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-
-  // Client area: same dark green backdrop as the login page
-  &.dark-ui {
-    background: radial-gradient(ellipse at 80% -10%, #06301f 0%, $bg 55%);
-  }
 }
 
 // ---------- Sidebar ----------

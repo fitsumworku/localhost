@@ -97,6 +97,46 @@ public class AccountQueryRepository {
                 r.getString("fx_source")), id, page, size);
     }
 
+    /** A change to cash and/or one holding. Undoing these newest-first rewinds the account to earlier days. */
+    public record ValueEvent(Instant at, Long securityId, BigDecimal quantityChange, BigDecimal cashChange) {}
+
+    /** Every instrument held now or ever traded, with what is needed to value it in USD. */
+    public record Instrument(long securityId, String ticker, String quoteCurrency, BigDecimal quantity,
+            BigDecimal fxRateToUsd, BigDecimal fallbackUsdPrice) {}
+
+    public List<ValueEvent> valueEventsSince(long id, Instant since) {
+        return jdbc.query("""
+                SELECT t.trade_date AS at, t.security_id,
+                       CASE WHEN t.side = 'B' THEN t.quantity_filled ELSE -t.quantity_filled END AS quantity_change,
+                       CASE WHEN t.side = 'B' THEN -t.cash_amount ELSE t.cash_amount END AS cash_change
+                FROM trade_details t WHERE t.account_id = ? AND t.trade_date >= ?
+                UNION ALL
+                SELECT coalesce(x.completed_at, x.transaction_date), NULL, 0,
+                       CASE WHEN x.transaction_type IN ('WITHDRAWAL', 'FEE') THEN -x.transaction_amount ELSE x.transaction_amount END
+                FROM transactions x
+                WHERE x.account_id = ? AND x.transaction_status = 'COMPLETED' AND coalesce(x.completed_at, x.transaction_date) >= ?
+                ORDER BY 1 DESC
+                """, (r, row) -> new ValueEvent(instant(r, "at"), (Long) r.getObject("security_id", Long.class),
+                r.getBigDecimal("quantity_change"), r.getBigDecimal("cash_change")),
+                id, Timestamp.from(since), id, Timestamp.from(since));
+    }
+
+    public List<Instrument> instruments(long id) {
+        return jdbc.query("""
+                WITH ids AS (SELECT security_id FROM account_positions WHERE account_id = ?
+                             UNION SELECT security_id FROM trade_details WHERE account_id = ?)
+                SELECT i.security_id, s.ticker, s.quote_currency, coalesce(p.quantity, 0) AS quantity,
+                       last.fx_rate_to_usd, coalesce(last.price_of_execution, p.average_price) AS fallback_usd_price
+                FROM ids i JOIN securities s ON s.security_id = i.security_id
+                LEFT JOIN account_positions p ON p.account_id = ? AND p.security_id = i.security_id
+                LEFT JOIN LATERAL (SELECT d.fx_rate_to_usd, d.price_of_execution FROM trade_details d
+                                   WHERE d.account_id = ? AND d.security_id = i.security_id
+                                   ORDER BY d.trade_date DESC, d.trade_id DESC LIMIT 1) last ON true
+                """, (r, row) -> new Instrument(r.getLong("security_id"), r.getString("ticker"),
+                r.getString("quote_currency"), r.getBigDecimal("quantity"), r.getBigDecimal("fx_rate_to_usd"),
+                r.getBigDecimal("fallback_usd_price")), id, id, id, id);
+    }
+
     private <T> PageResponse<T> accountPage(String countSql, String sql, RowMapper<T> mapper, long id, int page, int size) {
         validatePage(page, size);
         long total = jdbc.queryForObject(countSql, Long.class, id);

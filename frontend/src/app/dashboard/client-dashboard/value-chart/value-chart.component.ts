@@ -10,15 +10,28 @@ interface Tick {
 const HEIGHT = 260;
 const PAD = { top: 16, right: 20, bottom: 30, left: 64 };
 
-const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-const compactMoney = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  notation: 'compact',
-  maximumFractionDigits: 1,
-});
+// Exact value for the tooltip: small prices (FX rates, cheap coins) keep up to 4 decimals
+function valueFormat(currency: string, value: number): Intl.NumberFormat {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: Math.abs(value) < 10 ? 4 : 2,
+  });
+}
 
-// Simple line chart of portfolio value over time, drawn as inline SVG
+// Axis labels: compact for large values, otherwise just enough decimals to tell the ticks apart
+function axisFormat(currency: string, step: number, max: number): Intl.NumberFormat {
+  if (Math.abs(max) >= 10_000) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 });
+  }
+  // Fewest decimals that show the step exactly (50 -> 0, 2.5 -> 1, 0.005 -> 3)
+  let decimals = 0;
+  while (decimals < 4 && Math.abs(Math.round(step * 10 ** decimals) - step * 10 ** decimals) > 1e-9) decimals++;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+// Simple line chart of a value over time (portfolio value or a price), drawn as inline SVG
 @Component({
   selector: 'app-value-chart',
   standalone: true,
@@ -28,6 +41,12 @@ const compactMoney = new Intl.NumberFormat('en-US', {
 })
 export class ValueChartComponent {
   readonly points = input.required<ValuePoint[]>();
+  readonly label = input('Portfolio value');
+  readonly currency = input('USD');
+  readonly emptyText = input('Waiting to load portfolio value...');
+
+  // Drawn left to right by time, whatever order the caller passed
+  readonly sorted = computed(() => [...this.points()].sort((a, b) => a.time - b.time));
 
   readonly height = HEIGHT;
   readonly pad = PAD;
@@ -36,7 +55,7 @@ export class ValueChartComponent {
 
   // All coordinates are in CSS pixels so the 2px line and the text never get scaled
   readonly geometry = computed(() => {
-    const points = this.points();
+    const points = this.sorted();
     const width = this.width();
     if (points.length < 2 || width === 0) return null;
 
@@ -62,7 +81,8 @@ export class ValueChartComponent {
     const last = xy[xy.length - 1];
     const area = `${line} L${last.x},${plotBottom} L${xy[0].x},${plotBottom} Z`;
 
-    const yTicks: Tick[] = y.ticks.map((value) => ({ pos: yOf(value), label: compactMoney.format(value) }));
+    const axis = axisFormat(this.currency(), y.step, y.max);
+    const yTicks: Tick[] = y.ticks.map((value) => ({ pos: yOf(value), label: axis.format(value) }));
     // Drop labels that repeat a neighbour (e.g. everything happened within one minute),
     // always keeping the start and end of the range
     let xTicks: Tick[] = (width < 420 ? [t0, t1] : [t0, (t0 + t1) / 2, t1])
@@ -79,24 +99,25 @@ export class ValueChartComponent {
     const index = this.activeIndex();
     const geometry = this.geometry();
     if (index === null || !geometry) return null;
-    const point = this.points()[index];
+    const point = this.sorted()[index];
     const { x, y } = geometry.xy[index];
     return {
       x,
       y,
-      value: money.format(point.value),
-      detail: formatFull(point.time),
+      value: valueFormat(this.currency(), point.value).format(point.value),
+      detail: point.daily ? `${formatDay(point.time)} close` : formatFull(point.time),
       flip: x > (geometry.plotLeft + geometry.plotRight) / 2,
     };
   });
 
   readonly summary = computed(() => {
-    const points = this.points();
-    if (points.length < 2) return 'Portfolio value chart: not enough data yet';
+    const points = this.sorted();
+    if (points.length < 2) return `${this.label()} chart: not enough data yet`;
     const first = points[0];
     const last = points[points.length - 1];
-    return `Portfolio value from ${formatFull(first.time)} to ${formatFull(last.time)}, ` +
-      `${money.format(first.value)} to ${money.format(last.value)}`;
+    const when = (point: ValuePoint) => (point.daily ? formatDay(point.time) : formatFull(point.time));
+    const money = (value: number) => valueFormat(this.currency(), value).format(value);
+    return `${this.label()} from ${when(first)} to ${when(last)}, ${money(first.value)} to ${money(last.value)}`;
   });
 
   constructor() {
@@ -120,7 +141,7 @@ export class ValueChartComponent {
   }
 
   onKeydown(event: KeyboardEvent): void {
-    const count = this.points().length;
+    const count = this.sorted().length;
     if (count === 0) return;
     const current = this.activeIndex() ?? count - 1;
     if (event.key === 'ArrowLeft') this.activeIndex.set(Math.max(0, current - 1));
@@ -131,7 +152,7 @@ export class ValueChartComponent {
   }
 
   onFocus(): void {
-    if (this.activeIndex() === null) this.activeIndex.set(this.points().length - 1);
+    if (this.activeIndex() === null) this.activeIndex.set(this.sorted().length - 1);
   }
 
   clearActive(): void {
@@ -140,7 +161,7 @@ export class ValueChartComponent {
 }
 
 // Round the y-axis to clean numbers (0 / 2,500 / 5,000 ...)
-function niceScale(min: number, max: number, targetTicks = 4): { min: number; max: number; ticks: number[] } {
+function niceScale(min: number, max: number, targetTicks = 4): { min: number; max: number; step: number; ticks: number[] } {
   if (min === max) {
     const pad = Math.abs(min) * 0.05 || 1;
     min -= pad;
@@ -154,7 +175,7 @@ function niceScale(min: number, max: number, targetTicks = 4): { min: number; ma
   const hi = Math.ceil(max / step) * step;
   const ticks: number[] = [];
   for (let value = lo; value <= hi + step / 2; value += step) ticks.push(Number(value.toFixed(10)));
-  return { min: lo, max: hi, ticks };
+  return { min: lo, max: hi, step, ticks };
 }
 
 function formatTime(time: number, span: number): string {
@@ -165,6 +186,10 @@ function formatTime(time: number, span: number): string {
         ? { month: 'short', day: 'numeric' }
         : { month: 'short', year: 'numeric' };
   return new Intl.DateTimeFormat('en-US', options).format(time);
+}
+
+function formatDay(time: number): string {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(time);
 }
 
 function formatFull(time: number): string {

@@ -4,6 +4,7 @@ import { Injectable } from '@angular/core';
 export interface ValuePoint {
   time: number; // epoch ms
   value: number; // USD
+  daily?: boolean; // an end-of-day close from the account's history, not a live reading
 }
 
 // Remembers the portfolio value each time it changes, per account, so the graph can

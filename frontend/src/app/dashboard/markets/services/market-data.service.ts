@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, of, tap } from 'rxjs';
+import { ValueRange } from '../../services/account.service';
 
 export interface Security {
   securityId: number;
@@ -29,6 +30,15 @@ export interface MarketQuote {
   marketState: 'open' | 'closed' | 'pre' | 'post' | 'unknown';
   source: string;
   stale: boolean;
+}
+
+// Raw daily closes, oldest first; the first is the last close before the range (for 1D, the previous close)
+export interface SecurityCloses {
+  securityId: number;
+  ticker: string;
+  currency: string;
+  range: ValueRange;
+  closes: { date: string; close: number }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -63,5 +73,11 @@ export class MarketDataService {
     return this.http
       .get<MarketQuote>(`${this.apiUrl}/${securityId}/quote`)
       .pipe(tap((quote) => this.quoteCache.set(securityId, { quote, fetchedAt: Date.now() })));
+  }
+
+  // The backend caches a year of closes per symbol for the day, so switching ranges costs no quota
+  closes(securityId: number, range: ValueRange): Observable<SecurityCloses> {
+    const params = new HttpParams().set('range', range);
+    return this.http.get<SecurityCloses>(`${this.apiUrl}/${securityId}/closes`, { params });
   }
 }

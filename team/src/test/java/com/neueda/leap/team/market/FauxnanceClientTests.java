@@ -60,4 +60,22 @@ class FauxnanceClientTests {
         var offline=new FauxnanceClient(new FauxnanceProperties("http://127.0.0.1:"+server.getAddress().getPort()+"/v1","",2,true,1800,345600),JsonMapper.builder().build(),Clock.systemUTC());
         assertThat(offline.quotes(Set.of("AAPL")).get("AAPL").errorCode()).isEqualTo("MARKET_DATA_NOT_CONFIGURED");assertThat(requests.get()).isZero();
     }
+    @Test void parsesDailyClosesAndEncodesSymbolPath(){
+        var path=new java.util.concurrent.atomic.AtomicReference<String>();
+        server.createContext("/v1/candles",exchange->{
+            path.set(exchange.getRequestURI().getRawPath());
+            byte[] data=body.getBytes(StandardCharsets.UTF_8);exchange.sendResponseHeaders(status,data.length);exchange.getResponseBody().write(data);exchange.close();
+        });
+        body="""
+                {"data":{"symbol":"X:BTC-USD","interval":"1d","currency":"USD","candles":[
+                {"date":"2026-10-17","close":81500.5,"synthetic":false},{"date":"2026-10-16","close":80000.25,"synthetic":true},
+                {"date":"2026-10-18","close":-1,"synthetic":false}]}}
+                """;
+        var closes=client.dailyCloses("X:BTC-USD",java.time.LocalDate.parse("2026-10-16"),java.time.LocalDate.parse("2026-10-18")).orElseThrow();
+        assertThat(path.get()).isEqualTo("/v1/candles/X%3ABTC-USD");
+        assertThat(closes).extracting(DailyClose::date).map(Object::toString).containsExactly("2026-10-16","2026-10-17");
+        assertThat(closes.get(1).close()).isEqualByComparingTo("81500.5");
+        status=500;body="{\"message\":\"Internal Server Error\"}";
+        assertThat(client.dailyCloses("AAPL",java.time.LocalDate.parse("2026-10-16"),java.time.LocalDate.parse("2026-10-18"))).isEmpty();
+    }
 }
