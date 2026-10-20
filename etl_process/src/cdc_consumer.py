@@ -13,6 +13,15 @@ from kafka import KafkaConsumer
 from src.loaders import apply_user_change
 from src.transformers import transform_user_event
 from src.validators import validate_user_change
+from src.incremental_loaders import (
+    load_account_event,
+    load_dispute_event,
+    load_execution_event,
+    load_order_event,
+    load_security_event,
+    load_trade_event,
+    load_transaction_event,
+)
 
 LOGGER = logging.getLogger("etl.cdc")
 RETRY_LIMIT = 3
@@ -24,14 +33,17 @@ class CdcConsumer:
         config_path: Path,
         full_refresh: Callable[[], dict[str, int]],
         dead_letter_path: Path = Path("dead_letter.jsonl"),
+        group_id: str | None = None,
+        auto_offset_reset: str = "earliest",
+        idle_limit: int = 60,
     ) -> None:
         config = yaml.safe_load(config_path.read_text())
         kafka_config = config["kafka"]
         self.consumer = KafkaConsumer(
             *kafka_config["topics"],
             bootstrap_servers=kafka_config["bootstrap_servers"],
-            group_id=kafka_config["group_id"],
-            auto_offset_reset="earliest",
+            group_id=group_id or kafka_config["group_id"],
+            auto_offset_reset=auto_offset_reset,
             enable_auto_commit=False,
             max_poll_interval_ms=7200000,
             max_poll_records=1,
@@ -40,6 +52,7 @@ class CdcConsumer:
         self.olap = psycopg2.connect(**config["olap"])
         self.full_refresh = full_refresh
         self.dead_letter_path = dead_letter_path
+        self.idle_limit = idle_limit
 
     @staticmethod
     def _table(event: dict[str, Any]) -> str:
@@ -64,27 +77,32 @@ class CdcConsumer:
         validate_user_change(change)
         apply_user_change(self.olap, change)
 
-    def _process_batch(self, messages: list[Any]) -> None:
-        needs_refresh = False
-        for message in messages:
-            table = self._table(message.value)
-            if table == "users":
-                self._apply_users(message.value)
-            elif table in {
-                "roles", "accounts", "account_cash_balances", "securities",
-                "account_positions", "orders", "order_reservations", "executions",
-                "trades", "transactions", "cash_ledger", "disputes",
-            }:
-                needs_refresh = True
-            else:
-                LOGGER.warning("Ignoring unsupported Debezium table: %s", table)
-        if needs_refresh:
-            self.olap.commit()
-            self.full_refresh()
+    def _apply_event(self, event: dict[str, Any]) -> None:
+        table = self._table(event)
+        handlers = {
+            "users": self._apply_users,
+            "accounts": lambda value: load_account_event(self.olap, value),
+            "securities": lambda value: load_security_event(self.olap, value),
+            "orders": lambda value: load_order_event(self.olap, value),
+            "executions": lambda value: load_execution_event(self.olap, value),
+            "trades": lambda value: load_trade_event(self.olap, value),
+            "transactions": lambda value: load_transaction_event(self.olap, value),
+            "disputes": lambda value: load_dispute_event(self.olap, value),
+        }
+        handler = handlers.get(table)
+        if handler is None:
+            LOGGER.info("Skipping source table without an OLAP target: %s", table)
+            return
+        handler(event)
 
-    def run(self, max_messages: int | None = None, idle_limit: int = 10) -> int:
+    def _process_batch(self, messages: list[Any]) -> None:
+        for message in messages:
+            self._apply_event(message.value)
+
+    def run(self, max_messages: int | None = None, idle_limit: int | None = None) -> int:
         processed = 0
         idle_polls = 0
+        idle_limit = idle_limit or self.idle_limit
         try:
             while max_messages is None or processed < max_messages:
                 records = self.consumer.poll(timeout_ms=1000, max_records=1)
