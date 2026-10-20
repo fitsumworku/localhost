@@ -1,12 +1,12 @@
 <div class="compare">
   <header class="page-header">
-    <h1>Compare Markets</h1>
-    <p>Pick two markets to see their prices and performance side by side</p>
+    <h1>Compare Stocks</h1>
+    <p>Pick two stocks to see their prices and performance side by side</p>
   </header>
 
   <div class="toolbar">
     <p class="summary" *ngIf="summary; else hint">{{ summary }}</p>
-    <ng-template #hint><p class="summary muted">Search for a market on each side.</p></ng-template>
+    <ng-template #hint><p class="summary muted">Search for a stock on each side.</p></ng-template>
 
     <div class="pills" role="group" aria-label="Time period">
       <button
@@ -100,8 +100,8 @@
           [currency]="security.quoteCurrency"
           [emptyText]="slot.loadingCloses ? 'Loading price history…' : 'Not enough price history for this range.'"
         />
-        <p class="note" *ngIf="slot.closesFailed">Price history is unavailable right now; showing the live price only.</p>
-        <p class="note" *ngIf="slot.quoteFailed && !slot.closesFailed">Live price is unavailable; showing the latest close.</p>
+        <p class="note" *ngIf="slot.closesFailed">Price history is unavailable right now</p>
+        <p class="note" *ngIf="slot.quoteFailed && !slot.closesFailed">Live price is unavailable</p>
 
         <dl class="details">
           <div class="detail-row">

@@ -41,7 +41,7 @@ export class SidebarLayoutComponent {
   clientMenuItems = [
     { label: 'Portfolio', icon: 'work_bag', route: '/client-dashboard' },
     { label: 'Markets', icon: 'trending_up', route: '/markets' },
-    { label: 'Compare Markets', icon: 'join_inner', route: '/compare' },
+    { label: 'Compare Stocks', icon: 'join_inner', route: '/compare' },
     { label: 'Transaction History', icon: 'history', route: '/transactions' }
   ];
 
