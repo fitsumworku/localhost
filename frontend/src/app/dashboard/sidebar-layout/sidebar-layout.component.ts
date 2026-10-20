@@ -42,15 +42,13 @@ export class SidebarLayoutComponent {
     { label: 'Portfolio', icon: 'work_bag', route: '/client-dashboard' },
     { label: 'Markets', icon: 'trending_up', route: '/markets' },
     { label: 'Compare Markets', icon: 'join_inner', route: '/compare' },
-    { label: 'Transaction History', icon: 'history', route: '/transactions' },
-    { label: 'Settings', icon: 'settings', route: '/settings' }
+    { label: 'Transaction History', icon: 'history', route: '/transactions' }
   ];
 
   adminMenuItems = [
     { label: 'Client Monitor', icon: 'people', route: '/admin-dashboard' },
     { label: 'Disputes', icon: 'gavel', route: '/disputes' },
     { label: 'Compliance', icon: 'verified_user', route: '/compliance' },
-    { label: 'Settings', icon: 'settings', route: '/settings' }
   ];
 
   // From the logged-in user's role, so admins keep the admin menu on every admin page
@@ -115,8 +113,8 @@ export class SidebarLayoutComponent {
       panelClass: ['add-account-dialog-panel', 'dark-ui', 'app-dialog'],
     });
 
-    dialogRef.afterClosed().subscribe((accountName: string) => {
-      if (accountName) {
+    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
+      if (confirmed) {
         this.accountService.createAccount().subscribe({
           next: (account: Account) => {
             this.accounts = [...this.accounts, account];

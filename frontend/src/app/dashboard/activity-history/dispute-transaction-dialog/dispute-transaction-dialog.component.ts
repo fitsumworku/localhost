@@ -8,13 +8,21 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-interface Transaction {
-  date: string;
-  asset: string;
-  type: 'buy' | 'sell';
-  amount: number;
-  price: number;
-  pnl: number;
+export interface DisputeDialogData {
+  accountId: number;
+  activity: {
+    date: string;
+    asset: string;
+    type: 'buy' | 'sell' | 'deposit' | 'withdrawal';
+    amount: number;
+    price?: number;
+    transactionId?: number;
+    tradeId?: number;
+  };
+}
+
+export interface DisputeDialogResult {
+  description: string;
 }
 
 @Component({
@@ -37,7 +45,7 @@ export class DisputeTransactionDialogComponent {
   disputeForm: FormGroup;
 
   constructor(
-    @Inject(MAT_DIALOG_DATA) public data: Transaction,
+    @Inject(MAT_DIALOG_DATA) public data: DisputeDialogData,
     private fb: FormBuilder,
     private dialogRef: MatDialogRef<DisputeTransactionDialogComponent>
   ) {
@@ -48,9 +56,8 @@ export class DisputeTransactionDialogComponent {
 
   onSubmit(): void {
     if (this.disputeForm.valid) {
-      const disputeData = {
-        transaction: this.data,
-        details: this.disputeForm.get('details')?.value,
+      const disputeData: DisputeDialogResult = {
+        description: this.disputeForm.get('details')?.value,
       };
       console.log('Dispute submitted:', disputeData);
       this.dialogRef.close(disputeData);

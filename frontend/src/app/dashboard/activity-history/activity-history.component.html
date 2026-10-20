@@ -71,7 +71,7 @@
         </thead>
         <tbody>
           <tr *ngFor="let activity of transactionData" class="transaction-row" [class.transaction-type]="isTransactionActivity(activity.type)">
-            <td class="col-date">{{ activity.date }}</td>
+            <td class="col-date">{{ activity.date | date:'medium' }}</td>
             <td class="col-asset">{{ activity.asset }}</td>
             <td class="col-type">
               <span
@@ -94,6 +94,7 @@
             </td>
             <td class="col-actions">
               <button
+                *ngIf="activity.transactionId !== undefined || activity.tradeId !== undefined"
                 mat-icon-button
                 (click)="openDisputeDialog(activity)"
                 title="Dispute transaction"
@@ -120,4 +121,41 @@
       <p>No activity yet</p>
     </div>
   </div>
+
+  <!-- Disputes History Table -->
+  <div class="transaction-section disputes-history-section">
+    <div class="section-header">
+      <div>
+        <h2>Disputes History</h2>
+        <p class="subtitle">Disputes submitted for this account</p>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table class="transactions-table disputes-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Reason</th>
+            <th>Type</th>
+            <th>Assigned Admin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let dispute of disputeData" class="transaction-row">
+            <td>{{ dispute.dateCreated | date:'medium' }}</td>
+            <td>{{ dispute.description }}</td>
+            <td>{{ dispute.disputeType }}</td>
+            <td>{{ dispute.adminId !== null ? ('Admin #' + dispute.adminId) : 'Unassigned' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="!isLoading && !errorMessage && disputeData.length === 0" class="no-transactions">
+      <mat-icon class="empty-icon">gavel</mat-icon>
+      <p>No disputes yet</p>
+    </div>
+  </div>
+
 </div>
