@@ -160,7 +160,9 @@ $sidebar-width: 220px;
 .header-content {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 
   h1 {
     margin: 0;
@@ -171,22 +173,9 @@ $sidebar-width: 220px;
 }
 
 .header-actions {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.account-selector-wrapper,
-.cash-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cash-actions {
   flex-wrap: wrap;
 }
 
@@ -286,16 +275,5 @@ $sidebar-width: 220px;
   .top-header,
   .page-content {
     padding: 16px;
-  }
-
-  .header-content {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .header-actions {
-    width: 100%;
-    margin-left: 0;
-    justify-content: flex-start;
   }
 }

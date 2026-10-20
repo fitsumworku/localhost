@@ -256,7 +256,7 @@ export class TransactionHistoryComponent {
       maxHeight: '90vh',
       data,
       disableClose: false,
-      panelClass: 'dispute-dialog-panel',
+      panelClass: ['dark-ui', 'app-dialog'],
     });
 
     dialogRef.afterClosed().subscribe((result: DisputeDialogResult | undefined) => {
@@ -293,27 +293,18 @@ export class TransactionHistoryComponent {
     return type.toUpperCase();
   }
 
-  getTypeColor(type: string): string {
+  getTypeTone(type: string): string {
     switch(type) {
       case 'buy':
-        return '#51cf66';
+        return 'positive';
       case 'sell':
-        return '#ff6b6b';
+        return 'negative';
       case 'deposit':
-        return '#339af0';
+        return 'info';
       case 'withdrawal':
-        return '#ffa94d';
+        return 'warning';
       default:
-        return '#868e96';
+        return '';
     }
-  }
-
-  getPnlColor(pnl: number | undefined): string {
-    if (pnl === undefined) return '#868e96';
-    return pnl >= 0 ? '#51cf66' : '#ff6b6b';
-  }
-
-  isTransactionActivity(type: string): boolean {
-    return type === 'deposit' || type === 'withdrawal';
   }
 }

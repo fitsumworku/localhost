@@ -55,24 +55,6 @@
     width: 20px;
     height: 20px;
   }
-
-  .disputes-history-section {
-    margin-top: clamp(1.5rem, 3vw, 2.5rem);
-
-    .disputes-table {
-      min-width: 640px;
-
-      th,
-      td {
-        &:first-child { width: 180px; }
-        &:nth-child(2) { min-width: 260px; }
-        &:nth-child(3) { width: 150px; }
-        &:last-child { width: 170px; }
-      }
-
-
-    }
-  }
 }
 
 .stat-value {
@@ -129,6 +111,15 @@ table {
 
 .badge {
   @include badge;
+}
+
+.disputes-table {
+  min-width: 640px;
+
+  .reason {
+    min-width: 260px;
+    overflow-wrap: anywhere;
+  }
 }
 
 .action {

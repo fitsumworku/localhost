@@ -1,5 +1,13 @@
+@use '../../ui' as *;
 @use '../dialog' as *;
 
 .add-account-dialog {
   @include dialog;
+
+  .description {
+    margin: 0 0 20px;
+    color: $muted;
+    font-size: 14px;
+    line-height: 1.5;
+  }
 }
