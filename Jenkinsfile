@@ -49,14 +49,27 @@ pipeline {
             steps {
                 dir('frontend') {
                     sh '''
-                        if [ -f package-lock.json ]; then
-                          npm ci
+                        set -euo pipefail
+
+                        if command -v npm >/dev/null 2>&1; then
+                            echo "Using host npm: $(npm --version)"
+                            if [ -f package-lock.json ]; then
+                                npm ci
+                            else
+                                npm install
+                            fi
+                            npm run test -- --watch=false
+                            npm run build
                         else
-                          npm install
+                            echo "Host npm not found; running frontend build in Node Docker container"
+                            docker run --rm \
+                                -u "$(id -u):$(id -g)" \
+                                -v "$PWD:/workspace" \
+                                -w /workspace \
+                                node:22-alpine \
+                                sh -lc "set -euo pipefail; if [ -f package-lock.json ]; then npm ci; else npm install; fi; npm run test -- --watch=false; npm run build"
                         fi
                     '''
-                    sh 'npm run test -- --watch=false'
-                    sh 'npm run build'
                 }
             }
         }
