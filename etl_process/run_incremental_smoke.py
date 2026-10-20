@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -24,7 +25,7 @@ from src.transformers import transform_user_event
 from src.validators import validate_user_change
 
 
-CONFIG_PATH = Path(__file__).parent / "config" / "database.yaml"
+CONFIG_PATH = Path(os.getenv("ETL_CONFIG_PATH", Path(__file__).parent / "config" / "database.yaml"))
 PIPELINE = [
     ("accounts", load_account_event),
     ("securities", load_security_event),
@@ -71,10 +72,7 @@ def apply_user(connection: Any, event: dict[str, Any]) -> None:
         apply_user_change(connection, change)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Apply one event per supported CDC pipeline")
-    parser.add_argument("--timeout-seconds", type=int, default=15)
-    args = parser.parse_args()
+def run(timeout_seconds: int = 15) -> None:
     config = yaml.safe_load(CONFIG_PATH.read_text())
     topics = config["kafka"]["topics"]
     bootstrap_servers = config["kafka"]["bootstrap_servers"]
@@ -88,13 +86,20 @@ def main() -> None:
         ]
         for table, handler in topic_handlers:
             topic = next(topic for topic in topics if topic.endswith(f".public.{table}"))
-            event = read_one(bootstrap_servers, topic, f"etl-smoke-{table}-{run_id}", args.timeout_seconds)
+            event = read_one(bootstrap_servers, topic, f"etl-smoke-{table}-{run_id}", timeout_seconds)
             if event is None:
                 raise RuntimeError(f"No event received for {table}")
             handler(connection, event)
             print(f"{table}: applied op={event.get('payload', event).get('op')}")
     finally:
         connection.close()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Apply one event per supported CDC pipeline")
+    parser.add_argument("--timeout-seconds", type=int, default=15)
+    args = parser.parse_args()
+    run(args.timeout_seconds)
 
 
 if __name__ == "__main__":

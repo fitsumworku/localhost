@@ -1,0 +1,31 @@
+oltp:
+  host: postgres-db
+  port: 5432
+  database: app
+  user: postgres
+  password: postgres
+
+olap:
+  host: host.docker.internal
+  port: 5433
+  database: sampleolapdata
+  user: postgres
+  password: postgres
+
+kafka:
+  bootstrap_servers: kafka:29092
+  group_id: etl-airflow
+  topics:
+    - debezium.oltp.public.roles
+    - debezium.oltp.public.users
+    - debezium.oltp.public.accounts
+    - debezium.oltp.public.account_cash_balances
+    - debezium.oltp.public.securities
+    - debezium.oltp.public.account_positions
+    - debezium.oltp.public.orders
+    - debezium.oltp.public.order_reservations
+    - debezium.oltp.public.executions
+    - debezium.oltp.public.trades
+    - debezium.oltp.public.transactions
+    - debezium.oltp.public.cash_ledger
+    - debezium.oltp.public.disputes

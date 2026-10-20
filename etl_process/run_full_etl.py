@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -10,7 +11,7 @@ import yaml
 from psycopg2.extras import RealDictCursor, execute_batch
 
 
-CONFIG_PATH = Path(__file__).parent / "config" / "database.yaml"
+CONFIG_PATH = Path(os.getenv("ETL_CONFIG_PATH", Path(__file__).parent / "config" / "database.yaml"))
 
 STATUS_DIMENSIONS = {
     "dim_order_status": [
