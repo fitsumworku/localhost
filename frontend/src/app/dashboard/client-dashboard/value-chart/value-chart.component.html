@@ -20,8 +20,20 @@
 
     <!-- Gridlines and y-axis values -->
     <g *ngFor="let tick of g.yTicks">
-      <line class="grid" [attr.x1]="g.plotLeft" [attr.x2]="g.plotRight" [attr.y1]="tick.pos" [attr.y2]="tick.pos" />
-      <text class="axis" [attr.x]="g.plotLeft - 10" [attr.y]="tick.pos" text-anchor="end" dominant-baseline="middle">
+      <line
+        class="grid"
+        [attr.x1]="g.plotLeft"
+        [attr.x2]="g.plotRight"
+        [attr.y1]="tick.pos"
+        [attr.y2]="tick.pos"
+      />
+      <text
+        class="axis"
+        [attr.x]="g.plotLeft - 10"
+        [attr.y]="tick.pos"
+        text-anchor="end"
+        dominant-baseline="middle"
+      >
         {{ tick.label }}
       </text>
     </g>
@@ -41,11 +53,22 @@
     <path class="line" [attr.d]="g.line" pathLength="1" />
 
     <!-- Current value marker -->
-    <circle class="end-dot" [attr.cx]="g.xy[g.xy.length - 1].x" [attr.cy]="g.xy[g.xy.length - 1].y" r="4" />
+    <circle
+      class="end-dot"
+      [attr.cx]="g.xy[g.xy.length - 1].x"
+      [attr.cy]="g.xy[g.xy.length - 1].y"
+      r="4"
+    />
 
     <!-- Hover / keyboard crosshair -->
     <g *ngIf="active() as a">
-      <line class="crosshair" [attr.x1]="a.x" [attr.x2]="a.x" [attr.y1]="g.plotTop" [attr.y2]="g.plotBottom" />
+      <line
+        class="crosshair"
+        [attr.x1]="a.x"
+        [attr.x2]="a.x"
+        [attr.y1]="g.plotTop"
+        [attr.y2]="g.plotBottom"
+      />
       <circle class="hover-dot" [attr.cx]="a.x" [attr.cy]="a.y" r="5" />
     </g>
   </svg>
@@ -65,6 +88,6 @@
 
 <ng-template #noData>
   <div class="no-data" [style.height.px]="height">
-    <p>The graph appears once your portfolio value has loaded.</p>
+    <p>{{ emptyText() }}</p>
   </div>
 </ng-template>

@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { AccountPosition, AccountService } from '../services/account.service';
+import { AccountPosition, AccountService, ValueHistory, ValueRange } from '../services/account.service';
 import { MarketDataService, MarketQuote } from '../markets/services/market-data.service';
 import {
   AccountOrder,
@@ -25,6 +25,15 @@ interface Activity {
 interface PortfolioMetrics {
   portfolioValue: number;
   buyingPower: number;
+}
+
+const signedMoney = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', signDisplay: 'always' });
+const signedPercent = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 2, signDisplay: 'always' });
+
+// A history point is the value at that day's close; drawn at 4 PM local time on that date
+function closeTime(date: string): number {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day, 16).getTime();
 }
 
 interface Holding {
@@ -52,8 +61,20 @@ export class ClientDashboardComponent {
 
   holdingsData: Holding[] = [];
 
-  // Portfolio graph: a dot each time the portfolio value changes
+  // Portfolio graph: one point per day's close for the chosen range, then live readings since the page loaded
+  readonly ranges: { value: ValueRange; caption: string }[] = [
+    { value: '1D', caption: 'since yesterday’s close' },
+    { value: '1W', caption: 'past week' },
+    { value: '1M', caption: 'past month' },
+    { value: '1Y', caption: 'past year' },
+  ];
+  selectedRange: ValueRange = '1M';
   chartPoints: ValuePoint[] = [];
+  rangeChange: { text: string; up: boolean } | null = null;
+  historyNote = '';
+  private dailyPoints: ValuePoint[] = [];
+  private livePoints: ValuePoint[] = [];
+  private historyRequest = 0;
 
   activityData: Activity[] = [];
   transactionData: Activity[] = [];
@@ -70,7 +91,10 @@ export class ClientDashboardComponent {
     effect(() => {
       const account = this.accountService.selectedAccount();
       if (account) {
+        this.dailyPoints = [];
+        this.livePoints = [];
         this.loadPortfolio(account.accountId);
+        this.loadValueHistory(account.accountId);
         this.loadHistory(account.accountId);
       } else {
         this.portfolioMetrics = null;
@@ -78,10 +102,62 @@ export class ClientDashboardComponent {
         this.holdingsData = [];
         this.activityData = [];
         this.transactionData = [];
-        this.chartPoints = [];
+        this.dailyPoints = [];
+        this.livePoints = [];
+        this.historyNote = '';
+        this.updateChart();
         this.historyError = 'Select an account to view activity.';
       }
     });
+  }
+
+  get rangeCaption(): string {
+    return this.ranges.find((range) => range.value === this.selectedRange)?.caption ?? '';
+  }
+
+  selectRange(range: ValueRange): void {
+    const account = this.accountService.selectedAccount();
+    if (range === this.selectedRange || !account) return;
+    this.selectedRange = range;
+    this.loadValueHistory(account.accountId);
+  }
+
+  // Each day's close comes from the backend, which prices past holdings with daily candles
+  private loadValueHistory(accountId: number): void {
+    const request = ++this.historyRequest;
+    this.accountService.valueHistory(accountId, this.selectedRange).subscribe({
+      next: (history: ValueHistory) => {
+        if (request !== this.historyRequest) return; // another range or account was picked meanwhile
+        this.dailyPoints = history.points.map((point) => ({ time: closeTime(point.date), value: point.value, daily: true }));
+        this.historyNote = history.complete
+          ? ''
+          : 'Some holdings have no price history for this range and are shown at their last trade price.';
+        this.updateChart();
+      },
+      error: (error: unknown) => {
+        if (request !== this.historyRequest) return;
+        console.error('[ClientDashboard] Failed to load value history', { accountId, range: this.selectedRange, error });
+        this.dailyPoints = [];
+        this.historyNote = 'Earlier values are currently unavailable; showing today only.';
+        this.updateChart();
+      },
+    });
+  }
+
+  private updateChart(): void {
+    const lastClose = this.dailyPoints.length ? this.dailyPoints[this.dailyPoints.length - 1].time : -Infinity;
+    this.chartPoints = [...this.dailyPoints, ...this.livePoints.filter((point) => point.time > lastClose)];
+
+    const first = this.chartPoints[0];
+    const last = this.chartPoints[this.chartPoints.length - 1];
+    if (this.chartPoints.length < 2) {
+      this.rangeChange = null;
+    } else {
+      const amount = last.value - first.value;
+      const percent = first.value > 0 ? ` (${signedPercent.format(amount / first.value)})` : '';
+      this.rangeChange = { text: signedMoney.format(amount) + percent, up: amount >= 0 };
+    }
+    this.changeDetector.markForCheck();
   }
 
   private loadPortfolio(accountId: number): void {
@@ -150,8 +226,8 @@ export class ClientDashboardComponent {
       portfolioValue: balance.cashBalance + marketValue,
       buyingPower: balance.availableCash,
     };
-    this.chartPoints = this.tracker.record(accountId, this.portfolioMetrics.portfolioValue);
-    this.changeDetector.markForCheck();
+    this.livePoints = this.tracker.record(accountId, this.portfolioMetrics.portfolioValue);
+    this.updateChart();
   }
 
   private loadHistory(accountId: number): void {

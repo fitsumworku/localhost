@@ -1,281 +1,59 @@
-.transaction-history-container {
-  padding: clamp(1.5rem, 3vw, 2.5rem);
-  background-color: #f5f5f7;
-  min-height: 100%;
+@use '../ui' as *;
 
-  .header {
-    margin-bottom: clamp(2rem, 4vw, 2.5rem);
+.activity-history {
+  @include page;
+}
 
-    h1 {
-      font-size: clamp(1.5rem, 4vw, 2rem);
-      font-weight: 600;
-      color: #1a1a1a;
-      margin: 0 0 clamp(0.4rem, 0.8vw, 0.6rem) 0;
-    }
+.page-header {
+  @include page-header;
+}
 
-    .subtitle {
-      font-size: clamp(0.8rem, 1.8vw, 1rem);
-      color: #666;
-      margin: 0;
-    }
-  }
+.card {
+  @include card;
+  padding: 20px 24px;
+}
 
-  // Stat Cards Grid
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(clamp(150px, 18vw, 280px), 1fr));
-    gap: clamp(1rem, 2vw, 1.5rem);
-    margin-bottom: clamp(2rem, 4vw, 2.5rem);
+.card-title {
+  @include card-title;
+  margin-bottom: 12px;
+}
 
-    .stat-card {
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: clamp(0.4rem, 0.8vw, 0.6rem);
-      padding: clamp(1rem, 1.5vw, 1.5rem);
-      transition: all 0.3s ease;
+.label {
+  @include label;
+  margin: 0;
+}
 
-      &:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        border-color: #06402b;
-      }
+.muted {
+  color: $muted;
+}
 
-      .stat-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: clamp(0.6rem, 1.2vw, 1rem);
+.up {
+  color: $up;
+}
 
-        .stat-label {
-          font-size: clamp(0.7rem, 1.5vw, 0.875rem);
-          font-weight: 600;
-          color: #666;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin: 0;
-        }
+.down {
+  color: $down;
+}
 
-        .stat-icon {
-          color: #06402b;
-          opacity: 0.7;
-        }
-      }
+// ---------- Stats ----------
 
-      .stat-value {
-        font-size: clamp(1.5rem, 3vw, 1.75rem);
-        font-weight: 700;
-        color: #1a1a1a;
-        margin: 0 0 clamp(0.4rem, 0.8vw, 0.6rem) 0;
-      }
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
 
-      .stat-change {
-        font-size: clamp(0.7rem, 1.5vw, 0.875rem);
-        color: #999;
-        margin: 0;
-      }
-    }
-  }
+.stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
-  // Transaction Section
-  .transaction-section {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: clamp(0.4rem, 0.8vw, 0.6rem);
-    padding: clamp(1rem, 2vw, 1.75rem);
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: clamp(1rem, 2vw, 1.5rem);
-
-      h2 {
-        font-size: clamp(1rem, 2.5vw, 1.25rem);
-        font-weight: 600;
-        color: #1a1a1a;
-        margin: 0;
-      }
-
-      .view-all-link {
-        font-size: 12px;
-        color: #06402b;
-        text-decoration: none;
-        font-weight: 500;
-        transition: color 0.3s ease;
-
-        &:hover {
-          color: #05331f;
-          text-decoration: underline;
-        }
-      }
-    }
-
-    .table-container {
-      overflow-x: auto;
-      max-height: 600px;
-      overflow-y: auto;
-      border: 1px solid #f0f0f0;
-      border-radius: 4px;
-
-      &::-webkit-scrollbar {
-        height: 8px;
-        width: 8px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: #f5f5f7;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: #ccc;
-        border-radius: 4px;
-
-        &:hover {
-          background: #999;
-        }
-      }
-
-      .transactions-table {
-        width: 100%;
-        border-collapse: collapse;
-
-        thead {
-          background-color: #f9f9fb;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-
-          tr {
-            border-bottom: 1px solid #e0e0e0;
-          }
-
-          th {
-            padding: 16px;
-            text-align: left;
-            font-size: 12px;
-            font-weight: 600;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-        }
-
-        tbody {
-          tr {
-            &:hover {
-              background-color: #fafafa;
-            }
-          }
-
-          td {
-            padding: 16px;
-            font-size: 14px;
-            color: #1a1a1a;
-            border-bottom: 1px solid #f0f0f0;
-          }
-        }
-
-        .transaction-row {
-          cursor: pointer;
-          transition: background-color 0.2s ease;
-        }
-
-        .col-date {
-          width: clamp(80px, 12vw, 150px);
-          font-weight: 500;
-        }
-
-        .col-asset {
-          width: clamp(70px, 12vw, 130px);
-          font-weight: 600;
-        }
-
-        .col-type {
-          width: clamp(70px, 12vw, 120px);
-
-          .type-badge {
-            display: inline-block;
-            padding: clamp(0.2rem, 0.4vw, 0.4rem) clamp(0.4rem, 0.8vw, 0.6rem);
-            border-radius: clamp(0.2rem, 0.4vw, 0.3rem);
-            font-size: clamp(0.6rem, 1.2vw, 0.8rem);
-            font-weight: 600;
-            color: white;
-          }
-        }
-
-        .col-amount {
-          width: clamp(70px, 12vw, 120px);
-        }
-
-        .col-price {
-          width: clamp(70px, 12vw, 120px);
-          font-weight: 500;
-        }
-
-        .col-pnl {
-          width: clamp(70px, 12vw, 120px);
-          font-weight: 600;
-        }
-
-        .col-actions {
-          width: clamp(50px, 10vw, 100px);
-          text-align: center;
-
-          .action-btn {
-            color: #999;
-            transition: all 0.3s ease;
-
-            &:hover {
-              color: #ff9800;
-            }
-          }
-        }
-      }
-    }
-
-    .no-transactions {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 3vw, 2.5rem);
-      text-align: center;
-      color: #999;
-
-      .empty-icon {
-        font-size: clamp(2rem, 4vw, 3rem);
-        width: clamp(2rem, 4vw, 3rem);
-        height: clamp(2rem, 4vw, 3rem);
-        color: #ddd;
-        margin-bottom: clamp(0.8rem, 1.5vw, 1.25rem);
-      }
-
-      p {
-        margin: 0;
-        font-size: clamp(0.8rem, 1.5vw, 1rem);
-      }
-    }
-
-    .subtitle {
-      font-size: clamp(0.75rem, 1.5vw, 0.95rem);
-      color: #999;
-      margin-top: clamp(0.2rem, 0.4vw, 0.3rem);
-      margin-bottom: 0;
-    }
-
-    .transaction-row {
-      &.transaction-type {
-        background-color: #fafbff;
-
-        &:hover {
-          background-color: #f0f5ff;
-        }
-      }
-    }
-
-    .text-muted {
-      color: #ccc;
-      font-style: italic;
-    }
+  mat-icon {
+    color: $accent;
+    opacity: 0.8;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
   }
 
   .disputes-history-section {
@@ -297,3 +75,77 @@
   }
 }
 
+.stat-value {
+  margin: 6px 0 2px;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+// ---------- Activity table ----------
+
+.table-wrap {
+  overflow-x: auto;
+  max-height: 600px;
+  overflow-y: auto;
+  margin: 0 -8px;
+}
+
+table {
+  @include table;
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #08201a;
+  }
+}
+
+.row {
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(46, 229, 157, 0.05);
+  }
+}
+
+.ticker {
+  font-weight: 600;
+}
+
+.date {
+  white-space: nowrap;
+
+  .day {
+    display: block;
+  }
+
+  .time {
+    display: block;
+    font-size: 12px;
+    color: $muted;
+  }
+}
+
+.badge {
+  @include badge;
+}
+
+.action {
+  width: 1%;
+  text-align: right;
+}
+
+.icon-button {
+  @include icon-button;
+
+  &.flag:hover {
+    color: $warn;
+    background: rgba(255, 196, 107, 0.1);
+  }
+}
+
+.empty {
+  @include empty-state;
+  margin: 0;
+}

@@ -1,34 +1,58 @@
 <div class="client-dashboard">
   <header class="page-header">
     <h1>Portfolio</h1>
-    <p>Your account value, holdings and recent activity</p>
   </header>
 
   <!-- Portfolio value: headline figure + graph -->
   <section class="card value-card">
-    <div class="value-header">
-      <p class="label">Portfolio value</p>
-      <h2 class="hero" *ngIf="portfolioMetrics as metrics; else valueLoading">{{ metrics.portfolioValue | currency }}</h2>
-      <ng-template #valueLoading>
-        <h2 class="hero muted">{{ isLoadingPortfolio ? 'Loading…' : '—' }}</h2>
-      </ng-template>
-      <p class="caption">{{ portfolioError || 'The graph adds a point each time your portfolio value changes' }}</p>
+    <div class="value-top">
+      <div class="value-header">
+        <p class="label">Portfolio value</p>
+        <h2 class="hero" *ngIf="portfolioMetrics as metrics; else valueLoading">
+          {{ metrics.portfolioValue | currency }}
+        </h2>
+        <ng-template #valueLoading>
+          <h2 class="hero muted">{{ isLoadingPortfolio ? 'Loading…' : '—' }}</h2>
+        </ng-template>
+        <p class="caption" *ngIf="portfolioError; else changeCaption">{{ portfolioError }}</p>
+        <ng-template #changeCaption>
+          <p class="caption" *ngIf="rangeChange as change">
+            <span class="change" [class.up]="change.up" [class.down]="!change.up">{{
+              change.text
+            }}</span>
+            {{ rangeCaption }}
+          </p>
+        </ng-template>
+      </div>
+
+      <div class="pills" role="group" aria-label="Graph range">
+        <button
+          *ngFor="let range of ranges"
+          type="button"
+          [class.active]="selectedRange === range.value"
+          [attr.aria-pressed]="selectedRange === range.value"
+          (click)="selectRange(range.value)"
+        >
+          {{ range.value }}
+        </button>
+      </div>
     </div>
 
     <app-value-chart [points]="chartPoints" />
+    <p class="caption" *ngIf="historyNote">{{ historyNote }}</p>
   </section>
 
   <!-- Supporting figures -->
   <div class="stats">
     <section class="card stat">
       <p class="label">Buying power</p>
-      <p class="stat-value">{{ portfolioMetrics ? (portfolioMetrics.buyingPower | currency) : '—' }}</p>
-      <p class="stat-note">Cash available for new orders</p>
+      <p class="stat-value">
+        {{ portfolioMetrics ? (portfolioMetrics.buyingPower | currency) : '—' }}
+      </p>
     </section>
     <section class="card stat">
       <p class="label">Holdings</p>
       <p class="stat-value">{{ holdingsData.length }}</p>
-      <p class="stat-note">{{ holdingsData.length === 1 ? 'Position' : 'Positions' }} in this account</p>
     </section>
   </div>
 
@@ -57,7 +81,12 @@
             <td class="num">{{ holding.avgCost | currency }}</td>
             <td class="num">
               {{ holding.currentPrice | currency }}
-              <span class="stale" *ngIf="!holding.priceIsLive" title="Live price unavailable; showing average cost">*</span>
+              <span
+                class="stale"
+                *ngIf="!holding.priceIsLive"
+                title="Live price unavailable; showing average cost"
+                >*</span
+              >
             </td>
             <td class="num">{{ holding.totalValue | currency }}</td>
             <td class="num" [class.up]="holding.return > 0" [class.down]="holding.return < 0">
@@ -68,7 +97,11 @@
       </table>
     </div>
     <p class="empty" *ngIf="holdingsData.length === 0">
-      {{ isLoadingPortfolio ? 'Loading holdings…' : 'No holdings yet. Buy something on the Markets page.' }}
+      {{
+        isLoadingPortfolio
+          ? 'Loading holdings…'
+          : 'No holdings yet. Buy something on the Markets page.'
+      }}
     </p>
   </section>
 
@@ -85,7 +118,9 @@
             <span class="ticker">{{ item.asset }}</span>
             <span class="name">{{ item.date | date: 'MMM d, h:mm a' }}</span>
           </span>
-          <span class="num">{{ item.price !== undefined ? (item.price | currency) : 'Pending' }}</span>
+          <span class="num">{{
+            item.price !== undefined ? (item.price | currency) : 'Pending'
+          }}</span>
         </li>
       </ul>
       <p class="empty" *ngIf="activityData.length === 0">
@@ -97,13 +132,19 @@
       <h3 class="card-title">Cash activity</h3>
       <ul class="list" *ngIf="transactionData.length > 0">
         <li *ngFor="let item of transactionData">
-          <span class="badge" [class.deposit]="item.type === 'deposit'" [class.withdrawal]="item.type === 'withdrawal'">
+          <span
+            class="badge"
+            [class.deposit]="item.type === 'deposit'"
+            [class.withdrawal]="item.type === 'withdrawal'"
+          >
             {{ item.type === 'deposit' ? 'Deposit' : 'Withdrawal' }}
           </span>
           <span class="list-main">
             <span class="name">{{ item.date | date: 'MMM d, h:mm a' }}</span>
           </span>
-          <span class="num">{{ item.type === 'deposit' ? '+' : '−' }}{{ item.amount | currency }}</span>
+          <span class="num"
+            >{{ item.type === 'deposit' ? '+' : '−' }}{{ item.amount | currency }}</span
+          >
         </li>
       </ul>
       <p class="empty" *ngIf="transactionData.length === 0">

@@ -34,6 +34,16 @@ export interface Account {
   balance: AccountBalance;
 }
 
+export type ValueRange = '1D' | '1W' | '1M' | '1Y';
+
+// End-of-day account value (cash + holdings at that day's close), oldest first, up to yesterday
+export interface ValueHistory {
+  accountId: number;
+  range: ValueRange;
+  points: { date: string; value: number }[];
+  complete: boolean; // false when a holding had no price history and used its last trade price
+}
+
 export interface AccountPage {
   content: Account[];
   page: number;
@@ -76,5 +86,10 @@ export class AccountService {
   positions(accountId: number): Observable<{ content: AccountPosition[] }> {
     const params = new HttpParams().set('page', 0).set('size', 100);
     return this.http.get<{ content: AccountPosition[] }>(`${this.apiUrl}/${accountId}/positions`, { params });
+  }
+
+  valueHistory(accountId: number, range: ValueRange): Observable<ValueHistory> {
+    const params = new HttpParams().set('range', range);
+    return this.http.get<ValueHistory>(`${this.apiUrl}/${accountId}/value-history`, { params });
   }
 }

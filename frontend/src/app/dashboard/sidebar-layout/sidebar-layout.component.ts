@@ -31,7 +31,7 @@ import { AuthService } from '../../auth/services/auth.service';
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
-  ]
+  ],
 })
 export class SidebarLayoutComponent {
   // Account selector
@@ -41,8 +41,8 @@ export class SidebarLayoutComponent {
   clientMenuItems = [
     { label: 'Portfolio', icon: 'work_bag', route: '/client-dashboard' },
     { label: 'Markets', icon: 'trending_up', route: '/markets' },
-    { label: 'Compare Markets', icon: 'join_inner', route: '/compare' },
-    { label: 'Transaction History', icon: 'history', route: '/transactions' }
+    { label: 'Compare Stocks', icon: 'join_inner', route: '/compare' },
+    { label: 'Transaction History', icon: 'history', route: '/transactions' },
   ];
 
   adminMenuItems = [

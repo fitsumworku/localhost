@@ -1,11 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTableModule } from '@angular/material/table';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { DisputeDetailDialogComponent } from './dispute-detail-dialog/dispute-detail-dialog.component';
 
@@ -27,11 +23,7 @@ interface Dispute {
   imports: [
     CommonModule,
     FormsModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatButtonModule,
     MatIconModule,
-    MatTableModule,
     MatDialogModule,
   ],
   templateUrl: './client-disputes.component.html',
@@ -99,19 +91,20 @@ export class ClientDisputesComponent implements OnInit {
       width: '600px',
       data: dispute,
       disableClose: false,
+      panelClass: ['dark-ui', 'app-dialog'],
     });
   }
 
-  getStatusColor(status: DisputeStatus): string {
+  getStatusTone(status: DisputeStatus): string {
     switch (status) {
       case 'open':
-        return '#ff9800';
+        return 'warning';
       case 'in-review':
-        return '#2196f3';
+        return 'info';
       case 'resolved':
-        return '#51cf66';
+        return 'positive';
       default:
-        return '#999';
+        return '';
     }
   }
 

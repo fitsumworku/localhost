@@ -1,5 +1,5 @@
-// Shared look for the client pages (portfolio, markets): the same dark green
-// glass style as the login/signup cards.
+// Shared look for every page inside the sidebar layout (client and admin): the
+// same dark green glass style as the login/signup cards.
 @forward '../auth/auth-tokens';
 @use '../auth/auth-tokens' as *;
 
@@ -7,6 +7,8 @@ $card-bg: rgba(6, 28, 20, 0.55);
 $hairline: rgba(232, 255, 245, 0.08);
 $up: #2ee59d;
 $down: #ff7a7a;
+$warn: #ffc46b;
+$info: #6bc8ff;
 
 @mixin page {
   display: flex;
@@ -121,6 +123,117 @@ $down: #ff7a7a;
   text-align: center;
   color: $muted;
   font-size: 14px;
+}
+
+// Search box with a leading icon, same field style as the login form.
+// Markup: <label class="search"><mat-icon>search</mat-icon><input /></label>
+@mixin search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  max-width: 420px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: rgba(2, 15, 10, 0.55);
+  border: 1px solid rgba(232, 255, 245, 0.1);
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &:focus-within {
+    border-color: $accent;
+    box-shadow: 0 0 0 4px rgba(46, 229, 157, 0.12);
+
+    mat-icon {
+      color: $accent;
+    }
+  }
+
+  mat-icon {
+    color: $muted;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: $text;
+    font: inherit;
+    font-size: 14px;
+
+    &::placeholder {
+      color: $muted;
+    }
+  }
+}
+
+// Status pill. Add .positive, .negative, .warning or .info for the tone.
+@mixin badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(232, 255, 245, 0.06);
+  color: $muted;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &.positive {
+    background: rgba(46, 229, 157, 0.14);
+    color: $up;
+  }
+
+  &.negative {
+    background: rgba(255, 122, 122, 0.14);
+    color: $down;
+  }
+
+  &.warning {
+    background: rgba(255, 196, 107, 0.14);
+    color: $warn;
+  }
+
+  &.info {
+    background: rgba(107, 200, 255, 0.14);
+    color: $info;
+  }
+}
+
+// Small borderless icon button (row actions, close, remove)
+@mixin icon-button {
+  display: inline-grid;
+  place-items: center;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: $muted;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    color: $text;
+    background: rgba(232, 255, 245, 0.06);
+  }
 }
 
 @mixin primary-button {
