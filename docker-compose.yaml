@@ -7,9 +7,10 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # Business operations continue to use OLTP only.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB:-sampleoltpdata}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "8081:8081"
     depends_on:
@@ -23,14 +24,39 @@ services:
       context: .
       dockerfile: Dockerfile.postgres
     container_name: postgres_container
-    env_file:
-      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sampleoltpdata}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
-      - "5432:5432"
+      - "${OLTP_HOST_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgres-olap:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres.olap
+    container_name: postgres_olap_container
+    environment:
+      POSTGRES_DB: ${OLAP_POSTGRES_DB:-sampleolapdata}
+      POSTGRES_USER: ${OLAP_POSTGRES_USER:-postgres}
+      # Existing .env files still work. Set a separate password when desired.
+      POSTGRES_PASSWORD: ${OLAP_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}}
+    ports:
+      - "${OLAP_HOST_PORT:-5433}:5432"
+    volumes:
+      - olap_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,6 +73,8 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
+      postgres-olap:
+        condition: service_healthy
     restart: unless-stopped
   frontend:
     build:
@@ -59,3 +87,4 @@ services:
 
 volumes:
   pgdata:
+  olap_pgdata:
