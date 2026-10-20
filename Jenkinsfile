@@ -64,6 +64,9 @@ pipeline {
                             echo "Host npm not found; running frontend build in Node Docker container"
                             docker run --rm \
                                 -u "$(id -u):$(id -g)" \
+                                -e HOME=/tmp \
+                                -e NPM_CONFIG_CACHE=/tmp/.npm \
+                                -e NPM_CONFIG_UPDATE_NOTIFIER=false \
                                 -v "$PWD:/workspace" \
                                 -w /workspace \
                                 node:22-alpine \
