@@ -31,7 +31,7 @@ import { AuthService } from '../../auth/services/auth.service';
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
-  ]
+  ],
 })
 export class SidebarLayoutComponent {
   // Account selector
@@ -42,14 +42,13 @@ export class SidebarLayoutComponent {
     { label: 'Portfolio', icon: 'work_bag', route: '/client-dashboard' },
     { label: 'Markets', icon: 'trending_up', route: '/markets' },
     { label: 'Compare Stocks', icon: 'join_inner', route: '/compare' },
-    { label: 'Transaction History', icon: 'history', route: '/transactions' }
+    { label: 'Transaction History', icon: 'history', route: '/transactions' },
   ];
 
   adminMenuItems = [
     { label: 'Client Monitor', icon: 'people', route: '/admin-dashboard' },
     { label: 'Disputes', icon: 'gavel', route: '/disputes' },
     { label: 'Compliance', icon: 'verified_user', route: '/compliance' },
-    { label: 'Settings', icon: 'settings', route: '/settings' }
   ];
 
   // From the logged-in user's role, so admins keep the admin menu on every admin page
