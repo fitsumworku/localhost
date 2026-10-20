@@ -48,6 +48,24 @@ export interface AccountTrade {
   tradeDate: string;
 }
 
+export interface AccountDispute {
+  disputeId: number;
+  accountId: number;
+  adminId: number | null;
+  transactionId: number | null;
+  tradeId: number | null;
+  disputeType: string;
+  description: string;
+  status: string;
+  dateCreated: string;
+  dateResolved: string | null;
+}
+
+export interface CreateDisputeRequest {
+  disputeType: string;
+  description: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class TransactionHistoryService {
   private readonly apiUrl = '/api/accounts';
@@ -72,6 +90,35 @@ export class TransactionHistoryService {
     return this.http.get<PageResponse<AccountTrade>>(
       `${this.apiUrl}/${accountId}/trades`,
       { params: this.historyParams() },
+    );
+  }
+
+  disputes(accountId: number): Observable<PageResponse<AccountDispute>> {
+    return this.http.get<PageResponse<AccountDispute>>(
+      `${this.apiUrl}/${accountId}/disputes`,
+      { params: this.historyParams() },
+    );
+  }
+
+  createTransactionDispute(
+    accountId: number,
+    transactionId: number,
+    request: CreateDisputeRequest,
+  ): Observable<AccountDispute> {
+    return this.http.post<AccountDispute>(
+      `${this.apiUrl}/${accountId}/disputes/transaction/${transactionId}`,
+      request,
+    );
+  }
+
+  createTradeDispute(
+    accountId: number,
+    tradeId: number,
+    request: CreateDisputeRequest,
+  ): Observable<AccountDispute> {
+    return this.http.post<AccountDispute>(
+      `${this.apiUrl}/${accountId}/disputes/trade/${tradeId}`,
+      request,
     );
   }
 

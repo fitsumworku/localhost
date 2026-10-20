@@ -7,13 +7,19 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { DisputeTransactionDialogComponent } from './dispute-transaction-dialog/dispute-transaction-dialog.component';
+import {
+  DisputeDialogData,
+  DisputeDialogResult,
+  DisputeTransactionDialogComponent,
+} from './dispute-transaction-dialog/dispute-transaction-dialog.component';
 import { AccountPosition, AccountService } from '../services/account.service';
 import { MarketDataService, MarketQuote } from '../markets/services/market-data.service';
 import {
   AccountOrder,
   AccountTrade,
+  AccountDispute,
   CashTransaction,
+  CreateDisputeRequest,
   TransactionHistoryService,
 } from './services/transaction-history.service';
 
@@ -24,6 +30,8 @@ export interface Activity {
   amount: number;
   price?: number;
   pnl?: number;
+  transactionId?: number;
+  tradeId?: number;
 }
 
 interface PortfolioMetrics {
@@ -55,6 +63,7 @@ export class TransactionHistoryComponent {
   // Activity History Table
   displayedColumns: string[] = ['date', 'asset', 'type', 'amount', 'price', 'pnl', 'actions'];
   transactionData: Activity[] = [];
+  disputeData: AccountDispute[] = [];
   isLoading = false;
   errorMessage = '';
 
@@ -74,6 +83,7 @@ export class TransactionHistoryComponent {
         this.portfolioMetrics = null;
         this.portfolioError = 'Select an account to view portfolio metrics.';
         this.transactionData = [];
+        this.disputeData = [];
         this.errorMessage = 'Select an account to view transaction history.';
       }
     });
@@ -155,18 +165,23 @@ export class TransactionHistoryComponent {
       cash: this.historyService.cashTransactions(accountId),
       orders: this.historyService.orders(accountId),
       trades: this.historyService.trades(accountId),
+      disputes: this.historyService.disputes(accountId),
     }).pipe(finalize(() => {
       this.isLoading = false;
       this.changeDetector.markForCheck();
     })).subscribe({
-      next: ({ cash, orders, trades }: {
+      next: ({ cash, orders, trades, disputes }: {
         cash: { content: CashTransaction[] };
         orders: { content: AccountOrder[] };
         trades: { content: AccountTrade[] };
+        disputes: { content: AccountDispute[] };
       }) => {
+        if (this.accountService.selectedAccount()?.accountId !== accountId) return;
+
         const cashContent = this.contentOf(cash);
         const orderContent = this.contentOf(orders);
         const tradeContent = this.contentOf(trades);
+        this.disputeData = this.contentOf(disputes);
         console.log('[TransactionHistory] History response counts', {
           cash: cashContent.length,
           orders: orderContent.length,
@@ -183,8 +198,11 @@ export class TransactionHistoryComponent {
         this.changeDetector.markForCheck();
       },
       error: (error: unknown) => {
+        if (this.accountService.selectedAccount()?.accountId !== accountId) return;
+
         console.error('[TransactionHistory] Failed to load history', { accountId, error });
         this.transactionData = [];
+        this.disputeData = [];
         this.errorMessage = 'Transaction history is currently unavailable.';
         this.changeDetector.markForCheck();
       },
@@ -201,6 +219,7 @@ export class TransactionHistoryComponent {
       asset: 'Cash',
       type: transaction.type === 'DEPOSIT' ? 'deposit' : 'withdrawal',
       amount: transaction.amount,
+      transactionId: transaction.transactionId,
     };
   }
 
@@ -220,18 +239,58 @@ export class TransactionHistoryComponent {
       type: trade.side === 'B' ? 'buy' : 'sell',
       amount: trade.cashAmount,
       price: trade.priceOfExecution,
+      tradeId: trade.tradeId,
     };
   }
 
   openDisputeDialog(activity: Activity): void {
-    this.dialog.open(DisputeTransactionDialogComponent, {
+    const account = this.accountService.selectedAccount();
+    if (!account || (activity.transactionId === undefined && activity.tradeId === undefined)) {
+      return;
+    }
+
+    const data: DisputeDialogData = { accountId: account.accountId, activity };
+    const dialogRef = this.dialog.open(DisputeTransactionDialogComponent, {
       width: '90%',
       maxWidth: '500px',
       maxHeight: '90vh',
-      data: activity,
+      data,
       disableClose: false,
-      panelClass: 'dispute-dialog-panel'
+      panelClass: 'dispute-dialog-panel',
     });
+
+    dialogRef.afterClosed().subscribe((result: DisputeDialogResult | undefined) => {
+      if (!result) return;
+
+      const request = activity.transactionId !== undefined
+        ? this.historyService.createTransactionDispute(account.accountId, activity.transactionId, {
+          disputeType: this.disputeTypeFor(activity.type),
+          description: result.description,
+        })
+        : this.historyService.createTradeDispute(account.accountId, activity.tradeId!, {
+          disputeType: this.disputeTypeFor(activity.type),
+          description: result.description,
+        });
+
+      request.subscribe({
+        next: () => {
+          if (this.accountService.selectedAccount()?.accountId === account.accountId) {
+            this.loadHistory(account.accountId);
+          }
+        },
+        error: (error: unknown) => {
+          if (this.accountService.selectedAccount()?.accountId !== account.accountId) return;
+
+          console.error('[TransactionHistory] Failed to submit dispute', { accountId: account.accountId, error });
+          this.errorMessage = 'The dispute could not be submitted.';
+          this.changeDetector.markForCheck();
+        },
+      });
+    });
+  }
+
+  private disputeTypeFor(type: Activity['type']): CreateDisputeRequest['disputeType'] {
+    return type.toUpperCase();
   }
 
   getTypeColor(type: string): string {

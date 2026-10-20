@@ -1,7 +1,7 @@
 <div class="cash-dialog">
   <div class="dialog-header">
     <h2>{{ isDeposit ? 'Deposit Cash' : 'Withdraw Cash' }}</h2>
-    <button type="button" class="close-button" (click)="onCancel()" aria-label="Close">
+    <button mat-icon-button type="button" (click)="onCancel()" aria-label="Close">
       <mat-icon>close</mat-icon>
     </button>
   </div>
@@ -18,8 +18,8 @@
     <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
     <div class="dialog-actions">
-      <button type="button" class="secondary" (click)="onCancel()">Cancel</button>
-      <button type="submit" class="primary" [disabled]="form.invalid || isSubmitting">
+      <button mat-stroked-button type="button" (click)="onCancel()">Cancel</button>
+      <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || isSubmitting">
         {{ isSubmitting ? 'Submitting...' : (isDeposit ? 'Deposit' : 'Withdraw') }}
       </button>
     </div>

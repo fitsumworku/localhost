@@ -4,7 +4,7 @@
     <div class="transaction-info">
       <h2>Dispute Activity</h2>
       <p class="transaction-details">
-        {{ data.date }} • {{ data.asset }} • {{ data.type | uppercase }} • {{ data.amount }} • ${{ data.price }}
+        {{ data.activity.date }} • {{ data.activity.asset }} • {{ data.activity.type | uppercase }} • {{ data.activity.amount }}
       </p>
     </div>
     <button mat-icon-button (click)="close()" class="close-btn">
