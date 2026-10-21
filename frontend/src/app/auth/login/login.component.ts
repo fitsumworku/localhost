@@ -33,8 +33,8 @@ export class LoginComponent implements OnInit {
 
   initializeForm(): void {
     this.loginForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+      email: ['kent@gmail.com', [Validators.required, Validators.email]],
+      password: ['testpassword123', [Validators.required, Validators.minLength(12)]],
     });
   }
 
@@ -54,11 +54,14 @@ export class LoginComponent implements OnInit {
     const loginRequest: LoginRequest = this.loginForm.value;
 
     this.authService.login(loginRequest).subscribe({
-      next: (response: any) => {
+      next: () => {
         this.isLoading.set(false);
-        // TODO: Save JWT token to sessionStorage when implementing JWT logic
-        // this.authService.saveToken(response.accessToken);
-        this.router.navigate(['/account-type']); // Navigate to account type selection
+
+        if (this.authService.getRole() === 'ADMIN') {
+          this.router.navigate(['/admin-dashboard']);
+        } else {
+          this.router.navigate(['/client-dashboard']);
+        }
       },
       error: (error: HttpErrorResponse) => {
         this.isLoading.set(false);

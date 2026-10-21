@@ -43,7 +43,6 @@ public class DisputeService {
         if (!disputeRepository.existsTransactionForAccount(accountId, transactionId)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "TRANSACTION_NOT_FOUND", "Transaction not found for this account.");
         }
-
         Dispute dispute = disputeRepository.saveAndFlush(Dispute.forTransaction(
             accountId,
             transactionId,
@@ -63,7 +62,6 @@ public class DisputeService {
         if (!disputeRepository.existsTradeForAccount(accountId, tradeId)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "TRADE_NOT_FOUND", "Trade not found for this account.");
         }
-
         Dispute dispute = disputeRepository.saveAndFlush(Dispute.forTrade(
             accountId,
             tradeId,

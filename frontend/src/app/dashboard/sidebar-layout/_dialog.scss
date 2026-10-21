@@ -1,0 +1,97 @@
+// Shared look for the small dialogs opened from the account header (add account,
+// deposit/withdraw): same dark glass style as the trading dialog.
+@use '../ui' as *;
+
+@mixin dialog {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  color: $text;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  .dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: $text;
+    }
+  }
+
+  .close-button {
+    display: grid;
+    place-items: center;
+    padding: 6px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: $muted;
+    cursor: pointer;
+
+    &:hover {
+      color: $text;
+      background: rgba(232, 255, 245, 0.06);
+    }
+  }
+
+  mat-form-field {
+    width: 100%;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .secondary,
+  .primary {
+    height: 42px;
+    padding: 0 18px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .secondary {
+    border: 1px solid $border;
+    background: transparent;
+    color: $text;
+
+    &:hover {
+      border-color: $accent;
+      color: $accent;
+    }
+  }
+
+  .primary {
+    border: none;
+    background: linear-gradient(135deg, $accent, $accent-strong);
+    color: $bg;
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  }
+
+  .error {
+    margin: 0 0 12px;
+    color: $error;
+    font-size: 13px;
+  }
+}

@@ -11,13 +11,18 @@ export interface SignupRequest {
   password: string;
 }
 
+export type Role = 'ADMIN' | 'CLIENT';
+export type UserStatus = 'ACTIVE' | 'SUSPENDED';
+
 // UserDto
 export interface User {
   userId: number;
   name: string;
   email: string;
+  role: Role;
   createdDate: string;
-  status: string;
+  updatedDate: string;
+  status: UserStatus;
 }
 
 // Returned by POST /auth/login

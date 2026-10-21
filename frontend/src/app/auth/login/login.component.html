@@ -53,7 +53,7 @@
       Password is required
     </p>
     <p class="field-error" *ngIf="password?.touched && password?.hasError('minlength')">
-      Password must be at least 6 characters
+      Password must be at least 12 characters
     </p>
 
     <button type="submit" class="submit" [disabled]="isLoading()">

@@ -86,6 +86,34 @@ public class FauxnanceClient implements MarketDataClient {
         return Map.copyOf(result);
     }
 
+    /** One quota unit per call. Only well-formed candles are kept; any request-level error means no history. */
+    @Override public Optional<List<DailyClose>> dailyCloses(String symbol, LocalDate from, LocalDate to) {
+        if (properties.apiKey().isBlank()) return Optional.empty();
+        try {
+            URI uri = URI.create(properties.baseUrl().replaceAll("/+$", "") + "/candles/"
+                    + URLEncoder.encode(symbol, StandardCharsets.UTF_8) + "?from=" + from + "&to=" + to);
+            var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(properties.timeoutSeconds()))
+                    .header("X-Api-Key", properties.apiKey()).header("Accept", "application/json").GET().build();
+            var response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) return Optional.empty();
+            JsonNode candles = json.readTree(response.body()).path("data").path("candles");
+            if (!candles.isArray()) return Optional.empty();
+            List<DailyClose> closes = new ArrayList<>();
+            for (JsonNode candle : candles) {
+                if (!candle.path("close").isNumber() || candle.path("close").decimalValue().signum() <= 0) continue;
+                if (candle.path("synthetic").asBoolean(false) && !properties.allowSynthetic()) continue;
+                closes.add(new DailyClose(LocalDate.parse(candle.path("date").asText()), candle.path("close").decimalValue()));
+            }
+            closes.sort(Comparator.comparing(DailyClose::date));
+            return Optional.of(List.copyOf(closes));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Optional.empty();
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
     private QuoteResult parseQuote(String symbol, JsonNode item) {
         try {
             JsonNode q = item.path("quote");

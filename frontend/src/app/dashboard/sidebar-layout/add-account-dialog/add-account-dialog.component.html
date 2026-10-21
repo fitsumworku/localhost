@@ -1,0 +1,21 @@
+<div class="add-account-dialog">
+  <div class="dialog-header">
+    <h2>Add a New Account</h2>
+    <button type="button" (click)="onCancel()" class="close-button" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="dialog-form">
+    <p class="description">A new trading account will be opened and selected. You can switch between accounts from the account selector.</p>
+
+    <div class="dialog-actions">
+      <button type="button" class="secondary" (click)="onCancel()">
+        Cancel
+      </button>
+      <button type="button" class="primary" (click)="onSubmit()">
+        Create Account
+      </button>
+    </div>
+  </div>
+</div>
