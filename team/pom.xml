@@ -53,7 +53,7 @@
             <testResource><directory>src/test/resources</directory></testResource>
             <testResource>
                 <directory>${project.basedir}/../initdb</directory>
-                <includes><include>oltp_schema.sql</include></includes>
+                <includes><include>oltp_schema.sql</include><include>olap_schema.sql</include></includes>
                 <targetPath>db</targetPath>
             </testResource>
         </testResources>

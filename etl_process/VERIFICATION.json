@@ -1,0 +1,134 @@
+{
+  "verificationDateUtc": "2026-10-20",
+  "build": {
+    "command": "./mvnw -DskipTests package",
+    "result": "PASS",
+    "java": "OpenJDK 17.0.20",
+    "maven": "3.9.11",
+    "springBoot": "4.1.1"
+  },
+  "focusedReportingTests": {
+    "result": "PASS_WITH_NATIVE_TEST_SKIPPED",
+    "command": "./mvnw -Dtest=ReportingIntegrationTests,ReportingEtlServiceTests test",
+    "results": [
+      {
+        "class": "com.neueda.leap.team.reporting.ReportingIntegrationTests",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1,
+        "passed": 7,
+        "skippedCases": [
+          "competingNativePostgresRefreshReturnsConflict"
+        ]
+      },
+      {
+        "class": "com.neueda.leap.team.reporting.ReportingEtlServiceTests",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 4,
+        "skippedCases": []
+      }
+    ],
+    "total": 12,
+    "passed": 11,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "packagedApplicationFullSeedSmoke": {
+    "checksPassed": 43,
+    "checks": [
+      "Packaged application starts with separate databases",
+      "Seed admin login",
+      "Scheduled startup ETL runs successfully",
+      "Refresh 1 dim_user source count matches",
+      "Refresh 1 dim_account source count matches",
+      "Refresh 1 dim_security source count matches",
+      "Refresh 1 fact_orders source count matches",
+      "Refresh 1 fact_executions source count matches",
+      "Refresh 1 fact_trades source count matches",
+      "Refresh 1 fact_transactions source count matches",
+      "Refresh 1 fact_disputes source count matches",
+      "Refresh 1 summary accessible",
+      "Refresh 1 exact gross USD reconciliation",
+      "Refresh 1 exact buy/sell reconciliation",
+      "Refresh 1 trade count reconciliation",
+      "Refresh 1 all persisted orders counted",
+      "Manual full-seed ETL refresh after scheduled run",
+      "Refresh 2 dim_user source count matches",
+      "Refresh 2 dim_account source count matches",
+      "Refresh 2 dim_security source count matches",
+      "Refresh 2 fact_orders source count matches",
+      "Refresh 2 fact_executions source count matches",
+      "Refresh 2 fact_trades source count matches",
+      "Refresh 2 fact_transactions source count matches",
+      "Refresh 2 fact_disputes source count matches",
+      "Refresh 2 summary accessible",
+      "Refresh 2 exact gross USD reconciliation",
+      "Refresh 2 exact buy/sell reconciliation",
+      "Refresh 2 trade count reconciliation",
+      "Refresh 2 all persisted orders counted",
+      "OLTP unchanged by both ETL runs and reporting",
+      "Admin report volume/sectors",
+      "Admin report volume/securities",
+      "Admin report volume/users",
+      "Admin report volume/sides",
+      "Admin report orders",
+      "Admin report users",
+      "Admin report etl",
+      "ETF volume matches OLTP",
+      "Client population matches OLTP",
+      "Client login with reporting enabled",
+      "Client denied reporting",
+      "Client still accesses own accounts"
+    ],
+    "sourceCounts": {
+      "dim_user": 32,
+      "dim_account": 60,
+      "dim_security": 569,
+      "fact_orders": 789,
+      "fact_executions": 681,
+      "fact_trades": 582,
+      "fact_transactions": 318,
+      "fact_disputes": 20
+    },
+    "grossVolumeUsd": "377058.94",
+    "buyVolumeUsd": "282320.52",
+    "sellVolumeUsd": "94738.42",
+    "databaseEngine": "PGlite 0.5.8 via PostgreSQL JDBC sockets",
+    "nativePostgresDockerTested": false,
+    "liveFauxnanceTested": false
+  },
+  "scope": [
+    "No frontend changes",
+    "No OLTP schema changes",
+    "No runtime cash-ledger or audit implementation added",
+    "Existing stale-quote validation choice and its preexisting tests were not changed; no claim is made that the stale-quote test ran to its assertion successfully in the blocked full-suite attempt."
+  ],
+  "runtimeNotes": [
+    "Database integration used two isolated PGlite 0.5.8 databases exposed via pglite-socket 0.2.11, using PostgreSQL JDBC simple query mode and one pooled connection per database.",
+    "Mockito tests used an explicit Byte Buddy javaagent because the sandbox denies dynamic self-attachment. This is a validation-environment setting, not a production change.",
+    "Integration tests default to two disposable PostgreSQL16 Testcontainers databases on a machine with Docker. External disposable test databases require both explicit JDBC URLs and REPORTING_TEST_ALLOW_RESET=true.",
+    "Native PostgreSQL/Docker startup and cross-process concurrency were not executed. Native PostgreSQL binaries were obtained but the sandbox only maps uid0 and cannot start the server as a non-root user.",
+    "The initial whole-project suite attempt ran 111 tests with 47 passes and 64 errors under PGlite 0.5.10/socket 0.2.13; rollback/protocol and Mockito self-attachment failures prevented a reliable full-suite result. The focused reporting suite was rerun successfully after repairing the local harness and three nested Mockito stubs in the new unit tests. No claim is made that the entire preexisting suite passes.",
+    "No live Fauxnance requests were made."
+  ],
+  "files": {
+    "initdb/oltp_schema.sql": "40ed2e1a3dc84085dda6a89e1a7207c518ca4904d90a850bab39c33ebaa04c77",
+    "initdb/olap_schema.sql": "c5d96707b8d82e9fa16a0dab4e97c5d62e5168608edd8da2cc26631e56e29c9e",
+    "test_data/oltp_seed_full.sql": "34c4c4a5159749d40222bbc818c484f7292004aa4dda0de1d600e20849c2b2f1"
+  },
+  "additionalChecks": {
+    "staticComposeValidation": {
+      "passed": 6,
+      "dockerEngineStarted": false
+    },
+    "reportingSqlExamples": {
+      "executed": 14,
+      "engine": "PGlite"
+    }
+  }
+}

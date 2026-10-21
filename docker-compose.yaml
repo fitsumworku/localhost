@@ -7,14 +7,23 @@ services:
     env_file:
       - .env
     environment:
-      # Business operations continue to use OLTP only.
+      # Business operations continue to use OLTP; reporting has its own pool.
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB:-sampleoltpdata}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      REPORTING_ENABLED: ${REPORTING_ENABLED:-true}
+      OLAP_DB_URL: jdbc:postgresql://postgres-olap:5432/${OLAP_POSTGRES_DB:-sampleolapdata}
+      OLAP_DB_USERNAME: ${OLAP_POSTGRES_USER:-postgres}
+      OLAP_DB_PASSWORD: ${OLAP_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}}
+      ETL_ENABLED: ${ETL_ENABLED:-true}
+      ETL_INITIAL_DELAY_MS: ${ETL_INITIAL_DELAY_MS:-10000}
+      ETL_DELAY_MS: ${ETL_DELAY_MS:-60000}
     ports:
       - "8081:8081"
     depends_on:
       postgres-db:
+        condition: service_healthy
+      postgres-olap:
         condition: service_healthy
 
     restart: unless-stopped
