@@ -14,7 +14,7 @@ generators = [
     ("2. Users", "user_generation.py"),
     ("3. Accounts", "accounts_generation.py"),
     ("4. Cash Balances", "account_cash_balances_generator.py"),
-    # ("5. Securities", "securities_generation.py"),  # SKIP: using securities_insert.sql from market API
+    ("5. Securities", "securities_generation.py"),
     ("6. Orders", "orders_generation.py"),
     ("7. Order Reservations", "order_reservations_generator.py"),
     ("8. Executions/Trades/Transactions/CashLedger", "comprehensive_generator.py"),
@@ -53,12 +53,13 @@ for name, script in generators:
         
         if result.returncode == 0:
             print(f"[OK] {name} - SUCCESS")
-            results.append((name, "SUCCESS", result.stdout.split('\n')[-3] if result.stdout else ""))
             # Print last few lines of output
             output_lines = result.stdout.strip().split('\n')
             for line in output_lines[-3:]:
                 if line.strip():
                     print(f"   {line}")
+            detail = output_lines[-3] if len(output_lines) >= 3 else (output_lines[-1] if output_lines else "")
+            results.append((name, "SUCCESS", detail))
         else:
             print(f"[FAIL] {name} - FAILED")
             results.append((name, "FAILED", result.stderr[:100] if result.stderr else "Unknown error"))

@@ -1,0 +1,8 @@
+kafka-python==2.0.2
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.36
+pydantic==2.10.3
+python-dotenv==1.0.1
+PyYAML==6.0.2
+pytest==8.3.4
+pytest-cov==6.0.0

@@ -302,7 +302,7 @@ CREATE TABLE Cash_Ledger (
     Trade_ID BIGINT UNIQUE,
     Entry_Type VARCHAR(16) NOT NULL
         CHECK (Entry_Type IN ('DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST', 'FEE', 'BUY', 'SELL')),
-    -- Both amounts are positive magnitudes. Cash change = Debit_Amount - Credit_Amount.
+    -- Both amounts are positive magnitudes. Debit reduces cash; credit increases cash.
     Debit_Amount NUMERIC(20,2) NOT NULL DEFAULT 0
         CHECK (Debit_Amount >= 0 AND Debit_Amount < 'Infinity'::NUMERIC),
     Credit_Amount NUMERIC(20,2) NOT NULL DEFAULT 0
@@ -319,8 +319,8 @@ CREATE TABLE Cash_Ledger (
         (Transaction_ID IS NOT NULL AND Entry_Type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','INTEREST','FEE'))
         OR (Trade_ID IS NOT NULL AND Entry_Type IN ('BUY','SELL'))
     ),
-    CHECK ((Entry_Type IN ('DEPOSIT','DIVIDEND','INTEREST','SELL') AND Debit_Amount > 0)
-        OR (Entry_Type IN ('WITHDRAWAL','FEE','BUY') AND Credit_Amount > 0))
+    CHECK ((Entry_Type IN ('DEPOSIT','DIVIDEND','INTEREST','SELL') AND Credit_Amount > 0)
+        OR (Entry_Type IN ('WITHDRAWAL','FEE','BUY') AND Debit_Amount > 0))
 );
 
 -- Retained from the original schema; implementing a dispute UI remains optional.

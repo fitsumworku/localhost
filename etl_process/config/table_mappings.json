@@ -1,0 +1,7 @@
+{
+	"users": {
+		"topic": "debezium.oltp.public.users",
+		"target_table": "dim_user",
+		"key_column": "user_id"
+	}
+}

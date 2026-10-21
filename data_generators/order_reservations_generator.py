@@ -16,7 +16,7 @@ Reservations ensure that:
 from pathlib import Path
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Read orders from orders_insert.sql
 data_folder = Path(__file__).parent.parent / "data"
@@ -111,12 +111,16 @@ with open(output_path, "w") as f:
             reserved_quantity = f"{order['reserved_value']:.12f}"
         
         resolved_at_str = f"'{order['resolved_at']}'" if order['resolved_at'] else "NULL"
+        created_date_str = "CURRENT_TIMESTAMP"
+        if order['resolved_at']:
+            resolved_datetime = datetime.strptime(order['resolved_at'], '%Y-%m-%d %H:%M:%S')
+            created_date_str = f"'{(resolved_datetime - timedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S')}'"
         
         f.write(
             f"INSERT INTO Order_Reservations (Order_ID, Account_ID, Security_ID, Side, "
             f"Reserved_Cash, Reserved_Quantity, Status, Created_Date, Resolved_At) "
             f"VALUES ({order['order_id']}, {order['account_id']}, {order['security_id']}, '{side}', "
-            f"{reserved_cash}, {reserved_quantity}, '{order['status']}', CURRENT_TIMESTAMP, {resolved_at_str});\n"
+            f"{reserved_cash}, {reserved_quantity}, '{order['status']}', {created_date_str}, {resolved_at_str});\n"
         )
 
 print("Generated order reservations:")

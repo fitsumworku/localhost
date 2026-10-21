@@ -1,0 +1,451 @@
+================================================================================
+FULL LOCAL ETL SETUP AND INTEGRATION TEST STEPS
+================================================================================
+
+PURPOSE
+=======
+This document prepares the current repository for a full local ETL test:
+
+  PostgreSQL app (OLTP source)
+      -> Debezium PostgreSQL connector
+      -> Kafka topics
+      -> Python ETL consumer and transformers
+      -> PostgreSQL sampleolapdata (OLAP target)
+      -> Airflow orchestration and validation
+
+CURRENT REPOSITORY FACTS
+========================
+
+Available:
+  - Docker Compose PostgreSQL database: app
+  - PostgreSQL host port: 5432
+  - Data generators under data_generators/
+  - Generated SQL files under data/
+  - OLTP schema: initdb/oltp_schema.sql
+  - OLAP schema: initdb/olap_schema.sql
+  - Python 3.11 virtual environment under etl_process/venv/
+
+Must be added before the complete test:
+  - Kafka broker
+  - Kafka Connect with Debezium PostgreSQL connector
+  - Python ETL implementation
+  - Airflow DAGs and task modules
+
+DATABASE CONFIGURATION
+======================
+
+OLTP source:
+  Host: localhost
+  Port: 5432
+  Database: app
+  User: postgres
+  Password: postgres
+
+OLAP target:
+  Host: localhost
+  Port: 5432
+  Database: sampleolapdata
+  User: postgres
+  Password: postgres
+
+IMPORTANT:
+  - Docker Compose currently creates app automatically.
+  - sampleolapdata must already exist or be created manually.
+  - Do not use oltp_db or olap_db unless Compose is changed to create them.
+
+================================================================================
+PHASE 0: PREPARE THE REPOSITORY
+================================================================================
+
+STEP 0.1: Confirm Python Environment
+-------------------------------------
+
+Run in PowerShell:
+
+  cd C:\Users\Administrator\localhost\etl_process
+  .\venv\Scripts\Activate.ps1
+  python --version
+  python -m pip --version
+
+Expected Python version: 3.11.x.
+Do not use Python 3.14 for Airflow 2.7.0.
+
+STEP 0.2: Create the Python ETL Project
+---------------------------------------
+
+Create or implement these files:
+
+  etl_process/
+    requirements.txt
+    .env.example
+    .env
+    test_connectivity.py
+    config/
+      database.yaml
+      table_mappings.json
+      debezium-connector.json
+    src/
+      __init__.py
+      kafka_consumer.py
+      transformers.py
+      loaders.py
+      validators.py
+      monitoring.py
+    tests/
+      test_transformers.py
+      test_loaders.py
+      test_validators.py
+      test_integration.py
+
+These must contain real implementation. Do not use empty placeholder files.
+
+STEP 0.3: Create Python Dependencies
+------------------------------------
+
+requirements.txt should contain dependencies used by the actual source. A
+starting set is:
+
+  kafka-python==2.0.2
+  psycopg2-binary==2.9.9
+  SQLAlchemy==2.0.36
+  pydantic==2.10.3
+  python-dotenv==1.0.1
+  PyYAML==6.0.2
+  pytest==8.3.4
+  pytest-cov==6.0.0
+
+Install from the activated venv:
+
+  python -m pip install --upgrade pip
+  python -m pip install -r requirements.txt
+  python -c "import kafka, psycopg2, sqlalchemy, pydantic, dotenv, yaml, pytest; print('ETL dependencies ready')"
+
+STEP 0.4: Create ETL Environment Configuration
+-----------------------------------------------
+
+Create etl_process/.env. Do not commit it.
+
+  OLTP_HOST=localhost
+  OLTP_PORT=5432
+  OLTP_USER=postgres
+  OLTP_PASSWORD=postgres
+  OLTP_DATABASE=app
+
+  OLAP_HOST=localhost
+  OLAP_PORT=5432
+  OLAP_USER=postgres
+  OLAP_PASSWORD=postgres
+  OLAP_DATABASE=sampleolapdata
+
+  KAFKA_BROKERS=localhost:9092
+  KAFKA_CONSUMER_GROUP=etl_pipeline_consumer_group
+  KAFKA_TOPIC_PREFIX=debezium.oltp
+
+  BATCH_SIZE=1000
+  BATCH_TIMEOUT_SEC=30
+  MAX_RETRIES=3
+  RETRY_BACKOFF_SEC=5
+  LOG_LEVEL=INFO
+  LOG_DIR=./logs
+
+STEP 0.5: Add Kafka and Kafka Connect to Compose
+------------------------------------------------
+
+Edit the root docker-compose.yaml and add:
+
+  - Kafka broker reachable from the host at localhost:9092.
+  - KRaft mode or a coordination service such as ZooKeeper.
+  - Kafka Connect reachable from the host at localhost:8083.
+  - Debezium PostgreSQL connector plugin installed in Kafka Connect.
+  - Persistent Kafka data volumes.
+  - A shared Compose network for PostgreSQL, Kafka, and Kafka Connect.
+
+Kafka Connect must reach PostgreSQL using the Compose hostname postgres-db,
+not localhost. Inside a container, localhost means that same container.
+
+After editing Compose, run from the repository root:
+
+  cd C:\Users\Administrator\localhost
+  docker compose config
+  docker compose up -d --build
+  docker compose ps
+  Test-NetConnection localhost -Port 9092
+  Invoke-WebRequest http://localhost:8083/connector-plugins
+
+Do not continue until port 9092 and the Kafka Connect endpoint respond.
+
+STEP 0.6: Add Debezium Configuration
+------------------------------------
+
+Create:
+
+  etl_process/config/debezium-connector.json
+
+Use the current database contract:
+
+  database.hostname: postgres-db
+  database.port: 5432
+  database.user: postgres
+  database.dbname: app
+  plugin.name: pgoutput
+  slot.name: debezium_slot
+  publication.name: debezium_pub
+  topic.prefix: debezium.oltp
+  snapshot.mode: initial
+
+Keep passwords out of committed configuration files. Inject them from local
+secrets or environment variables.
+
+STEP 0.7: Add Airflow DAGs
+--------------------------
+
+Create:
+
+  airflow/
+    dags/
+      oltp_to_olap_dag.py
+      tasks/
+        validate_infrastructure.py
+        extract_kafka_metadata.py
+        dimension_load_daily.py
+        consume_kafka_events.py
+        transform_load_facts.py
+        refresh_aggregates.py
+        quality_checks.py
+        report_generation.py
+        monitor_pipeline_health.py
+
+The DAG must use app as the source database, sampleolapdata as the target
+database, and localhost:9092 for Kafka when running from the host.
+
+STEP 0.8: Run Readiness Checks
+------------------------------
+
+Run from PowerShell:
+
+  Test-Path C:\Users\Administrator\localhost\etl_process\requirements.txt
+  Test-Path C:\Users\Administrator\localhost\etl_process\test_connectivity.py
+  Test-Path C:\Users\Administrator\localhost\etl_process\src
+  Test-Path C:\Users\Administrator\localhost\etl_process\tests
+  Test-Path C:\Users\Administrator\localhost\airflow\dags
+  docker compose ps
+  Test-NetConnection localhost -Port 9092
+  Invoke-WebRequest http://localhost:8083/connector-plugins
+
+All path checks should return True. Kafka and Kafka Connect must respond.
+Stop if any readiness check fails.
+
+================================================================================
+PHASE 1: VERIFY POSTGRESQL
+================================================================================
+
+From the repository root:
+
+  cd C:\Users\Administrator\localhost
+  docker compose up -d --build
+  docker compose ps
+
+Verify OLTP:
+
+  psql -h 127.0.0.1 -p 5432 -U postgres -d app -c "SELECT current_database(), COUNT(*) AS users FROM users;"
+
+Expected: app and approximately 1000 users.
+
+Verify OLAP:
+
+  psql -h 127.0.0.1 -p 5432 -U postgres -d sampleolapdata -c "SELECT current_database();"
+
+Expected: sampleolapdata.
+
+If sampleolapdata does not exist:
+
+  docker exec postgres_container psql -U postgres -d app -c "CREATE DATABASE sampleolapdata;"
+  docker exec -i postgres_container psql -v ON_ERROR_STOP=1 -U postgres -d sampleolapdata < initdb/olap_schema.sql
+
+================================================================================
+PHASE 2: GENERATE AND LOAD TEST DATA
+================================================================================
+
+Generate all SQL files:
+
+  cd C:\Users\Administrator\localhost
+  python data_generators\RUN_ALL_GENERATORS.py
+
+Copy/load the generated SQL files in dependency order. Use one transaction per
+file and stop on errors:
+
+  roles_insert.sql
+  users_insert.sql
+  securities_insert.sql
+  accounts_insert.sql
+  account_cash_balances_insert.sql
+  orders_insert.sql
+  order_reservations_insert.sql
+  executions_insert.sql
+  trades_insert.sql
+  transactions_insert.sql
+  cash_ledger_insert.sql
+  account_positions_insert.sql
+  disputes_insert.sql
+
+Verify row counts in app after loading.
+
+================================================================================
+PHASE 3: CREATE KAFKA TOPICS
+================================================================================
+
+Create one topic per source table. Example:
+
+  docker exec kafka kafka-topics.sh --create --bootstrap-server localhost:9092 --topic debezium.oltp.public.users --partitions 6 --replication-factor 1 --config retention.ms=604800000
+
+Repeat for:
+
+  debezium.oltp.public.roles
+  debezium.oltp.public.users
+  debezium.oltp.public.accounts
+  debezium.oltp.public.account_cash_balances
+  debezium.oltp.public.securities
+  debezium.oltp.public.orders
+  debezium.oltp.public.order_reservations
+  debezium.oltp.public.executions
+  debezium.oltp.public.trades
+  debezium.oltp.public.transactions
+  debezium.oltp.public.cash_ledger
+  debezium.oltp.public.account_positions
+  debezium.oltp.public.disputes
+
+Verify:
+
+  docker exec kafka kafka-topics.sh --list --bootstrap-server localhost:9092
+  docker exec kafka kafka-topics.sh --describe --bootstrap-server localhost:9092 --topic debezium.oltp.public.users
+
+================================================================================
+PHASE 4: CONFIGURE DEBEZIUM CDC
+================================================================================
+
+Enable logical decoding in app:
+
+  psql -h 127.0.0.1 -p 5432 -U postgres -d app -c "SHOW wal_level;"
+
+Expected: logical.
+
+Create the replication slot if it does not exist:
+
+  psql -h 127.0.0.1 -p 5432 -U postgres -d app -c "SELECT * FROM pg_create_logical_replication_slot('debezium_slot', 'pgoutput');"
+
+Create the publication if it does not exist:
+
+  psql -h 127.0.0.1 -p 5432 -U postgres -d app -c "CREATE PUBLICATION debezium_pub FOR ALL TABLES;"
+
+Register the connector:
+
+  curl.exe -X POST http://127.0.0.1:8083/connectors -H "Content-Type: application/json" --data-binary "@etl_process/config/debezium-connector.json"
+
+Verify:
+
+  curl.exe http://127.0.0.1:8083/connectors/postgres-oltp-connector/status
+
+Expected: connector state RUNNING and task state RUNNING.
+
+Test a change:
+
+  psql -h 127.0.0.1 -p 5432 -U postgres -d app -c "UPDATE users SET name = 'CDC Test User' WHERE user_id = 1;"
+
+Confirm the corresponding users topic contains a Debezium event.
+
+================================================================================
+PHASE 5: TEST PYTHON ETL
+================================================================================
+
+Activate the ETL environment:
+
+  cd C:\Users\Administrator\localhost\etl_process
+  .\venv\Scripts\Activate.ps1
+
+Run connectivity:
+
+  python test_connectivity.py
+
+Run unit and integration tests:
+
+  pytest tests -v
+  pytest tests --cov=src --cov-report=term-missing
+
+Implement/test one complete slice first:
+
+  Kafka event -> transformer -> loader -> sampleolapdata
+
+Start with Users, then add Accounts, Securities, Orders, Executions, Trades,
+Transactions, Cash_Ledger, Account_Positions, and Disputes.
+
+Required behavior:
+
+  - Offset tracking
+  - Retry handling
+  - Duplicate protection
+  - Schema validation
+  - Data-quality checks
+  - Logging and metrics
+
+================================================================================
+PHASE 6: CONFIGURE AND TEST AIRFLOW
+================================================================================
+
+Create a separate Airflow environment using Python 3.11:
+
+  cd C:\Users\Administrator\localhost
+  py -3.11 -m venv airflow-venv
+  .\airflow-venv\Scripts\Activate.ps1
+
+Install Airflow:
+
+  python -m pip install apache-airflow==2.7.0
+  python -m pip install apache-airflow-providers-postgres==5.9.0
+  python -m pip install apache-airflow-providers-apache-kafka==1.2.0
+
+Initialize:
+
+  $env:AIRFLOW_HOME="C:\Users\Administrator\localhost\airflow_home"
+  airflow db init
+
+Create an admin user:
+
+  airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@localhost.com --password "change-this-password"
+
+Copy/deploy the actual DAG files, then verify:
+
+  airflow dags list
+  airflow dags test oltp_to_olap_daily 2026-10-16
+  airflow tasks test oltp_to_olap_daily validate_infrastructure 2026-10-16
+
+Start the webserver and scheduler in separate terminals:
+
+  airflow webserver --port 8080
+  airflow scheduler
+
+Trigger the full DAG:
+
+  airflow dags trigger oltp_to_olap_daily
+
+Monitor all tasks and logs until the DAG completes successfully.
+
+================================================================================
+FINAL FULL-ETL SUCCESS CRITERIA
+================================================================================
+
+The full test passes only when:
+
+  - app and sampleolapdata are reachable.
+  - Kafka responds on localhost:9092.
+  - Kafka Connect responds on localhost:8083.
+  - Debezium connector and task are RUNNING.
+  - CDC events appear in Kafka.
+  - Python connectivity checks pass.
+  - Unit and integration tests pass.
+  - Airflow DAG parses and completes.
+  - Data is transformed and loaded into sampleolapdata.
+  - Duplicate/orphan checks return zero rows.
+  - Data-quality checks pass.
+
+Never use docker compose down -v during testing unless you intentionally want to
+delete the PostgreSQL volume and rebuild all database data.

@@ -4,7 +4,7 @@ account_cash_balances_generator.py - Generate account cash balance data.
 
 The Account_Cash_Balances table tracks current cash position for each account.
 - Cash_Balance: Current cash available in the account (including deposits, withdrawals, trades)
-- Updated_At: Timestamp of last balance update
+- Updated_Date: Timestamp of last balance update
 
 Balances are calculated from:
 1. Initial deposits (from Transactions)
@@ -29,10 +29,10 @@ if not accounts_file.exists():
 
 with open(accounts_file, "r") as f:
     for line in f:
-        # Expected format: INSERT INTO Accounts (Account_ID, User_ID, Created_Date) 
-        # VALUES (1, 501, '2025-01-15 08:30:45');
+        # Expected format: INSERT INTO Accounts (Account_ID, User_ID, Currency, Created_Date, Updated_Date)
+        # VALUES (1, 501, 'USD', '2025-01-15 08:30:45', '2025-01-15 08:30:45');
         match = re.search(
-            r"VALUES \((\d+),\s*(\d+),\s*'([^']+)'\)",
+            r"VALUES \((\d+),\s*(\d+),\s*'[^']+',\s*'([^']+)'",
             line
         )
         if match:
@@ -63,12 +63,11 @@ with open(output_path, "w") as f:
         # Format with 2 decimal places
         cash_balance_fmt = f"{cash_balance:.2f}"
         
-        # Updated_At is set to now (or close to current time)
-        updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        updated_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         f.write(
-            f"INSERT INTO Account_Cash_Balances (Account_ID, Cash_Balance, Updated_At) "
-            f"VALUES ({account_id}, {cash_balance_fmt}, '{updated_at}');\n"
+            f"INSERT INTO Account_Cash_Balances (Account_ID, Cash_Balance, Updated_Date) "
+            f"VALUES ({account_id}, {cash_balance_fmt}, '{updated_date}');\n"
         )
 
 print("Generated account cash balances:")

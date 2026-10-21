@@ -142,6 +142,12 @@ def generate_orders(active_securities, account_ids):
             
             # Generate unique Client_Request_ID (UUID)
             client_request_id = str(uuid.uuid4())
+            execution_token = str(uuid.uuid4()) if order_status == 'IN_EXECUTION' else None
+            execution_lease_until = (
+                accepted_at + timedelta(seconds=10)
+                if order_status == 'IN_EXECUTION' and accepted_at else None
+            )
+            execution_attempts = 1 if order_status == 'IN_EXECUTION' else 0
             
             orders.append({
                 'order_id': order_id,
@@ -156,7 +162,12 @@ def generate_orders(active_securities, account_ids):
                 'updated_date': terminal_at or accepted_at or created_date,
                 'accepted_at': accepted_at,
                 'terminal_at': terminal_at,
-                'rejection_reason': rejection_reason
+                'rejection_reason': rejection_reason,
+                'next_attempt_at': None,
+                'execution_token': execution_token,
+                'execution_lease_until': execution_lease_until,
+                'execution_attempts': execution_attempts,
+                'last_execution_message': None
             })
             
             order_id += 1
@@ -182,16 +193,22 @@ def format_orders_sql(orders):
         accepted_at_str = f"'{order['accepted_at'].strftime('%Y-%m-%d %H:%M:%S')}'" if order['accepted_at'] else "NULL"
         terminal_at_str = f"'{order['terminal_at'].strftime('%Y-%m-%d %H:%M:%S')}'" if order['terminal_at'] else "NULL"
         rejection_reason_str = f"'{order['rejection_reason']}'" if order['rejection_reason'] else "NULL"
+        next_attempt_at_str = "NULL"
+        execution_token_str = f"'{order['execution_token']}'" if order['execution_token'] else "NULL"
+        execution_lease_until_str = f"'{order['execution_lease_until'].strftime('%Y-%m-%d %H:%M:%S')}'" if order['execution_lease_until'] else "NULL"
+        last_execution_message_str = "NULL"
         
         sql = (
             f"INSERT INTO Orders (Order_ID, Account_ID, Security_ID, Client_Request_ID, Side, "
             f"Requested_Amount, Quantity_Ordered, Order_Status, Created_Date, Updated_Date, "
-            f"Accepted_At, Terminal_At, Rejection_Reason) "
+            f"Accepted_At, Terminal_At, Rejection_Reason, Next_Attempt_At, Execution_Token, "
+            f"Execution_Lease_Until, Execution_Attempts, Last_Execution_Message) "
             f"VALUES ({order['order_id']}, {order['account_id']}, {order['security_id']}, "
             f"'{order['client_request_id']}', '{order['side']}', {requested_amount_str}, {quantity_ordered_str}, "
             f"'{order['order_status']}', '{order['created_date'].strftime('%Y-%m-%d %H:%M:%S')}', "
             f"'{order['updated_date'].strftime('%Y-%m-%d %H:%M:%S')}', {accepted_at_str}, {terminal_at_str}, "
-            f"{rejection_reason_str});"
+            f"{rejection_reason_str}, {next_attempt_at_str}, {execution_token_str}, "
+            f"{execution_lease_until_str}, {order['execution_attempts']}, {last_execution_message_str});"
         )
         sql_lines.append(sql)
     
