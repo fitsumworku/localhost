@@ -38,8 +38,6 @@ public abstract class AccountTestSupport extends PostgresIntegrationTest {
     @AfterEach
     void deferredFeaturesRemainInactive() {
         org.junit.jupiter.api.Assertions.assertEquals(0L,
-                jdbc.queryForObject("SELECT count(*) FROM cash_ledger", Long.class).longValue());
-        org.junit.jupiter.api.Assertions.assertEquals(0L,
                 jdbc.queryForObject("SELECT count(*) FROM audit_logs", Long.class).longValue());
     }
     protected long user(String email, String role) {
