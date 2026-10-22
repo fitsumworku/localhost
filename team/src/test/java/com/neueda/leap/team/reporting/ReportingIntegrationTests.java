@@ -180,6 +180,30 @@ class ReportingIntegrationTests {
         assertThat(sides.get(0).path("volumeUsd").decimalValue().add(sides.get(1).path("volumeUsd").decimalValue())).isEqualByComparingTo("370.00");
     }
 
+    @Test void topClientsCanRankByOneSide() throws Exception {
+        refresh();
+        var sides = getReport("/reports/volume/sides").path("data");
+        for (var side : sides) {
+            String name = side.path("side").asText();
+            String other = name.equals("BUY") ? "sellVolumeUsd" : "buyVolumeUsd";
+            var top = getReport("/reports/volume/users?limit=100&side=" + name).path("data");
+            assertThat(top.size()).isPositive();
+            var total = java.math.BigDecimal.ZERO;
+            var previous = (java.math.BigDecimal) null;
+            for (var client : top) {
+                var volume = client.path("volume");
+                assertThat(volume.path(other).decimalValue()).isZero();
+                var gross = volume.path("grossVolumeUsd").decimalValue();
+                if (previous != null) assertThat(gross).isLessThanOrEqualTo(previous);
+                previous = gross;
+                total = total.add(gross);
+            }
+            assertThat(total).isEqualByComparingTo(side.path("volumeUsd").decimalValue());
+        }
+        mvc.perform(get("/reports/volume/users?side=HOLD").header("Authorization", bearer(admin)))
+                .andExpect(status().isBadRequest());
+    }
+
     @Test void refreshUpdatesBlacklistAndOrderStatusesWithoutDuplicatingHistory() throws Exception {
         refresh();
         source.update("UPDATE users SET status='SUSPENDED',updated_date=clock_timestamp() WHERE user_id=2");

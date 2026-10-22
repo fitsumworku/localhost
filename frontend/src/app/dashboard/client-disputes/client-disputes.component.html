@@ -1,7 +1,7 @@
 <div class="disputes">
   <header class="page-header">
     <h1>Client Disputes</h1>
-    <p>Manage and resolve client disputes</p>
+    <p>Review, reply to and resolve disputes raised by clients</p>
   </header>
 
   <!-- Filters: one row above the table -->
@@ -10,7 +10,7 @@
       <mat-icon>search</mat-icon>
       <input
         type="search"
-        placeholder="Search by client ID or reason"
+        placeholder="Search by client, ID or reason"
         [(ngModel)]="searchQuery"
         (input)="onSearchChange()"
         aria-label="Search disputes"
@@ -21,9 +21,9 @@
       <button
         *ngFor="let status of statusOptions"
         type="button"
-        [class.active]="isStatusFilterActive(status.value)"
-        [attr.aria-pressed]="isStatusFilterActive(status.value)"
-        (click)="selectStatusFilter(status.value)"
+        [class.active]="selectedStatus === status.value"
+        [attr.aria-pressed]="selectedStatus === status.value"
+        (click)="selectStatus(status.value)"
       >
         {{ status.label }}
       </button>
@@ -32,34 +32,60 @@
 
   <section class="card">
     <div class="table-wrap">
-      <table *ngIf="displayedDisputes.length > 0">
+      <table *ngIf="disputes.length > 0">
         <thead>
           <tr>
             <th>Date</th>
-            <th>Client ID</th>
+            <th>Client</th>
             <th>Reason</th>
             <th class="num">Disputed amount</th>
             <th>Status</th>
-            <th>Assigned owner</th>
+            <th>Replies</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let dispute of displayedDisputes" class="row" (click)="openDisputeDetail(dispute)">
-            <td class="muted">{{ dispute.date }}</td>
-            <td class="id">{{ dispute.clientId }}</td>
-            <td>{{ dispute.reason }}</td>
-            <td class="num">{{ dispute.disputedAmount | currency }}</td>
-            <td>
-              <span class="badge" [ngClass]="getStatusTone(dispute.status)">
-                {{ getStatusLabel(dispute.status) }}
-              </span>
+          <tr
+            *ngFor="let dispute of disputes"
+            class="row"
+            tabindex="0"
+            (click)="openDisputeDetail(dispute)"
+            (keydown.enter)="openDisputeDetail(dispute)"
+          >
+            <td class="date">
+              <span>{{ dispute.dateCreated | date: 'MMM d, y' }}</span>
+              <span class="muted">{{ dispute.dateCreated | date: 'h:mm a' }}</span>
             </td>
-            <td>{{ dispute.assignedOwner }}</td>
+            <td>
+              <span class="id">{{ dispute.clientName }}</span>
+              <span class="sub muted">#{{ dispute.clientId }} · Account {{ dispute.accountId }}</span>
+            </td>
+            <td class="reason">
+              <span class="type">{{ dispute.disputeType | titlecase }}</span>
+              <span class="sub muted">{{ dispute.description || 'No description' }}</span>
+            </td>
+            <td class="num">
+              <span *ngIf="dispute.disputedAmount !== null">{{ dispute.disputedAmount | currency }}</span>
+              <span *ngIf="dispute.disputedAmount === null" class="muted">—</span>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="statusTone(dispute.status)">{{ statusLabel(dispute.status) }}</span>
+            </td>
+            <td [class.muted]="dispute.responses.length === 0">
+              <span class="replies" *ngIf="dispute.responses.length > 0">
+                <mat-icon>chat_bubble_outline</mat-icon>{{ dispute.responses.length }}
+              </span>
+              <ng-container *ngIf="dispute.responses.length === 0">None yet</ng-container>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <p *ngIf="displayedDisputes.length === 0" class="empty">No disputes found</p>
+    <p *ngIf="isLoading" class="empty">Loading disputes…</p>
+    <p *ngIf="!isLoading && errorMessage" class="empty">{{ errorMessage }}</p>
+    <p *ngIf="!isLoading && !errorMessage && disputes.length === 0" class="empty">No disputes found</p>
+    <p *ngIf="disputes.length > 0 && totalElements > disputes.length" class="empty">
+      Showing the newest {{ disputes.length }} of {{ totalElements }}. Narrow the search to see more.
+    </p>
   </section>
 </div>

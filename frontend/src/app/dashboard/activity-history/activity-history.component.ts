@@ -22,6 +22,7 @@ import {
   CreateDisputeRequest,
   TransactionHistoryService,
 } from './services/transaction-history.service';
+import { disputeStatusLabel, disputeStatusTone } from '../services/dispute-status';
 
 export interface Activity {
   date: string;
@@ -66,6 +67,9 @@ export class TransactionHistoryComponent {
   disputeData: AccountDispute[] = [];
   isLoading = false;
   errorMessage = '';
+
+  readonly statusLabel = disputeStatusLabel;
+  readonly statusTone = disputeStatusTone;
 
   constructor(
     private dialog: MatDialog,

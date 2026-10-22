@@ -1,113 +1,86 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatCardModule } from '@angular/material/card';
+import { Observable, concat, defer, of } from 'rxjs';
+import { last } from 'rxjs/operators';
+import { AdminDispute, AdminService, DisputeStatus } from '../../services/admin.service';
+import { WORKFLOW_STATUSES, disputeStatusLabel, disputeStatusTone } from '../../services/dispute-status';
 
-type DisputeStatus = 'open' | 'in-review' | 'resolved';
-
-interface Dispute {
-  id: string;
-  date: string;
-  clientId: string;
-  reason: string;
-  disputedAmount: number;
-  status: DisputeStatus;
-  assignedOwner: string;
-}
+const MAX_REPLY_LENGTH = 2000;
 
 @Component({
   selector: 'app-dispute-detail-dialog',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    ReactiveFormsModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatButtonModule,
-    MatIconModule,
-    MatCardModule,
-  ],
+  imports: [CommonModule, FormsModule, MatDialogModule, MatIconModule],
   templateUrl: './dispute-detail-dialog.component.html',
   styleUrl: './dispute-detail-dialog.component.scss',
 })
 export class DisputeDetailDialogComponent {
-  detailForm: FormGroup;
+  readonly statusOptions = WORKFLOW_STATUSES;
+  readonly statusLabel = disputeStatusLabel;
+  readonly statusTone = disputeStatusTone;
+  readonly maxReplyLength = MAX_REPLY_LENGTH;
 
-  statusOptions = [
-    { value: 'open', label: 'Open' },
-    { value: 'in-review', label: 'In Review' },
-    { value: 'resolved', label: 'Resolved' },
-  ];
-
-//   assigneeOptions = [
-//     { value: 'maya-chen', label: 'Maya Chen' },
-//     { value: 'omar-patel', label: 'Omar Patel' },
-//     { value: 'priya-shah', label: 'Priya Shah' },
-//     { value: 'daniel-kim', label: 'Daniel Kim' },
-//     { value: 'sofia-martinez', label: 'Sofia Martinez' },
-//   ];
+  selectedStatus: DisputeStatus;
+  reply = '';
+  isSaving = false;
+  errorMessage = '';
 
   constructor(
-    @Inject(MAT_DIALOG_DATA) public data: Dispute,
-    private fb: FormBuilder,
-    private dialogRef: MatDialogRef<DisputeDetailDialogComponent>
+    @Inject(MAT_DIALOG_DATA) public data: AdminDispute,
+    private dialogRef: MatDialogRef<DisputeDetailDialogComponent>,
+    private admin: AdminService,
+    private changeDetector: ChangeDetectorRef,
   ) {
-    this.detailForm = this.fb.group({
-      status: [this.data.status, Validators.required],
-      assignedOwner: [this.data.assignedOwner, Validators.required],
-      notes: ['', Validators.minLength(10)],
-    });
+    this.selectedStatus = data.status;
   }
 
-  getStatusTone(status: DisputeStatus): string {
-    switch (status) {
-      case 'open':
-        return 'warning';
-      case 'in-review':
-        return 'info';
-      case 'resolved':
-        return 'positive';
-      default:
-        return '';
-    }
+  get hasReply(): boolean {
+    return this.reply.trim().length > 0;
   }
 
-  getStatusLabel(status: DisputeStatus): string {
-    switch (status) {
-      case 'open':
-        return 'Open';
-      case 'in-review':
-        return 'In Review';
-      case 'resolved':
-        return 'Resolved';
-      default:
-        return status;
-    }
+  get hasChanges(): boolean {
+    return this.selectedStatus !== this.data.status || this.hasReply;
+  }
+
+  get saveLabel(): string {
+    if (this.isSaving) return 'Saving…';
+    const resolving = this.selectedStatus === 'RESOLVED' && this.data.status !== 'RESOLVED';
+    if (resolving) return this.hasReply ? 'Reply and resolve' : 'Resolve dispute';
+    if (this.hasReply && this.selectedStatus === this.data.status) return 'Send reply';
+    return 'Save changes';
+  }
+
+  selectStatus(status: DisputeStatus): void {
+    this.selectedStatus = status;
   }
 
   onSave(): void {
-    if (this.detailForm.valid) {
-      const updatedData = {
-        ...this.data,
-        status: this.detailForm.get('status')?.value,
-        assignedOwner: this.detailForm.get('assignedOwner')?.value,
-        notes: this.detailForm.get('notes')?.value,
-      };
-      console.log('Dispute updated:', updatedData);
-      this.dialogRef.close(updatedData);
+    if (!this.hasChanges || this.isSaving || this.reply.length > MAX_REPLY_LENGTH) return;
+    this.isSaving = true;
+    this.errorMessage = '';
+
+    // Send the reply first so the client sees it alongside the new status.
+    const steps: Observable<unknown>[] = [];
+    if (this.hasReply) steps.push(defer(() => this.admin.respondToDispute(this.data, this.reply.trim())));
+    if (this.selectedStatus !== this.data.status) {
+      steps.push(defer(() => this.admin.updateDisputeStatus(this.data, this.selectedStatus)));
     }
+
+    concat(...steps, of(null)).pipe(last()).subscribe({
+      next: () => this.dialogRef.close(true),
+      error: error => {
+        console.error('[Disputes] Failed to update dispute', { disputeId: this.data.disputeId, error });
+        this.errorMessage = error?.error?.message ?? 'The dispute could not be updated.';
+        this.isSaving = false;
+        this.changeDetector.markForCheck();
+      },
+    });
   }
 
   close(): void {
-    this.dialogRef.close();
+    this.dialogRef.close(false);
   }
 }

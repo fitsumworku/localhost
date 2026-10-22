@@ -93,8 +93,9 @@ public class UserService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasRole('ADMIN')")
-    public UserPageResponse listUsers(UserStatus status, RoleName role, int page, int size, String sort) {
+    public UserPageResponse listUsers(UserStatus status, RoleName role, String q, int page, int size, String sort) {
         if (page < 0 || size < 1 || size > 100) throw invalid("page must be nonnegative and size must be between 1 and 100.");
+        if (q != null && q.length() > 200) throw invalid("q must be at most 200 characters.");
         String[] parts = sort.split(",", -1);
         if (parts.length != 2 || !Set.of("userId", "name", "email", "createdDate").contains(parts[0])
                 || !(parts[1].equals("asc") || parts[1].equals("desc"))) {
@@ -106,6 +107,17 @@ public class UserService {
             var filters = new ArrayList<jakarta.persistence.criteria.Predicate>();
             if (status != null) filters.add(cb.equal(root.get("status"), status));
             if (role != null) filters.add(cb.equal(root.get("role").get("name"), role));
+            // q matches name or email (contains, case-insensitive) or an exact user ID.
+            if (q != null && !q.isBlank()) {
+                String term = q.strip();
+                String pattern = "%" + term.toLowerCase(Locale.ROOT)
+                        .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+                var matches = new ArrayList<jakarta.persistence.criteria.Predicate>();
+                matches.add(cb.like(cb.lower(root.get("name")), pattern, '\\'));
+                matches.add(cb.like(cb.lower(root.get("email")), pattern, '\\'));
+                if (term.matches("\\d{1,18}")) matches.add(cb.equal(root.get("id"), Long.parseLong(term)));
+                filters.add(cb.or(matches.toArray(new jakarta.persistence.criteria.Predicate[0])));
+            }
             return cb.and(filters.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
         Page<User> result = users.findAll(spec, PageRequest.of(page, size, sorting));

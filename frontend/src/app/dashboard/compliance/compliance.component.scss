@@ -11,12 +11,27 @@
 .toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
 }
 
 .search {
   @include search;
+}
+
+.pills {
+  @include pills;
+}
+
+.banner {
+  margin: 0;
+  color: $warn;
+  font-size: 14px;
+}
+
+.muted {
+  color: $muted;
 }
 
 .card {
@@ -53,8 +68,69 @@ table {
   text-align: right;
 }
 
-.icon-button {
-  @include icon-button;
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.text-button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: $muted;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover {
+    color: $text;
+  }
+}
+
+.status-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid $border;
+  border-radius: 8px;
+  background: transparent;
+  color: $text;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: $accent;
+    color: $accent;
+  }
+
+  &.danger:hover:not(:disabled),
+  &.confirming {
+    border-color: $down;
+    color: $down;
+  }
+
+  &.confirming {
+    background: rgba(255, 122, 122, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
 }
 
 .empty {

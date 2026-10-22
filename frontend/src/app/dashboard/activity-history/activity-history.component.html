@@ -119,7 +119,7 @@
             <th>Date</th>
             <th>Reason</th>
             <th>Type</th>
-            <th>Assigned admin</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody>
@@ -128,10 +128,21 @@
               <span class="day">{{ dispute.dateCreated | date: 'MMM d, y' }}</span>
               <span class="time">{{ dispute.dateCreated | date: 'h:mm a' }}</span>
             </td>
-            <td class="reason">{{ dispute.description }}</td>
+            <td class="reason">
+              <span>{{ dispute.description || 'No description' }}</span>
+              <ol *ngIf="dispute.responses.length > 0" class="admin-replies" aria-label="Replies from support">
+                <li *ngFor="let response of dispute.responses">
+                  <p class="reply-meta">
+                    <mat-icon>support_agent</mat-icon>
+                    {{ response.adminName }} · {{ response.createdDate | date: 'MMM d, h:mm a' }}
+                  </p>
+                  <p class="reply-text">{{ response.message }}</p>
+                </li>
+              </ol>
+            </td>
             <td><span class="badge">{{ dispute.disputeType | titlecase }}</span></td>
-            <td [class.muted]="dispute.adminId === null">
-              {{ dispute.adminId !== null ? ('Admin #' + dispute.adminId) : 'Unassigned' }}
+            <td>
+              <span class="badge" [ngClass]="statusTone(dispute.status)">{{ statusLabel(dispute.status) }}</span>
             </td>
           </tr>
         </tbody>

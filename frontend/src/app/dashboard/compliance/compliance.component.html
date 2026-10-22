@@ -1,7 +1,7 @@
 <div class="compliance">
   <header class="page-header">
     <h1>Compliance</h1>
-    <p>Manage client compliance and status</p>
+    <p>Search clients and blacklist or reinstate them.</p>
   </header>
 
   <div class="toolbar">
@@ -9,51 +9,94 @@
       <mat-icon>search</mat-icon>
       <input
         type="search"
-        placeholder="Search by client ID or name"
+        placeholder="Search by name, email or client ID"
         [(ngModel)]="searchQuery"
         (input)="onSearchChange()"
         aria-label="Search clients"
       />
     </label>
+
+    <div class="pills" role="group" aria-label="Status">
+      <button
+        *ngFor="let status of statusOptions"
+        type="button"
+        [class.active]="selectedStatus === status.value"
+        [attr.aria-pressed]="selectedStatus === status.value"
+        (click)="selectStatus(status.value)"
+      >
+        {{ status.label }}
+      </button>
+    </div>
   </div>
+
+  <p *ngIf="errorMessage && clients.length > 0" class="banner">{{ errorMessage }}</p>
 
   <section class="card">
     <div class="table-wrap">
-      <table *ngIf="displayedClients.length > 0">
+      <table *ngIf="clients.length > 0">
         <thead>
           <tr>
             <th>Client ID</th>
             <th>Name</th>
+            <th>Email</th>
             <th>Status</th>
             <th class="action" aria-label="Actions"></th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let client of displayedClients" class="row">
-            <td class="id">{{ client.id }}</td>
+          <tr *ngFor="let client of clients" class="row">
+            <td class="id">#{{ client.userId }}</td>
             <td>{{ client.name }}</td>
+            <td class="muted">{{ client.email }}</td>
             <td>
-              <span class="badge" [ngClass]="getStatusTone(client.status)">
-                <mat-icon>{{ client.status === 'active' ? 'check_circle' : 'block' }}</mat-icon>
-                {{ getStatusLabel(client.status) }}
+              <span class="badge" [ngClass]="client.status === 'ACTIVE' ? 'positive' : 'negative'">
+                <mat-icon>{{ client.status === 'ACTIVE' ? 'check_circle' : 'block' }}</mat-icon>
+                {{ client.status === 'ACTIVE' ? 'Active' : 'Blacklisted' }}
               </span>
             </td>
             <td class="action">
-              <button
-                type="button"
-                class="icon-button"
-                (click)="toggleClientStatus(client)"
-                [title]="'Toggle to ' + (client.status === 'active' ? 'Blacklisted' : 'Active')"
-                [attr.aria-label]="'Toggle to ' + (client.status === 'active' ? 'Blacklisted' : 'Active')"
-              >
-                <mat-icon>swap_horiz</mat-icon>
-              </button>
+              <div class="actions">
+                <button
+                  *ngIf="confirmingId === client.userId"
+                  type="button"
+                  class="text-button"
+                  (click)="cancelConfirm()"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="status-button"
+                  [class.danger]="client.status === 'ACTIVE'"
+                  [class.confirming]="confirmingId === client.userId"
+                  [disabled]="isUpdating(client)"
+                  (click)="onStatusAction(client)"
+                >
+                  <mat-icon>{{ client.status === 'ACTIVE' ? 'block' : 'undo' }}</mat-icon>
+                  {{
+                    client.status === 'ACTIVE'
+                      ? confirmingId === client.userId
+                        ? 'Confirm blacklist'
+                        : 'Blacklist'
+                      : 'Reinstate'
+                  }}
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <p *ngIf="displayedClients.length === 0" class="empty">No clients found</p>
+    <p *ngIf="isLoading" class="empty">Loading clients…</p>
+    <p *ngIf="!isLoading && errorMessage && clients.length === 0" class="empty">
+      {{ errorMessage }}
+    </p>
+    <p *ngIf="!isLoading && !errorMessage && clients.length === 0" class="empty">
+      No clients found
+    </p>
+    <p *ngIf="clients.length > 0 && totalElements > clients.length" class="empty">
+      Showing {{ clients.length }} of {{ totalElements }}. Narrow the search to see more.
+    </p>
   </section>
 </div>

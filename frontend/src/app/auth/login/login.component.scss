@@ -1,1 +1,8 @@
 @use '../auth-card';
+
+// Neutral notice (e.g. signed out after a session was revoked), not a login failure.
+.error-message.notice {
+  background: rgba(255, 196, 107, 0.1);
+  border-color: rgba(255, 196, 107, 0.3);
+  color: #ffc46b;
+}

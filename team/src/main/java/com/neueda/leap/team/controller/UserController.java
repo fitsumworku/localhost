@@ -19,10 +19,11 @@ public class UserController {
     public UserPageResponse listUsers(
             @RequestParam(required = false) UserStatus status,
             @RequestParam(required = false) RoleName role,
+            @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdDate,desc") String sort) {
-        return service.listUsers(status, role, page, size, sort);
+        return service.listUsers(status, role, q, page, size, sort);
     }
 
     @GetMapping("/{userId}")
