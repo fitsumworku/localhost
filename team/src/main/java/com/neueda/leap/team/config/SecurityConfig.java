@@ -63,12 +63,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/users/*").authenticated()
                         .requestMatchers(HttpMethod.POST, "/accounts", "/accounts/*/deposits", "/accounts/*/withdrawals").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.GET, "/accounts", "/accounts/*", "/accounts/*/balance",
-                                "/accounts/*/positions", "/accounts/*/orders", "/accounts/*/trades",
+                                "/accounts/*/positions", "/accounts/*/value-history", "/accounts/*/orders", "/accounts/*/trades",
                                 "/accounts/*/transactions", "/accounts/*/transactions/*")
                                 .hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/accounts/*/orders", "/accounts/*/orders/*/cancel").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.GET, "/accounts/*/orders/*", "/accounts/*/orders/*/executions",
-                                "/securities", "/securities/*", "/securities/*/quote").hasAnyRole("CLIENT", "ADMIN")
+                                "/securities", "/securities/*", "/securities/*/quote", "/securities/*/closes").hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/accounts/*/disputes/transaction/*", "/accounts/*/disputes/trade/*").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.GET, "/accounts/*/disputes", "/accounts/*/disputes/*").hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/accounts/*/disputes/*/assign-to-me").hasRole("ADMIN")

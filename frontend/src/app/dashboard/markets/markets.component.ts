@@ -1,107 +1,175 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTableModule } from '@angular/material/table';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { HttpErrorResponse } from '@angular/common/http';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { TradingDialogComponent } from './trading-dialog/trading-dialog.component';
+import { MarketDataService, MarketQuote, Security, SecurityPage } from './services/market-data.service';
+import { AccountService } from '../services/account.service';
 
-interface TrendingAsset {
-  symbol: string;
-  price: number;
-  change: number;
-  changePercent: string;
-}
+type AssetFilter = 'all' | 'equity' | 'etf' | 'crypto' | 'forex';
 
 interface MarketAsset {
+  securityId: number;
   symbol: string;
-  price: number;
-  change24h: number;
-  changePercent: string;
-  volume: string;
-  marketCap: string;
-  type: 'equity' | 'crypto' | 'etf';
+  name: string;
+  type: string;
+  price: number | null;
+  currency: string;
+  marketState: MarketQuote['marketState'] | null;
+  stale: boolean;
+  quoteStatus: 'loading' | 'ready' | 'unavailable';
 }
 
 @Component({
   selector: 'app-markets',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatButtonModule,
-    MatIconModule,
-    MatTableModule,
-    MatDialogModule,
-  ],
+  imports: [CommonModule, FormsModule, MatIconModule, MatDialogModule],
   templateUrl: './markets.component.html',
   styleUrl: './markets.component.scss',
 })
 export class MarketsComponent implements OnInit {
   searchQuery = '';
-  selectedFilter = 'all';
-
-  trendingAssets: TrendingAsset[] = [
-    { symbol: '', price: 0, change: 0, changePercent: '' },
-    { symbol: '', price: 0, change: 0, changePercent: '' },
-    { symbol: '', price: 0, change: 0, changePercent: '' },
+  selectedFilter: AssetFilter = 'all';
+  readonly filters: { value: AssetFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'equity', label: 'Stocks' },
+    { value: 'etf', label: 'ETFs' },
+    { value: 'crypto', label: 'Crypto' },
+    { value: 'forex', label: 'FX' },
   ];
 
-  allMarketAssets: MarketAsset[] = [];
-
   marketAssets: MarketAsset[] = [];
-  displayedColumns: string[] = ['symbol', 'price', 'change', 'volume', 'marketCap'];
+  errorMessage = '';
+  isLoading = false;
 
-  constructor(private dialog: MatDialog) {}
+  // Searching waits until typing pauses, so each keystroke doesn't cost a round of quotes
+  private readonly search$ = new Subject<string>();
 
-  ngOnInit(): void {
-    this.filterAssets();
+  constructor(
+    private dialog: MatDialog,
+    private marketData: MarketDataService,
+    private accountService: AccountService,
+    private changeDetector: ChangeDetectorRef,
+  ) {
+    this.search$
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(inject(DestroyRef)))
+      .subscribe(() => this.loadSecurities());
   }
 
-  filterAssets(): void {
-    let filtered = this.allMarketAssets;
-
-    // Apply asset type filter
-    if (this.selectedFilter !== 'all') {
-      filtered = filtered.filter(asset => asset.type === this.selectedFilter);
-    }
-
-    // Apply search filter
-    if (this.searchQuery.trim()) {
-      const query = this.searchQuery.toLowerCase();
-      filtered = filtered.filter(asset => asset.symbol.toLowerCase().includes(query));
-    }
-
-    this.marketAssets = filtered;
+  ngOnInit(): void {
+    this.loadSecurities();
   }
 
   onSearchChange(): void {
-    this.filterAssets();
+    this.search$.next(this.searchQuery.trim());
   }
 
-  selectFilter(filter: string): void {
+  selectFilter(filter: AssetFilter): void {
+    if (filter === this.selectedFilter) return;
     this.selectedFilter = filter;
-    this.filterAssets();
+    this.loadSecurities();
   }
 
-  isFilterActive(filter: string): boolean {
-    return this.selectedFilter === filter;
-  }
+  private loadSecurities(): void {
+    this.errorMessage = '';
+    this.isLoading = true;
 
-  openTradingDialog(asset: MarketAsset): void {
-    this.dialog.open(TradingDialogComponent, {
-      width: '500px',
-      data: asset,
-      disableClose: false,
+    // The backend only searches by text, and sorts by ticker, so crypto (X:...) and FX
+    // (FX:...) never appear in the first page. Their ticker prefix finds them instead.
+    const text = this.searchQuery.trim();
+    const query = text || (this.selectedFilter === 'crypto' ? 'X:' : this.selectedFilter === 'forex' ? 'FX:' : '');
+
+    this.marketData.listSecurities(query).subscribe({
+      next: (page: SecurityPage) => {
+        this.isLoading = false;
+        this.marketAssets = page.content
+          .map((security: Security) => this.toMarketAsset(security))
+          .filter((asset) => this.selectedFilter === 'all' || asset.type === this.selectedFilter);
+        this.loadQuotes();
+        this.changeDetector.markForCheck();
+      },
+      error: (error: HttpErrorResponse) => {
+        console.error('[Markets] Failed to load securities', { search: query, error });
+        this.isLoading = false;
+        this.marketAssets = [];
+        this.errorMessage = 'Market data is currently unavailable.';
+        this.changeDetector.markForCheck();
+      },
     });
   }
 
-  getChangeColor(change: number): string {
-    return change >= 0 ? '#51cf66' : '#ff6b6b';
+  // Only the rows on screen are quoted
+  private loadQuotes(): void {
+    this.marketAssets.forEach((asset) => {
+      this.marketData.quote(asset.securityId).subscribe({
+        next: (quote: MarketQuote) => {
+          asset.price = quote.price;
+          asset.currency = quote.currency || asset.currency;
+          asset.marketState = quote.marketState;
+          asset.stale = quote.stale;
+          asset.quoteStatus = 'ready';
+          this.changeDetector.markForCheck();
+        },
+        error: (error: HttpErrorResponse) => {
+          console.error('[Markets] Failed to load quote', { securityId: asset.securityId, symbol: asset.symbol, error });
+          asset.quoteStatus = 'unavailable';
+          this.changeDetector.markForCheck();
+        },
+      });
+    });
+  }
+
+  private toMarketAsset(security: Security): MarketAsset {
+    return {
+      securityId: security.securityId,
+      symbol: security.ticker,
+      name: security.name,
+      type: security.assetType.toLowerCase(),
+      price: null,
+      currency: security.quoteCurrency,
+      marketState: null,
+      stale: false,
+      quoteStatus: 'loading',
+    };
+  }
+
+  // Crypto trades around the clock; the backend treats it as always open
+  isOpen(asset: MarketAsset): boolean {
+    return asset.type === 'crypto' || asset.marketState === 'open';
+  }
+
+  typeLabel(type: string): string {
+    return this.filters.find((filter) => filter.value === type)?.label ?? type;
+  }
+
+  openTradingDialog(asset: MarketAsset): void {
+    const accountId = this.accountService.selectedAccount()?.accountId;
+    if (!accountId) {
+      this.errorMessage = 'Create or select an account first (top right).';
+      return;
+    }
+    if (asset.price === null) {
+      this.errorMessage = `Waiting for a live price for ${asset.symbol}. Try again in a moment.`;
+      return;
+    }
+    this.errorMessage = '';
+    this.dialog.open(TradingDialogComponent, {
+      width: '440px',
+      maxWidth: '92vw',
+      data: {
+        accountId,
+        securityId: asset.securityId,
+        symbol: asset.symbol,
+        name: asset.name,
+        price: asset.price,
+        currency: asset.currency,
+        isOpen: this.isOpen(asset),
+      },
+      panelClass: ['dark-ui', 'app-dialog'],
+    });
   }
 }

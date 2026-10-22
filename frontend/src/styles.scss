@@ -1,1 +1,54 @@
-/* You can add global styles to this file, and also import other style files */
+@use '@angular/material' as mat;
+@use 'app/auth/auth-tokens' as *;
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+// Dark Material tokens for the pages inside the sidebar layout and their dialogs,
+// matching the login/signup look. Overlays (dialogs, select panels) render
+// outside the layout, so they opt in with panelClass: 'dark-ui'.
+.dark-ui {
+  color-scheme: dark;
+  @include mat.theme((
+    color: (
+      theme-type: dark,
+      primary: mat.$spring-green-palette,
+    ),
+    typography: Inter,
+    density: 0,
+  ));
+
+  --mat-sys-surface: #08201a;
+  --mat-sys-surface-container: #0b281f;
+  --mat-sys-surface-container-high: #0e3025;
+  --mat-sys-on-surface: #{$text};
+  --mat-sys-on-surface-variant: #{$muted};
+  --mat-sys-outline: #{$border};
+  --mat-sys-outline-variant: rgba(232, 255, 245, 0.08);
+}
+
+// Dialogs opened from the sidebar layout: glass card like the login card
+.app-dialog {
+  @include mat.dialog-overrides((
+    container-color: #08201a,
+    container-shape: 20px,
+  ));
+
+  .mat-mdc-dialog-surface {
+    border: 1px solid $border;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 60px rgba(46, 229, 157, 0.08);
+  }
+}
+
+.cdk-overlay-dark-backdrop {
+  background: rgba(1, 8, 5, 0.7);
+  backdrop-filter: blur(4px);
+}

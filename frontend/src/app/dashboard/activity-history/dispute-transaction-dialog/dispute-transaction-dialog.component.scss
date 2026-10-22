@@ -1,0 +1,21 @@
+@use '../../ui' as *;
+@use '../../sidebar-layout/dialog' as *;
+
+.dispute-dialog {
+  @include dialog;
+
+  .dialog-header {
+    align-items: flex-start;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: $muted;
+  overflow-wrap: anywhere;
+}

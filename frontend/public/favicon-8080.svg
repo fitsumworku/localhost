@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="8080 laptop logo">
+  <rect width="64" height="64" rx="12" fill="#061c14"/>
+  <rect x="11" y="10" width="42" height="31" rx="3.5" fill="#0d3526" stroke="#e8fff5" stroke-width="3"/>
+  <rect x="15" y="14" width="34" height="23" rx="1.5" fill="#10261d"/>
+  <text x="32" y="30.5" fill="#ffffff" font-family="Arial, sans-serif" font-size="13" font-weight="700" text-anchor="middle" letter-spacing="-0.7">8080</text>
+  <path d="M7 45h50l-4 7H11z" fill="#0d3526" stroke="#e8fff5" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M25 48h14" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,27 @@
+<div class="dispute-dialog">
+  <div class="dialog-header">
+    <div>
+      <h2>Dispute Activity</h2>
+      <p class="subtitle">
+        {{ data.activity.date | date: 'MMM d, y, h:mm a' }} • {{ data.activity.asset }} • {{ data.activity.type | titlecase }} • {{ data.activity.amount }}<ng-container *ngIf="data.activity.price !== undefined"> • {{ data.activity.price | currency }}</ng-container>
+      </p>
+    </div>
+    <button type="button" class="close-button" (click)="close()" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="disputeForm" (ngSubmit)="onSubmit()">
+    <mat-form-field appearance="outline">
+      <mat-label>Supporting details</mat-label>
+      <textarea matInput formControlName="details" rows="4" placeholder="Describe the issue..."></textarea>
+      <mat-error *ngIf="disputeForm.get('details')?.hasError('required')">Details are required.</mat-error>
+      <mat-error *ngIf="disputeForm.get('details')?.hasError('minlength')">Minimum 10 characters required</mat-error>
+    </mat-form-field>
+
+    <div class="dialog-actions">
+      <button type="button" class="secondary" (click)="close()">Cancel</button>
+      <button type="submit" class="primary" [disabled]="!disputeForm.valid">Submit Dispute</button>
+    </div>
+  </form>
+</div>

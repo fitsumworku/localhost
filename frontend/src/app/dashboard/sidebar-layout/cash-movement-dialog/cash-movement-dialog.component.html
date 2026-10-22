@@ -1,0 +1,27 @@
+<div class="cash-dialog">
+  <div class="dialog-header">
+    <h2>{{ isDeposit ? 'Deposit Cash' : 'Withdraw Cash' }}</h2>
+    <button type="button" class="close-button" (click)="onCancel()" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <mat-form-field appearance="outline">
+      <mat-label>Amount</mat-label>
+      <input matInput type="number" min="0.01" step="0.01" formControlName="amount" />
+      <span matTextPrefix>$&nbsp;</span>
+      <mat-error *ngIf="form.get('amount')?.hasError('required')">Amount is required.</mat-error>
+      <mat-error *ngIf="form.get('amount')?.hasError('min')">Amount must be at least $0.01.</mat-error>
+    </mat-form-field>
+
+    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <div class="dialog-actions">
+      <button type="button" class="secondary" (click)="onCancel()">Cancel</button>
+      <button type="submit" class="primary" [disabled]="form.invalid || isSubmitting">
+        {{ isSubmitting ? 'Submitting...' : (isDeposit ? 'Deposit' : 'Withdraw') }}
+      </button>
+    </div>
+  </form>
+</div>

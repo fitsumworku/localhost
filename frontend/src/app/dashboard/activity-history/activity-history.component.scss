@@ -1,0 +1,142 @@
+@use '../ui' as *;
+
+.activity-history {
+  @include page;
+}
+
+.page-header {
+  @include page-header;
+}
+
+.card {
+  @include card;
+  padding: 20px 24px;
+}
+
+.card-title {
+  @include card-title;
+  margin-bottom: 12px;
+}
+
+.label {
+  @include label;
+  margin: 0;
+}
+
+.muted {
+  color: $muted;
+}
+
+.up {
+  color: $up;
+}
+
+.down {
+  color: $down;
+}
+
+// ---------- Stats ----------
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  mat-icon {
+    color: $accent;
+    opacity: 0.8;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.stat-value {
+  margin: 6px 0 2px;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+// ---------- Activity table ----------
+
+.table-wrap {
+  overflow-x: auto;
+  max-height: 600px;
+  overflow-y: auto;
+  margin: 0 -8px;
+}
+
+table {
+  @include table;
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #08201a;
+  }
+}
+
+.row {
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(46, 229, 157, 0.05);
+  }
+}
+
+.ticker {
+  font-weight: 600;
+}
+
+.date {
+  white-space: nowrap;
+
+  .day {
+    display: block;
+  }
+
+  .time {
+    display: block;
+    font-size: 12px;
+    color: $muted;
+  }
+}
+
+.badge {
+  @include badge;
+}
+
+.disputes-table {
+  min-width: 640px;
+
+  .reason {
+    min-width: 260px;
+    overflow-wrap: anywhere;
+  }
+}
+
+.action {
+  width: 1%;
+  text-align: right;
+}
+
+.icon-button {
+  @include icon-button;
+
+  &.flag:hover {
+    color: $warn;
+    background: rgba(255, 196, 107, 0.1);
+  }
+}
+
+.empty {
+  @include empty-state;
+  margin: 0;
+}

@@ -1,0 +1,264 @@
+// Shared look for every page inside the sidebar layout (client and admin): the
+// same dark green glass style as the login/signup cards.
+@forward '../auth/auth-tokens';
+@use '../auth/auth-tokens' as *;
+
+$card-bg: rgba(6, 28, 20, 0.55);
+$hairline: rgba(232, 255, 245, 0.08);
+$up: #2ee59d;
+$down: #ff7a7a;
+$warn: #ffc46b;
+$info: #6bc8ff;
+
+@mixin page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: $text;
+}
+
+@mixin page-header {
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+  }
+
+  p {
+    margin: 4px 0 0;
+    color: $muted;
+    font-size: 14px;
+  }
+}
+
+@mixin card {
+  background: $card-bg;
+  border: 1px solid $border;
+  border-radius: 16px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+@mixin card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: $text;
+}
+
+@mixin label {
+  font-size: 12px;
+  font-weight: 500;
+  color: $muted;
+}
+
+// Segmented pill buttons (time ranges, filters)
+@mixin pills {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(2, 15, 10, 0.55);
+  border: 1px solid $hairline;
+
+  button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: $muted;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+      color: $text;
+    }
+
+    &.active {
+      background: rgba(46, 229, 157, 0.14);
+      color: $accent;
+    }
+  }
+}
+
+@mixin table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 500;
+    color: $muted;
+    border-bottom: 1px solid $hairline;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 14px 16px;
+    border-bottom: 1px solid $hairline;
+    color: $text;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@mixin empty-state {
+  padding: 28px 16px;
+  text-align: center;
+  color: $muted;
+  font-size: 14px;
+}
+
+// Search box with a leading icon, same field style as the login form.
+// Markup: <label class="search"><mat-icon>search</mat-icon><input /></label>
+@mixin search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  max-width: 420px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: rgba(2, 15, 10, 0.55);
+  border: 1px solid rgba(232, 255, 245, 0.1);
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &:focus-within {
+    border-color: $accent;
+    box-shadow: 0 0 0 4px rgba(46, 229, 157, 0.12);
+
+    mat-icon {
+      color: $accent;
+    }
+  }
+
+  mat-icon {
+    color: $muted;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: $text;
+    font: inherit;
+    font-size: 14px;
+
+    &::placeholder {
+      color: $muted;
+    }
+  }
+}
+
+// Status pill. Add .positive, .negative, .warning or .info for the tone.
+@mixin badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(232, 255, 245, 0.06);
+  color: $muted;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &.positive {
+    background: rgba(46, 229, 157, 0.14);
+    color: $up;
+  }
+
+  &.negative {
+    background: rgba(255, 122, 122, 0.14);
+    color: $down;
+  }
+
+  &.warning {
+    background: rgba(255, 196, 107, 0.14);
+    color: $warn;
+  }
+
+  &.info {
+    background: rgba(107, 200, 255, 0.14);
+    color: $info;
+  }
+}
+
+// Small borderless icon button (row actions, close, remove)
+@mixin icon-button {
+  display: inline-grid;
+  place-items: center;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: $muted;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    color: $text;
+    background: rgba(232, 255, 245, 0.06);
+  }
+}
+
+@mixin primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, $accent, $accent-strong);
+  color: $bg;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.15s;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}

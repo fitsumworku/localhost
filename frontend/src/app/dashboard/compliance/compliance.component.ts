@@ -1,12 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTableModule } from '@angular/material/table';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 type ClientStatus = 'active' | 'blacklisted';
 
@@ -22,12 +17,7 @@ interface Client {
   imports: [
     CommonModule,
     FormsModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatButtonModule,
     MatIconModule,
-    MatTableModule,
-    MatSlideToggleModule,
   ],
   templateUrl: './compliance.component.html',
   styleUrl: './compliance.component.scss',
@@ -71,8 +61,8 @@ export class ComplianceComponent implements OnInit {
     // TODO: Call API to update client status
   }
 
-  getStatusColor(status: ClientStatus): string {
-    return status === 'active' ? '#51cf66' : '#ff6b6b';
+  getStatusTone(status: ClientStatus): string {
+    return status === 'active' ? 'positive' : 'negative';
   }
 
   getStatusLabel(status: ClientStatus): string {
