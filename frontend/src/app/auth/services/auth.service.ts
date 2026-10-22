@@ -37,6 +37,12 @@ export class AuthService {
     );
   }
 
+  // Asks the server whether this session is still valid. A revoked token answers
+  // 401, which the auth interceptor turns into an immediate sign-out.
+  checkSession(): Observable<User> {
+    return this.http.get<User>(`${this.apiUrl}/auth/me`);
+  }
+
   // The JWT to send as "Authorization: Bearer <token>", or null if missing/expired
   getToken(): string | null {
     const session = this.readSession();

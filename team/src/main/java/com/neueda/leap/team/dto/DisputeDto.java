@@ -2,6 +2,7 @@ package com.neueda.leap.team.dto;
 
 import com.neueda.leap.team.entity.enums.DisputeStatus;
 import java.time.Instant;
+import java.util.List;
 
 public record DisputeDto(
         Long disputeId,
@@ -13,5 +14,6 @@ public record DisputeDto(
         String description,
         DisputeStatus status,
         Instant dateCreated,
-        Instant dateResolved
+        Instant dateResolved,
+        List<DisputeResponseDto> responses
 ) {}

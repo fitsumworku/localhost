@@ -1,47 +1,138 @@
 <div class="admin-dashboard">
   <header class="page-header">
-    <h1>Trading Overview</h1>
-    <p>Client activity and market performance across all accounts</p>
+    <h1>Client Monitor</h1>
+    <p>
+      Client activity all accounts
+      <span *ngIf="snapshotAt" class="snapshot"
+        >· Data as of {{ snapshotAt | date: 'MMM d, h:mm:ss a' }}</span
+      >
+    </p>
   </header>
+
+  <p *ngIf="errorMessage" class="card banner">
+    <mat-icon>error_outline</mat-icon>
+    {{ errorMessage }}
+  </p>
 
   <!-- Stat Cards -->
   <div class="stats">
     <section class="card stat">
       <p class="label">Total trading volume</p>
-      <!-- <p class="stat-value">{{ totalTradingVolume }}</p>
-      <p class="stat-note up">{{ volumeChange }} vs prior period</p> -->
-      <p class="stat-value muted">—</p>
+      <ng-container *ngIf="summary as s; else statLoading">
+        <p class="stat-value">
+          {{ s.volume.grossVolumeUsd | currency: 'USD' : 'symbol' : '1.0-0' }}
+        </p>
+        <p class="stat-note muted">
+          <span class="up"
+            >Buy {{ s.volume.buyVolumeUsd | currency: 'USD' : 'symbol' : '1.0-0' }}</span
+          >
+          ·
+          <span class="down"
+            >Sell {{ s.volume.sellVolumeUsd | currency: 'USD' : 'symbol' : '1.0-0' }}</span
+          >
+        </p>
+      </ng-container>
     </section>
 
     <section class="card stat">
       <p class="label">Active clients</p>
-      <!-- <p class="stat-value">{{ activeClients }}</p>
-      <p class="stat-note up">{{ activeClientsChange }}</p> -->
-      <p class="stat-value muted">—</p>
+      <ng-container *ngIf="summary as s; else statLoading">
+        <p class="stat-value">{{ s.users.activeClients | number }}</p>
+        <p class="stat-note muted">
+          of {{ s.users.totalClients | number }} clients ·
+          <span [class.down]="s.users.blacklistedClients > 0"
+            >{{ s.users.blacklistedClients | number }} blacklisted</span
+          >
+        </p>
+      </ng-container>
     </section>
 
     <section class="card stat">
       <p class="label">Trades executed</p>
-      <!-- <p class="stat-value">{{ tradesExecuted }}</p>
-      <p class="stat-note up">{{ tradesChange }}</p> -->
-      <p class="stat-value muted">—</p>
+      <ng-container *ngIf="summary as s; else statLoading">
+        <p class="stat-value">{{ s.volume.tradeCount | number }}</p>
+        <p class="stat-note muted">
+          {{ s.volume.buyTradeCount | number }} buys · {{ s.volume.sellTradeCount | number }} sells
+          · {{ s.orders.submittedTotal | number }} orders
+        </p>
+      </ng-container>
     </section>
   </div>
 
-  <!-- Client Trading Volume Chart Section -->
+  <ng-template #statLoading>
+    <p class="stat-value muted">{{ isLoading ? 'Loading…' : '—' }}</p>
+  </ng-template>
+
+  <!-- Client Trading Volume -->
   <section class="card">
-    <h3 class="card-title">Client trading volume</h3>
-    <div class="chart-placeholder">
-      <!-- Chart will be rendered here -->
-      No data to display
+    <div class="card-head">
+      <div>
+        <h3 class="card-title">Client trading volume</h3>
+        <p class="caption">{{ rangeCaption }}</p>
+      </div>
+      <div class="pills" role="group" aria-label="Rank clients by">
+        <button
+          *ngFor="let option of sideOptions"
+          type="button"
+          [class.active]="side === option.value"
+          [attr.aria-pressed]="side === option.value"
+          (click)="selectSide(option.value)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
     </div>
+
+    <div class="range-row">
+      <div class="pills" role="group" aria-label="Date range">
+        <button
+          *ngFor="let option of rangeOptions"
+          type="button"
+          [class.active]="rangePreset === option.value"
+          [attr.aria-pressed]="rangePreset === option.value"
+          (click)="selectRange(option.value)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+
+      <div class="custom-range" *ngIf="rangePreset === 'custom'">
+        <label>
+          <span>From</span>
+          <input type="date" [(ngModel)]="customFrom" [max]="customTo || today" (change)="onCustomRangeChange()" />
+        </label>
+        <label>
+          <span>To</span>
+          <input type="date" [(ngModel)]="customTo" [min]="customFrom" [max]="today" (change)="onCustomRangeChange()" />
+        </label>
+      </div>
+    </div>
+    <p *ngIf="customRangeInvalid" class="range-error">The start date must be on or before the end date.</p>
+
+    <ul class="bars" *ngIf="topClients.length > 0" [class.stale]="isLoadingClients">
+      <li *ngFor="let client of topClients; let rank = index">
+        <div class="bar-label">
+          <span class="client-name">{{ rank + 1 }}. {{ client.name }}</span>
+          <span class="muted">#{{ client.userId }} · {{ clientTradeCount(client) }} {{ clientTradeCount(client) === 1 ? 'trade' : 'trades' }}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" [class.sell]="side === 'SELL'" [style.width.%]="clientBarWidth(client)"></div>
+        </div>
+        <span class="bar-value">{{
+          client.volume.grossVolumeUsd | currency: 'USD' : 'symbol' : '1.0-0'
+        }}</span>
+      </li>
+    </ul>
+    <p *ngIf="topClients.length === 0" class="empty">
+      {{ isLoadingClients ? 'Loading…' : clientsError || 'No client trades in this period' }}
+    </p>
   </section>
 
-  <!-- Most Active Instruments Section -->
+  <!-- Most Active Instruments -->
   <section class="card">
     <h3 class="card-title">Most active instruments</h3>
     <div class="table-wrap">
-      <table *ngIf="instrumentsData.length > 0">
+      <table *ngIf="instruments.length > 0">
         <thead>
           <tr>
             <th>Instrument</th>
@@ -52,16 +143,23 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let element of instrumentsData">
-            <td class="ticker">{{ element.instrument }}</td>
-            <td>{{ element.market }}</td>
-            <td class="num">{{ element.volume }}</td>
-            <td class="num">{{ element.trades }}</td>
-            <td class="num">{{ element.share }}</td>
+          <tr *ngFor="let instrument of instruments">
+            <td>
+              <span class="ticker">{{ instrument.ticker }}</span>
+              <span class="instrument-name muted">{{ instrument.name }}</span>
+            </td>
+            <td>{{ instrument.exchange }}</td>
+            <td class="num">
+              {{ instrument.volume.grossVolumeUsd | currency: 'USD' : 'symbol' : '1.0-0' }}
+            </td>
+            <td class="num">{{ instrument.volume.tradeCount | number }}</td>
+            <td class="num">{{ share(instrument) | percent: '1.0-1' }}</td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p *ngIf="instrumentsData.length === 0" class="empty">No data to display</p>
+    <p *ngIf="instruments.length === 0" class="empty">
+      {{ isLoading ? 'Loading…' : 'No data to display' }}
+    </p>
   </section>
 </div>

@@ -10,6 +10,11 @@
   <h1 class="title">Welcome back</h1>
   <p class="subtitle">Sign in to continue to your portfolio</p>
 
+  <div *ngIf="signedOutMessage() && !errorMessage()" class="error-message notice" role="status">
+    <mat-icon>logout</mat-icon>
+    <span>{{ signedOutMessage() }}</span>
+  </div>
+
   <div *ngIf="errorMessage()" class="error-message" role="alert">
     <mat-icon>error_outline</mat-icon>
     <span>{{ errorMessage() }}</span>

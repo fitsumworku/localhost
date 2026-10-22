@@ -9,6 +9,12 @@ public record ReportingFilter(Instant fromInclusive, Instant toExclusive, AssetT
     private static final Instant EARLIEST = Instant.parse("0001-01-01T00:00:00Z");
     private static final Instant LATEST_EXCLUSIVE = Instant.parse("+10000-01-01T00:00:00Z");
     public enum AssetType { EQUITY, ETF, FOREX, CRYPTO }
+    public enum Side {
+        BUY("B"), SELL("S");
+        private final String code;
+        Side(String code) { this.code = code; }
+        String code() { return code; }
+    }
 
     public ReportingFilter {
         checkRepresentable(fromInclusive);

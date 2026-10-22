@@ -54,17 +54,141 @@
   font-size: 13px;
 }
 
-// ---------- Chart ----------
+// ---------- Client volume bars ----------
 
-.chart-placeholder {
-  display: grid;
-  place-items: center;
-  height: 320px;
-  border-radius: 12px;
-  border: 1px dashed $hairline;
-  background: rgba(2, 15, 10, 0.35);
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+
+  .card-title {
+    margin-bottom: 2px;
+  }
+}
+
+.caption {
+  margin: 0;
   color: $muted;
+  font-size: 13px;
+}
+
+.pills {
+  @include pills;
+  flex-wrap: wrap;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.custom-range {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: $muted;
+    font-size: 13px;
+  }
+
+  input {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid rgba(232, 255, 245, 0.1);
+    border-radius: 10px;
+    background: rgba(2, 15, 10, 0.55);
+    color: $text;
+    color-scheme: dark;
+    font: inherit;
+    font-size: 13px;
+
+    &:focus {
+      outline: none;
+      border-color: $accent;
+      box-shadow: 0 0 0 3px rgba(46, 229, 157, 0.12);
+    }
+  }
+}
+
+.range-error {
+  margin: -8px 0 14px;
+  color: $warn;
+  font-size: 13px;
+}
+
+.bars {
+  transition: opacity 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &.stale {
+    opacity: 0.55;
+  }
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(140px, 220px) 1fr auto;
+    align-items: center;
+    gap: 16px;
+  }
+}
+
+.bar-label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   font-size: 14px;
+
+  .muted {
+    font-size: 12px;
+  }
+}
+
+.client-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(232, 255, 245, 0.06);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  min-width: 4px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, $accent-strong, $accent);
+  transition: width 0.4s ease;
+
+  &.sell {
+    background: linear-gradient(90deg, #e05a5a, $down);
+  }
+}
+
+.bar-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 // ---------- Instruments ----------
@@ -82,13 +206,37 @@ table {
   font-weight: 600;
 }
 
+.instrument-name {
+  display: block;
+  font-size: 12px;
+}
+
+.snapshot {
+  white-space: nowrap;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 18px;
+  color: $warn;
+  font-size: 14px;
+}
+
 .empty {
   @include empty-state;
   margin: 0;
 }
 
 @media (max-width: 768px) {
-  .chart-placeholder {
-    height: 240px;
+  .bars li {
+    grid-template-columns: 1fr auto;
+
+    .bar-track {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
   }
 }

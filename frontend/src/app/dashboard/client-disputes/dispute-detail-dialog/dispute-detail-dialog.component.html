@@ -1,8 +1,11 @@
 <div class="dispute-detail-dialog">
   <div class="dialog-header">
     <div>
-      <h2>Dispute Details</h2>
-      <p class="subtitle">ID: {{ data.id }}</p>
+      <h2>Dispute #{{ data.disputeId }}</h2>
+      <p class="subtitle">
+        Filed {{ data.dateCreated | date: 'MMM d, y, h:mm a' }}
+        <ng-container *ngIf="data.dateResolved"> · Resolved {{ data.dateResolved | date: 'MMM d, y, h:mm a' }}</ng-container>
+      </p>
     </div>
     <button type="button" class="close-button" (click)="close()" aria-label="Close">
       <mat-icon>close</mat-icon>
@@ -13,65 +16,74 @@
   <div class="summary">
     <div class="info-grid">
       <div>
-        <p class="info-label">Client ID</p>
-        <p class="info-value">{{ data.clientId }}</p>
+        <p class="info-label">Client</p>
+        <p class="info-value">{{ data.clientName }}</p>
+        <p class="info-sub">#{{ data.clientId }} · {{ data.clientEmail }}</p>
       </div>
       <div>
-        <p class="info-label">Date</p>
-        <p class="info-value">{{ data.date }}</p>
+        <p class="info-label">Disputed item</p>
+        <p class="info-value">{{ data.tradeId !== null ? 'Trade #' + data.tradeId : 'Transaction #' + data.transactionId }}</p>
+        <p class="info-sub">Account {{ data.accountId }}</p>
       </div>
       <div>
         <p class="info-label">Disputed amount</p>
-        <p class="info-value">{{ data.disputedAmount | currency }}</p>
+        <p class="info-value">{{ data.disputedAmount !== null ? (data.disputedAmount | currency) : '—' }}</p>
       </div>
       <div>
         <p class="info-label">Current status</p>
-        <span class="badge" [ngClass]="getStatusTone(data.status)">
-          {{ getStatusLabel(data.status) }}
-        </span>
+        <span class="badge" [ngClass]="statusTone(data.status)">{{ statusLabel(data.status) }}</span>
       </div>
     </div>
 
-    <p class="info-label">Reason</p>
-    <p class="reason">{{ data.reason }}</p>
+    <p class="info-label">{{ data.disputeType | titlecase }}</p>
+    <p class="reason">{{ data.description || 'The client did not add a description.' }}</p>
   </div>
 
-  <!-- Edit Form -->
-  <form [formGroup]="detailForm">
-    <mat-form-field appearance="outline">
-      <mat-label>Status</mat-label>
-      <mat-select formControlName="status" panelClass="dark-ui">
-        <mat-option *ngFor="let status of statusOptions" [value]="status.value">
-          {{ status.label }}
-        </mat-option>
-      </mat-select>
-    </mat-form-field>
+  <!-- Status -->
+  <p class="field-label">Status</p>
+  <div class="pills status-pills" role="group" aria-label="Dispute status">
+    <button
+      *ngFor="let status of statusOptions"
+      type="button"
+      [class.active]="selectedStatus === status.value"
+      [attr.aria-pressed]="selectedStatus === status.value"
+      (click)="selectStatus(status.value)"
+    >
+      {{ status.label }}
+    </button>
+  </div>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Assigned owner</mat-label>
-      <mat-select formControlName="assignedOwner" panelClass="dark-ui">
-        <!-- <mat-option *ngFor="let assignee of assigneeOptions" [value]="assignee.value"> -->
-          <!-- {{ assignee.label }}
-        </mat-option> -->
-      </mat-select>
-    </mat-form-field>
+  <!-- Replies -->
+  <ng-container *ngIf="data.responses.length > 0">
+    <p class="field-label">Replies sent to the client</p>
+    <ol class="replies">
+      <li *ngFor="let response of data.responses">
+        <p class="reply-meta">{{ response.adminName }} · {{ response.createdDate | date: 'MMM d, y, h:mm a' }}</p>
+        <p class="reply-text">{{ response.message }}</p>
+      </li>
+    </ol>
+  </ng-container>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Internal notes</mat-label>
-      <textarea matInput formControlName="notes" rows="4" placeholder="Add notes about this dispute..."></textarea>
-      <mat-error *ngIf="detailForm.get('notes')?.hasError('minlength')">Minimum 10 characters required</mat-error>
-    </mat-form-field>
+  <label class="field-label" for="dispute-reply">Reply to client</label>
+  <textarea
+    id="dispute-reply"
+    class="reply-input"
+    rows="4"
+    [(ngModel)]="reply"
+    [maxlength]="maxReplyLength"
+    placeholder="Write a message the client will see on this dispute…"
+  ></textarea>
+  <p class="reply-hint">
+    Shown to {{ data.clientName }} in their dispute history.
+    <span [class.over]="reply.length >= maxReplyLength">{{ reply.length }}/{{ maxReplyLength }}</span>
+  </p>
 
-    <div class="dialog-actions">
-      <button type="button" class="secondary" (click)="close()">Cancel</button>
-      <button
-        type="button"
-        class="primary"
-        (click)="onSave()"
-        [disabled]="!detailForm.valid || !detailForm.dirty"
-      >
-        Save Changes
-      </button>
-    </div>
-  </form>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="dialog-actions">
+    <button type="button" class="secondary" (click)="close()">Cancel</button>
+    <button type="button" class="primary" (click)="onSave()" [disabled]="!hasChanges || isSaving">
+      {{ saveLabel }}
+    </button>
+  </div>
 </div>

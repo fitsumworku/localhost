@@ -62,3 +62,48 @@ table {
   @include empty-state;
   margin: 0;
 }
+
+.date,
+.reason,
+td:nth-child(2) {
+  span {
+    display: block;
+  }
+}
+
+.date {
+  white-space: nowrap;
+}
+
+.reason {
+  max-width: 340px;
+}
+
+.type {
+  font-weight: 500;
+}
+
+.sub {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row:focus-visible {
+  outline: 2px solid $accent;
+  outline-offset: -2px;
+}
+
+.replies {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: $accent;
+  }
+}

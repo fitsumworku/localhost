@@ -50,3 +50,100 @@
   font-size: 14px;
   line-height: 1.5;
 }
+
+.info-sub {
+  margin: 2px 0 0;
+  color: $muted;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.field-label {
+  @include label;
+  display: block;
+  margin: 0 0 8px;
+}
+
+.pills {
+  @include pills;
+}
+
+.status-pills {
+  margin-bottom: 18px;
+}
+
+.muted {
+  color: $muted;
+}
+
+.replies {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 200px;
+  margin: 0 0 18px;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+
+  li {
+    padding: 10px 14px;
+    border-left: 3px solid $accent;
+    border-radius: 8px;
+    background: rgba(46, 229, 157, 0.06);
+  }
+}
+
+.reply-meta {
+  margin: 0 0 4px;
+  color: $muted;
+  font-size: 12px;
+}
+
+.reply-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reply-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border: 1px solid rgba(232, 255, 245, 0.1);
+  border-radius: 12px;
+  background: rgba(2, 15, 10, 0.55);
+  color: $text;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &::placeholder {
+    color: $muted;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $accent;
+    box-shadow: 0 0 0 4px rgba(46, 229, 157, 0.12);
+  }
+}
+
+.reply-hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0 20px;
+  color: $muted;
+  font-size: 12px;
+
+  .over {
+    color: $warn;
+  }
+}

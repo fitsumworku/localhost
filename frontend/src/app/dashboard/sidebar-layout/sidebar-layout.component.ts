@@ -1,4 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EMPTY, fromEvent, merge, timer } from 'rxjs';
+import { catchError, filter, switchMap } from 'rxjs/operators';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatSidenavModule } from '@angular/material/sidenav';
@@ -13,6 +16,10 @@ import { AddAccountDialogComponent } from './add-account-dialog/add-account-dial
 import { Account, AccountPage, AccountService } from '../services/account.service';
 import { CashMovementDialogComponent } from './cash-movement-dialog/cash-movement-dialog.component';
 import { AuthService } from '../../auth/services/auth.service';
+
+// How often a signed-in page confirms its session is still valid, so a
+// blacklisted user is signed out within seconds even while idle.
+const SESSION_CHECK_MS = 5_000;
 
 @Component({
   selector: 'app-sidebar-layout',
@@ -59,11 +66,31 @@ export class SidebarLayoutComponent {
     private dialog: MatDialog,
     private accountService: AccountService,
     private authService: AuthService,
+    destroyRef: DestroyRef,
   ) {
     this.isAdmin = this.authService.getCurrentUser()?.role === 'ADMIN';
+    this.watchSession(destroyRef);
     if (!this.isAdmin) {
       this.loadAccounts();
     }
+  }
+
+  private watchSession(destroyRef: DestroyRef): void {
+    const tabVisible$ = fromEvent(document, 'visibilitychange').pipe(filter(() => !document.hidden));
+    merge(timer(SESSION_CHECK_MS, SESSION_CHECK_MS), tabVisible$)
+      .pipe(
+        switchMap(() => {
+          if (!this.authService.getToken()) {
+            // The stored session expired locally; nothing to ask the server.
+            this.router.navigate(['/login'], { queryParams: { signedOut: 1 } });
+            return EMPTY;
+          }
+          // A 401 is handled by the auth interceptor; other failures just retry next tick.
+          return this.authService.checkSession().pipe(catchError(() => EMPTY));
+        }),
+        takeUntilDestroyed(destroyRef),
+      )
+      .subscribe();
   }
 
   logout(): void {

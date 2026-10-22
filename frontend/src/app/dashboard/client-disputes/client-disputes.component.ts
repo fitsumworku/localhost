@@ -1,21 +1,17 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { EMPTY, Subject, merge, timer } from 'rxjs';
+import { catchError, debounceTime, switchMap } from 'rxjs/operators';
 import { DisputeDetailDialogComponent } from './dispute-detail-dialog/dispute-detail-dialog.component';
+import { AdminDispute, AdminService, DisputeStatus } from '../services/admin.service';
+import { WORKFLOW_STATUSES, disputeStatusLabel, disputeStatusTone } from '../services/dispute-status';
 
-type DisputeStatus = 'open' | 'in-review' | 'resolved';
-
-interface Dispute {
-  id: string;
-  date: string;
-  clientId: string;
-  reason: string;
-  disputedAmount: number;
-  status: DisputeStatus;
-  assignedOwner: string;
-}
+// Keeps the queue current while other admins work disputes.
+const POLL_MS = 15_000;
 
 @Component({
   selector: 'app-client-disputes',
@@ -31,93 +27,76 @@ interface Dispute {
 })
 export class ClientDisputesComponent implements OnInit {
   searchQuery = '';
-  selectedStatusFilter = 'all';
+  selectedStatus: DisputeStatus | null = null;
 
-  // Dispute data
-  allDisputes: Dispute[] = [];
-  displayedDisputes: Dispute[] = [];
+  disputes: AdminDispute[] = [];
+  totalElements = 0;
+  isLoading = true;
+  errorMessage = '';
 
-  displayedColumns: string[] = ['date', 'clientId', 'reason', 'disputedAmount', 'status', 'assignedOwner'];
-
-  statusOptions = [
-    { value: 'all', label: 'All' },
-    { value: 'open', label: 'Open' },
-    { value: 'in-review', label: 'In Review' },
-    { value: 'resolved', label: 'Resolved' },
+  statusOptions: { value: DisputeStatus | null; label: string }[] = [
+    { value: null, label: 'All' },
+    ...WORKFLOW_STATUSES,
   ];
 
-  constructor(private dialog: MatDialog) {}
+  readonly statusLabel = disputeStatusLabel;
+  readonly statusTone = disputeStatusTone;
+
+  // Typing is debounced; filter clicks and saves reload immediately.
+  private readonly search$ = new Subject<void>();
+  private readonly reload$ = new Subject<void>();
+
+  constructor(
+    private dialog: MatDialog,
+    private admin: AdminService,
+    private changeDetector: ChangeDetectorRef,
+    private destroyRef: DestroyRef,
+  ) {}
 
   ngOnInit(): void {
-    this.filterDisputes();
-  }
-
-  filterDisputes(): void {
-    let filtered = this.allDisputes;
-
-    // Apply status filter
-    if (this.selectedStatusFilter !== 'all') {
-      filtered = filtered.filter(dispute => dispute.status === this.selectedStatusFilter);
-    }
-
-    // Apply search filter
-    if (this.searchQuery.trim()) {
-      const query = this.searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        dispute =>
-          dispute.clientId.toLowerCase().includes(query) ||
-          dispute.reason.toLowerCase().includes(query)
-      );
-    }
-
-    this.displayedDisputes = filtered;
+    merge(this.search$.pipe(debounceTime(250)), this.reload$)
+      .pipe(
+        switchMap(() => timer(0, POLL_MS)),
+        // A failed poll shows an error but keeps polling.
+        switchMap(() => this.admin.disputes(this.selectedStatus, this.searchQuery).pipe(
+          catchError(error => {
+            console.error('[Disputes] Failed to load disputes', error);
+            this.disputes = [];
+            this.errorMessage = 'Disputes are currently unavailable.';
+            this.isLoading = false;
+            this.changeDetector.markForCheck();
+            return EMPTY;
+          }),
+        )),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(page => {
+        this.disputes = page.content;
+        this.totalElements = page.totalElements;
+        this.errorMessage = '';
+        this.isLoading = false;
+        this.changeDetector.markForCheck();
+      });
+    this.reload$.next();
   }
 
   onSearchChange(): void {
-    this.filterDisputes();
+    this.search$.next();
   }
 
-  selectStatusFilter(status: string): void {
-    this.selectedStatusFilter = status;
-    this.filterDisputes();
+  selectStatus(status: DisputeStatus | null): void {
+    this.selectedStatus = status;
+    this.reload$.next();
   }
 
-  isStatusFilterActive(status: string): boolean {
-    return this.selectedStatusFilter === status;
-  }
-
-  openDisputeDetail(dispute: Dispute): void {
+  openDisputeDetail(dispute: AdminDispute): void {
     this.dialog.open(DisputeDetailDialogComponent, {
       width: '600px',
+      maxWidth: '95vw',
       data: dispute,
-      disableClose: false,
       panelClass: ['dark-ui', 'app-dialog'],
+    }).afterClosed().subscribe((changed: boolean | undefined) => {
+      if (changed) this.reload$.next();
     });
-  }
-
-  getStatusTone(status: DisputeStatus): string {
-    switch (status) {
-      case 'open':
-        return 'warning';
-      case 'in-review':
-        return 'info';
-      case 'resolved':
-        return 'positive';
-      default:
-        return '';
-    }
-  }
-
-  getStatusLabel(status: DisputeStatus): string {
-    switch (status) {
-      case 'open':
-        return 'Open';
-      case 'in-review':
-        return 'In Review';
-      case 'resolved':
-        return 'Resolved';
-      default:
-        return status;
-    }
   }
 }

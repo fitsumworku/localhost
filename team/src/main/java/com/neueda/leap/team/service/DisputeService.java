@@ -1,16 +1,21 @@
 package com.neueda.leap.team.service;
 
 import com.neueda.leap.team.audit.AuditLogService;
+import com.neueda.leap.team.dto.AdminDisputeDto;
 import com.neueda.leap.team.dto.CreateDisputeRequest;
+import com.neueda.leap.team.dto.CreateDisputeResponseRequest;
 import com.neueda.leap.team.dto.DisputeDto;
+import com.neueda.leap.team.dto.DisputeResponseDto;
 import com.neueda.leap.team.dto.PageResponse;
 import com.neueda.leap.team.dto.UpdateDisputeStatusRequest;
 import com.neueda.leap.team.entity.Dispute;
 import com.neueda.leap.team.entity.enums.DisputeStatus;
 import com.neueda.leap.team.exception.ApiException;
+import com.neueda.leap.team.repository.DisputeQueryRepository;
 import com.neueda.leap.team.repository.DisputeRepository;
 import java.time.Clock;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.data.domain.PageRequest;
@@ -28,13 +33,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class DisputeService {
 
     private final DisputeRepository disputeRepository;
+    private final DisputeQueryRepository disputeQueries;
     private final AccountAccessService access;
     private final Clock clock;
     private final AuditLogService auditLogs;
 
-    public DisputeService(DisputeRepository disputeRepository, AccountAccessService access, Clock clock,
-            AuditLogService auditLogs) {
+    public DisputeService(DisputeRepository disputeRepository, DisputeQueryRepository disputeQueries,
+            AccountAccessService access, Clock clock, AuditLogService auditLogs) {
         this.disputeRepository = disputeRepository;
+        this.disputeQueries = disputeQueries;
         this.access = access;
         this.clock = clock;
         this.auditLogs = auditLogs;
@@ -90,14 +97,49 @@ public class DisputeService {
         var result = filter == null
             ? disputeRepository.findByAccountId(accountId, pageable)
             : disputeRepository.findByAccountIdAndStatus(accountId, filter, pageable);
-        return PageResponse.of(result.getContent().stream().map(DisputeService::toDto).toList(), page, size, result.getTotalElements());
+        var responses = disputeQueries.responsesFor(result.getContent().stream().map(Dispute::getId).toList());
+        var content = result.getContent().stream()
+            .map(dispute -> toDto(dispute, responses.getOrDefault(dispute.getId(), List.of())))
+            .toList();
+        return PageResponse.of(content, page, size, result.getTotalElements());
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    public PageResponse<AdminDisputeDto> searchAllDisputes(String status, String query, int page, int size) {
+        if (!access.isAdmin()) {
+            throw new AccessDeniedException("Admin role required");
+        }
+        validatePage(page, size);
+        if (query != null && query.length() > 200) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_QUERY", "q must be at most 200 characters.");
+        }
+        return disputeQueries.search(parseStatus(status), query, page, size);
     }
 
     public DisputeDto getDispute(long accountId, long disputeId) {
         access.readable(accountId);
-        return disputeRepository.findByAccountIdAndId(accountId, disputeId)
-            .map(DisputeService::toDto)
-            .orElseThrow(this::notFound);
+        Dispute dispute = disputeRepository.findByAccountIdAndId(accountId, disputeId).orElseThrow(this::notFound);
+        return toDto(dispute, disputeQueries.responsesFor(List.of(disputeId)).getOrDefault(disputeId, List.of()));
+    }
+
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
+    public DisputeResponseDto respond(long accountId, long disputeId, CreateDisputeResponseRequest request) {
+        if (!access.isAdmin()) {
+            throw new AccessDeniedException("Admin role required");
+        }
+        String message = normalizeDescription(request.message());
+        if (message == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MESSAGE", "Message is required.");
+        }
+        long adminId = access.principal().getUserId();
+        Dispute dispute = disputeRepository.findByAccountIdAndId(accountId, disputeId).orElseThrow(this::notFound);
+        DisputeResponseDto response = disputeQueries.addResponse(dispute.getId(), adminId, message);
+        long ownerId = access.readable(accountId).getOwner().getId();
+        // Like dispute descriptions, the reply text stays out of the audit log.
+        auditLogs.record(adminId, ownerId, "dispute_responses", Map.of("response_id", response.responseId()),
+                "DISPUTE_RESPONDED", null, Map.of("dispute_id", dispute.getId(), "response_id", response.responseId()));
+        return response;
     }
 
     @Transactional
@@ -178,6 +220,10 @@ public class DisputeService {
     }
 
     private static DisputeDto toDto(Dispute dispute) {
+        return toDto(dispute, List.of());
+    }
+
+    private static DisputeDto toDto(Dispute dispute, List<DisputeResponseDto> responses) {
         return new DisputeDto(
                 dispute.getId(),
                 dispute.getAccountId(),
@@ -188,7 +234,8 @@ public class DisputeService {
                 dispute.getDescription(),
                 dispute.getStatus(),
                 dispute.getDateCreated(),
-                dispute.getDateResolved()
+                dispute.getDateResolved(),
+                responses
         );
     }
 

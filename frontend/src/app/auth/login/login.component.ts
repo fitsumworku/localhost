@@ -1,6 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -20,15 +20,20 @@ export class LoginComponent implements OnInit {
   // Signals so the template re-renders when HTTP callbacks change them (the app is zoneless)
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
+  readonly signedOutMessage = signal('');
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.initializeForm();
+    if (this.route.snapshot.queryParamMap.has('signedOut')) {
+      this.signedOutMessage.set('You have been signed out. Please sign in again to continue.');
+    }
   }
 
   initializeForm(): void {
@@ -50,6 +55,7 @@ export class LoginComponent implements OnInit {
 
     this.isLoading.set(true);
     this.errorMessage.set('');
+    this.signedOutMessage.set('');
 
     const loginRequest: LoginRequest = this.loginForm.value;
 

@@ -84,17 +84,25 @@ public class ReportingService {
         return new Report<>(filter, freshness, rows);
     }
 
-    public Report<List<UserVolume>> topUsers(ReportingFilter filter, int limit) {
+    /** side=null ranks by gross volume; BUY/SELL count only that side's trades. */
+    public Report<List<UserVolume>> topUsers(ReportingFilter filter, ReportingFilter.Side side, int limit) {
         ReportingFilter.validateLimit(limit);
         Freshness freshness = requireFreshness();
         SqlFilter where = where(filter, "t.traded_at");
+        List<Object> args = new ArrayList<>(List.of(where.args()));
+        String sideClause = "";
+        if (side != null) {
+            sideClause = " AND t.trade_type = ?";
+            args.add(side.code());
+        }
+        args.add(limit);
         var rows = jdbc.query("SELECT u.user_id, u.user_name, " + VOLUME_COLUMNS + TRADE_FROM
                         + " JOIN dim_user u ON u.user_key = t.user_key " + where.clause()
-                        + " AND u.role_name = 'CLIENT'"
+                        + " AND u.role_name = 'CLIENT'" + sideClause
                         + " GROUP BY u.user_key, u.user_id, u.user_name"
                         + " ORDER BY gross_volume DESC, u.user_id ASC LIMIT ?",
                 (rs, rowNum) -> new UserVolume(rs.getLong("user_id"), rs.getString("user_name"), readVolume(rs)),
-                where.argsWithLimit(limit));
+                args.toArray());
         return new Report<>(filter, freshness, rows);
     }
 

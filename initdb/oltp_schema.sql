@@ -9,6 +9,7 @@ DROP VIEW IF EXISTS Account_Cash_Availability;
 
 
 DROP TABLE IF EXISTS Audit_Logs;
+DROP TABLE IF EXISTS Dispute_Responses;
 DROP TABLE IF EXISTS Disputes;
 DROP TABLE IF EXISTS Cash_Ledger;
 DROP TABLE IF EXISTS Transactions;
@@ -344,6 +345,15 @@ CREATE TABLE Disputes (
         OR (Status NOT IN ('RESOLVED','REJECTED') AND Date_Resolved IS NULL))
 );
 
+-- Admin replies on a dispute, shown to the client on their dispute history.
+CREATE TABLE Dispute_Responses (
+    Response_ID BIGSERIAL PRIMARY KEY,
+    Dispute_ID BIGINT NOT NULL REFERENCES Disputes(Dispute_ID),
+    Admin_ID BIGINT NOT NULL REFERENCES Users(User_ID),
+    Message TEXT NOT NULL CHECK (length(btrim(Message)) BETWEEN 1 AND 2000),
+    Created_Date TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
 -- Reserved schema scaffold for the teammate; no audit service or runtime calls remain.
 CREATE TABLE Audit_Logs (
     Audit_ID BIGSERIAL PRIMARY KEY,
@@ -379,6 +389,7 @@ CREATE INDEX ix_disputes_account ON Disputes(Account_ID, Date_Created DESC);
 CREATE INDEX ix_disputes_admin ON Disputes(Admin_ID) WHERE Admin_ID IS NOT NULL;
 CREATE INDEX ix_disputes_transaction ON Disputes(Transaction_ID) WHERE Transaction_ID IS NOT NULL;
 CREATE INDEX ix_disputes_trade ON Disputes(Trade_ID) WHERE Trade_ID IS NOT NULL;
+CREATE INDEX ix_dispute_responses_dispute ON Dispute_Responses(Dispute_ID, Created_Date, Response_ID);
 CREATE INDEX ix_audit_subject_time ON Audit_Logs(Subject_User_ID, Timestamp, Audit_ID);
 CREATE INDEX ix_audit_actor ON Audit_Logs(Actor_User_ID) WHERE Actor_User_ID IS NOT NULL;
 CREATE INDEX ix_audit_record ON Audit_Logs(Affected_Table, Record_Key, Audit_ID);

@@ -58,13 +58,14 @@ public class ReportingController {
     }
 
     @GetMapping("/volume/users")
-    @Operation(summary = "Top clients by gross USD trading volume", description = "Aggregates all accounts belonging to each current CLIENT. limit: 1–100; default 10.")
+    @Operation(summary = "Top clients by USD trading volume", description = "Aggregates all accounts belonging to each current CLIENT. side=BUY ranks by amount bought and side=SELL by amount sold; omitted means gross (buy + sell). limit: 1–100; default 10.")
     public Report<List<UserVolume>> topUsers(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(required = false) AssetType assetType,
+            @RequestParam(required = false) ReportingFilter.Side side,
             @RequestParam(defaultValue = "10") int limit) {
-        return reports.topUsers(new ReportingFilter(from, to, assetType), limit);
+        return reports.topUsers(new ReportingFilter(from, to, assetType), side, limit);
     }
 
     @GetMapping("/volume/sides")

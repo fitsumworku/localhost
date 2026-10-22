@@ -1,6 +1,8 @@
 package com.neueda.leap.team.controller;
 import com.neueda.leap.team.dto.DisputeDto;
 import com.neueda.leap.team.dto.CreateDisputeRequest;
+import com.neueda.leap.team.dto.CreateDisputeResponseRequest;
+import com.neueda.leap.team.dto.DisputeResponseDto;
 import com.neueda.leap.team.dto.PageResponse;
 import com.neueda.leap.team.dto.UpdateDisputeStatusRequest;
 import com.neueda.leap.team.service.DisputeService;
@@ -76,6 +78,17 @@ public class DisputeController {
             @PathVariable Long disputeId) {
         DisputeDto dispute = disputeService.assignToMe(disputeId);
         return ResponseEntity.ok(dispute);
+    }
+
+    @PostMapping("/{accountId}/disputes/{disputeId}/responses")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Reply to a dispute",
+               description = "ADMIN only. Adds a message the client sees on their dispute history.")
+    public ResponseEntity<DisputeResponseDto> respond(
+            @PathVariable Long accountId,
+            @PathVariable Long disputeId,
+            @Valid @RequestBody CreateDisputeResponseRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(disputeService.respond(accountId, disputeId, request));
     }
 
     @PatchMapping("/{accountId}/disputes/{disputeId}/status")

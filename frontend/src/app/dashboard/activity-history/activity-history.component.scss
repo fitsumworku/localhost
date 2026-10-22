@@ -120,6 +120,49 @@ table {
     min-width: 260px;
     overflow-wrap: anywhere;
   }
+
+  td {
+    vertical-align: top;
+  }
+}
+
+.admin-replies {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: 8px 12px;
+    border-left: 3px solid $accent;
+    border-radius: 8px;
+    background: rgba(46, 229, 157, 0.06);
+  }
+}
+
+.reply-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  color: $muted;
+  font-size: 12px;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: $accent;
+  }
+}
+
+.reply-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .action {
