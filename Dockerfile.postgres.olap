@@ -1,0 +1,7 @@
+FROM postgres:16-alpine
+
+# The OLAP service supplies its own database/user/password at runtime.
+# PostgreSQL runs this file only when its data volume is empty.
+COPY ./initdb/olap_schema.sql /docker-entrypoint-initdb.d/01-olap-schema.sql
+
+EXPOSE 5432

@@ -1,0 +1,34 @@
+Updated project: OLAP reporting and ETL
+
+MODIFIED
+README.md
+docker-compose.yaml
+etl_process/INTEGRATION_GUIDE.txt
+initdb/olap_schema.sql
+team/pom.xml
+team/src/main/java/com/neueda/leap/team/config/SecurityConfig.java
+team/src/main/resources/application.properties
+
+ADDED
+etl_process/CHANGED_FILES.txt
+etl_process/README.md
+etl_process/VERIFICATION.json
+etl_process/reporting_queries.sql
+team/src/main/java/com/neueda/leap/team/reporting/EtlStatus.java
+team/src/main/java/com/neueda/leap/team/reporting/RefreshResult.java
+team/src/main/java/com/neueda/leap/team/reporting/ReportingConfig.java
+team/src/main/java/com/neueda/leap/team/reporting/ReportingController.java
+team/src/main/java/com/neueda/leap/team/reporting/ReportingDtos.java
+team/src/main/java/com/neueda/leap/team/reporting/ReportingEtlScheduler.java
+team/src/main/java/com/neueda/leap/team/reporting/ReportingEtlService.java
+team/src/main/java/com/neueda/leap/team/reporting/ReportingExceptionHandler.java
+team/src/main/java/com/neueda/leap/team/reporting/ReportingFilter.java
+team/src/main/java/com/neueda/leap/team/reporting/ReportingService.java
+team/src/main/java/com/neueda/leap/team/reporting/ReportingSnapshotLoader.java
+team/src/test/java/com/neueda/leap/team/reporting/ReportingEtlServiceTests.java
+team/src/test/java/com/neueda/leap/team/reporting/ReportingIntegrationTests.java
+team/src/test/resources/reporting/fixture.sql
+
+Apply the new OLAP schema once using etl_process/README.md.
+OLTP schema, security universe files, frontend and existing environment values are unchanged.
+Build output, dependency folders and platform metadata are omitted from the ZIP.
