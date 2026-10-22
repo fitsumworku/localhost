@@ -115,9 +115,9 @@ export class SidebarLayoutComponent {
       panelClass: ['add-account-dialog-panel', 'dark-ui', 'app-dialog'],
     });
 
-    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
-      if (confirmed) {
-        this.accountService.createAccount().subscribe({
+    dialogRef.afterClosed().subscribe((result: { accountName: string } | undefined) => {
+      if (result) {
+        this.accountService.createAccount(result.accountName).subscribe({
           next: (account: Account) => {
             this.accounts = [...this.accounts, account];
             this.selectAccount(account);

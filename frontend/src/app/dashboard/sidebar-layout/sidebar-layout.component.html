@@ -33,7 +33,7 @@
     <!-- Top Header with Account Selector -->
     <div class="top-header" *ngIf="!isAdmin">
       <div class="header-content">
-        <h1>{{ selectedAccount ? ('Account ' + selectedAccount.accountId) : 'Accounts' }}</h1>
+        <h1>{{ selectedAccount?.accountName || 'Accounts' }}</h1>
         <div class="header-actions">
           <mat-form-field appearance="outline" class="account-selector" subscriptSizing="dynamic">
             <mat-label>Account</mat-label>
@@ -43,7 +43,7 @@
               (selectionChange)="selectAccount($event.value)"
             >
               <mat-option *ngFor="let account of accounts" [value]="account">
-                Account {{ account.accountId }} ({{ account.currency }})
+                {{ account.accountName || ('Account ' + account.accountId) }} ({{ account.currency }})
               </mat-option>
             </mat-select>
           </mat-form-field>

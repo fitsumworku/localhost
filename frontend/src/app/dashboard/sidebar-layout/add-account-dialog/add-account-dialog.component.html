@@ -6,16 +6,24 @@
     </button>
   </div>
 
-  <div class="dialog-form">
+  <form class="dialog-form" [formGroup]="form" (ngSubmit)="onSubmit()">
     <p class="description">A new trading account will be opened and selected. You can switch between accounts from the account selector.</p>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Account name</mat-label>
+      <input matInput formControlName="accountName" maxlength="20" autocomplete="off" />
+      <mat-hint align="end">{{ form.get('accountName')?.value?.length || 0 }}/20</mat-hint>
+      <mat-error *ngIf="form.get('accountName')?.hasError('required')">Account name is required.</mat-error>
+      <mat-error *ngIf="form.get('accountName')?.hasError('maxlength')">Account name must be 20 characters or less.</mat-error>
+    </mat-form-field>
 
     <div class="dialog-actions">
       <button type="button" class="secondary" (click)="onCancel()">
         Cancel
       </button>
-      <button type="button" class="primary" (click)="onSubmit()">
+      <button type="submit" class="primary" [disabled]="form.invalid">
         Create Account
       </button>
     </div>
-  </div>
+  </form>
 </div>

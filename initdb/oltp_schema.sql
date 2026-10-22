@@ -53,6 +53,7 @@ CREATE TABLE Users (
 CREATE TABLE Accounts (
     Account_ID BIGSERIAL PRIMARY KEY,
     User_ID BIGINT NOT NULL REFERENCES Users(User_ID),
+    ACCOUNT_NAME VARCHAR(20),
     -- Spring must require a CLIENT owner; this FK checks user existence only.
     -- Blacklisting is checked through the owning Users.Status, not per account.
     

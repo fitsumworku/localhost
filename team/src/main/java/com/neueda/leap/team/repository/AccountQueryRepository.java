@@ -149,7 +149,7 @@ public class AccountQueryRepository {
         var balance = new AccountBalanceDto(r.getLong("account_id"), r.getString("currency"),
                 r.getBigDecimal("cash_balance"), r.getBigDecimal("reserved_cash"), r.getBigDecimal("available_cash"),
                 instant(r, "balance_updated_date"));
-        return new AccountDto(r.getLong("account_id"), r.getLong("user_id"), r.getString("currency"),
+        return new AccountDto(r.getLong("account_id"), r.getLong("user_id"), r.getString("account_name"), r.getString("currency"),
                 instant(r, "created_date"), instant(r, "updated_date"), balance);
     }
     private CashTransactionDto transactionRow(ResultSet r, int row) throws SQLException {

@@ -28,6 +28,7 @@ export interface AccountPosition {
 export interface Account {
   accountId: number;
   userId: number;
+  accountName: string | null;
   currency: string;
   createdDate: string;
   updatedDate: string;
@@ -75,8 +76,8 @@ export class AccountService {
     this.selectedAccount.set(account);
   }
 
-  createAccount(): Observable<Account> {
-    return this.http.post<Account>(this.apiUrl, {});
+  createAccount(accountName: string): Observable<Account> {
+    return this.http.post<Account>(this.apiUrl, { accountName });
   }
 
   balance(accountId: number): Observable<AccountBalance> {

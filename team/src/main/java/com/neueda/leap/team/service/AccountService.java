@@ -30,10 +30,11 @@ public class AccountService {
 
     @Transactional
     @PreAuthorize("hasRole('CLIENT')")
-    public AccountDto create() {
+    public AccountDto create(CreateAccountRequest request) {
         User owner = access.lockActiveClient();
         var now = clock.instant();
-        Account account = accounts.saveAndFlush(new Account(owner, now));
+        String accountName = request == null ? null : request.accountName();
+        Account account = accounts.saveAndFlush(new Account(owner, now, accountName));
         balances.saveAndFlush(new AccountCashBalance(account, now));
         auditLogs.record(owner.getId(), owner.getId(), "accounts", Map.of("account_id", account.getId()),
                 "ACCOUNT_CREATED", null, Map.of(

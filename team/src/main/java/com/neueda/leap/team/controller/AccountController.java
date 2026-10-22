@@ -24,9 +24,9 @@ public class AccountController {
 
     @PostMapping
     @Operation(summary = "Open a USD account for the signed-in CLIENT",
-            description = "No body or {} is allowed. Currency may only be USD. Ownership is taken from the JWT identity.")
+            description = "Account name is optional and may be up to 20 characters. Currency may only be USD. Ownership is taken from the JWT identity.")
     public ResponseEntity<AccountDto> create(@Valid @RequestBody(required = false) CreateAccountRequest request) {
-        AccountDto account = service.create();
+        AccountDto account = service.create(request);
         return ResponseEntity.created(URI.create("/accounts/" + account.accountId())).body(account);
     }
 
