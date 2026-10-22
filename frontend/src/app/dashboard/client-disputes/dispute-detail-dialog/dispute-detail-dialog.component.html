@@ -1,110 +1,73 @@
 <div class="dispute-detail-dialog">
-  <!-- Header -->
   <div class="dialog-header">
-    <div class="header-content">
+    <div>
       <h2>Dispute Details</h2>
-      <p class="dispute-id">ID: {{ data.id }}</p>
+      <p class="subtitle">ID: {{ data.id }}</p>
     </div>
-    <button mat-icon-button (click)="close()" class="close-btn">
+    <button type="button" class="close-button" (click)="close()" aria-label="Close">
       <mat-icon>close</mat-icon>
     </button>
   </div>
 
   <!-- Dispute Information -->
-  <div class="dispute-info">
+  <div class="summary">
     <div class="info-grid">
-      <!-- Client ID -->
-      <div class="info-item">
-        <label class="info-label">Client ID</label>
+      <div>
+        <p class="info-label">Client ID</p>
         <p class="info-value">{{ data.clientId }}</p>
       </div>
-
-      <!-- Date -->
-      <div class="info-item">
-        <label class="info-label">Date</label>
+      <div>
+        <p class="info-label">Date</p>
         <p class="info-value">{{ data.date }}</p>
       </div>
-
-      <!-- Disputed Amount -->
-      <div class="info-item">
-        <label class="info-label">Disputed Amount</label>
-        <p class="info-value">${{ data.disputedAmount }}</p>
+      <div>
+        <p class="info-label">Disputed amount</p>
+        <p class="info-value">{{ data.disputedAmount | currency }}</p>
       </div>
-
-      <!-- Current Status -->
-      <div class="info-item">
-        <label class="info-label">Current Status</label>
-        <span
-          class="status-badge"
-          [style.backgroundColor]="getStatusColor(data.status)"
-        >
+      <div>
+        <p class="info-label">Current status</p>
+        <span class="badge" [ngClass]="getStatusTone(data.status)">
           {{ getStatusLabel(data.status) }}
         </span>
       </div>
     </div>
 
-    <!-- Reason -->
-    <div class="reason-section">
-      <label class="section-label">Reason</label>
-      <p class="reason-text">{{ data.reason }}</p>
-    </div>
+    <p class="info-label">Reason</p>
+    <p class="reason">{{ data.reason }}</p>
   </div>
 
   <!-- Edit Form -->
-  <form [formGroup]="detailForm" class="edit-form">
-    <!-- Status Update -->
-    <div class="form-group">
-      <label class="form-label">Update Status</label>
-      <mat-form-field>
-        <mat-label>Status</mat-label>
-        <mat-select formControlName="status">
-          <mat-option *ngFor="let status of statusOptions" [value]="status.value">
-            {{ status.label }}
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
+  <form [formGroup]="detailForm">
+    <mat-form-field appearance="outline">
+      <mat-label>Status</mat-label>
+      <mat-select formControlName="status" panelClass="dark-ui">
+        <mat-option *ngFor="let status of statusOptions" [value]="status.value">
+          {{ status.label }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
 
-    <!-- Assignee Update -->
-    <div class="form-group">
-      <label class="form-label">Assign To</label>
-      <mat-form-field>
-        <mat-label>Assigned Owner</mat-label>
-        <mat-select formControlName="assignedOwner">
-          <!-- <mat-option *ngFor="let assignee of assigneeOptions" [value]="assignee.value"> -->
-            <!-- {{ assignee.label }}
-          </mat-option> -->
-        </mat-select>
-      </mat-form-field>
-    </div>
+    <mat-form-field appearance="outline">
+      <mat-label>Assigned owner</mat-label>
+      <mat-select formControlName="assignedOwner" panelClass="dark-ui">
+        <!-- <mat-option *ngFor="let assignee of assigneeOptions" [value]="assignee.value"> -->
+          <!-- {{ assignee.label }}
+        </mat-option> -->
+      </mat-select>
+    </mat-form-field>
 
-    <!-- Notes -->
-    <div class="form-group">
-      <label class="form-label">Internal Notes</label>
-      <mat-form-field class="textarea-field">
-        <mat-label>Add notes about this dispute...</mat-label>
-        <textarea
-          matInput
-          formControlName="notes"
-          rows="4"
-          placeholder="Your notes..."
-        ></textarea>
-      </mat-form-field>
-      <p class="field-hint" *ngIf="detailForm.get('notes')?.hasError('minlength') && detailForm.get('notes')?.touched">
-        Minimum 10 characters required
-      </p>
-    </div>
+    <mat-form-field appearance="outline">
+      <mat-label>Internal notes</mat-label>
+      <textarea matInput formControlName="notes" rows="4" placeholder="Add notes about this dispute..."></textarea>
+      <mat-error *ngIf="detailForm.get('notes')?.hasError('minlength')">Minimum 10 characters required</mat-error>
+    </mat-form-field>
 
-    <!-- Action Buttons -->
     <div class="dialog-actions">
-      <button type="button" mat-stroked-button (click)="close()" class="cancel-btn">
-        Cancel
-      </button>
+      <button type="button" class="secondary" (click)="close()">Cancel</button>
       <button
         type="button"
-        mat-raised-button
+        class="primary"
         (click)="onSave()"
-        class="save-btn"
         [disabled]="!detailForm.valid || !detailForm.dirty"
       >
         Save Changes

@@ -1,110 +1,61 @@
 <div class="trading-dialog">
-  <!-- Header -->
-  <div class="dialog-header">
+  <header class="dialog-header">
     <div>
-      <h2 class="asset-name">{{ data.symbol }}</h2>
-      <p class="asset-price">{{ data.price | currency }}</p>
+      <h2 class="symbol">{{ data.symbol }}</h2>
+      <p class="name">{{ data.name }}</p>
     </div>
-    <button mat-icon-button (click)="close()" class="close-btn">
+    <button type="button" class="close-btn" (click)="close()" aria-label="Close">
       <mat-icon>close</mat-icon>
     </button>
+  </header>
+
+  <div class="price-row">
+    <span class="price">{{ data.price | currency: data.currency }}</span>
+    <span class="state" [class.open]="data.isOpen"><span class="dot"></span>{{ data.isOpen ? 'Market open' : 'Market closed' }}</span>
   </div>
 
-  <!-- Transaction Type -->
-  <div class="transaction-type">
-    <button
-      [class.active]="transactionType === 'buy'"
-      (click)="selectTransactionType('buy')"
-      class="type-btn buy-btn"
-    >
-      BUY
-    </button>
-    <button
-      [class.active]="transactionType === 'sell'"
-      (click)="selectTransactionType('sell')"
-      class="type-btn sell-btn"
-    >
-      SELL
-    </button>
+  <div class="side-toggle" role="group" aria-label="Order side">
+    <button type="button" [class.active]="transactionType === 'buy'" class="buy" (click)="selectTransactionType('buy')">Buy</button>
+    <button type="button" [class.active]="transactionType === 'sell'" class="sell" (click)="selectTransactionType('sell')">Sell</button>
   </div>
 
-  <!-- Order Type -->
-  <div class="order-type-section">
-    <label class="section-label">Order Type</label>
-    <div class="order-type-buttons">
-      <button
-        [class.active]="orderType === 'market'"
-        (click)="selectOrderType('market')"
-        class="order-btn"
-      >
-        Market
-      </button>
-      <button
-        [class.active]="orderType === 'limit'"
-        (click)="selectOrderType('limit')"
-        class="order-btn"
-      >
-        Limit
-      </button>
-    </div>
-  </div>
+  <form [formGroup]="tradeForm" (ngSubmit)="onSubmit()" class="trade-form">
+    <label class="field" *ngIf="transactionType === 'buy'">
+      <span class="field-label">Amount (USD)</span>
+      <span class="input-wrap">
+        <span class="prefix">$</span>
+        <input type="number" formControlName="amount" min="0.01" step="0.01" inputmode="decimal" />
+      </span>
+    </label>
 
-  <!-- Form -->
-  <form [formGroup]="tradeForm" class="trade-form">
-    <!-- Quantity -->
-    <div class="form-group">
-      <label class="form-label">Quantity</label>
-      <div class="quantity-input">
-        <button type="button" class="qty-btn">-</button>
-        <mat-form-field class="qty-field">
-          <input
-            matInput
-            type="number"
-            formControlName="quantity"
-            placeholder="0"
-          />
-        </mat-form-field>
-        <button type="button" class="qty-btn">+</button>
-      </div>
-    </div>
+    <label class="field" *ngIf="transactionType === 'sell'">
+      <span class="field-label">Quantity</span>
+      <span class="input-wrap">
+        <input type="number" formControlName="quantity" min="0" step="any" inputmode="decimal" />
+        <span class="suffix">{{ data.symbol }}</span>
+      </span>
+    </label>
 
-    <!-- Limit Price (only if limit order) -->
-    <div class="form-group" *ngIf="orderType === 'limit'">
-      <label class="form-label">Limit Price</label>
-      <mat-form-field>
-        <mat-label>Price</mat-label>
-        <input
-          matInput
-          type="number"
-          formControlName="limitPrice"
-          placeholder="0.00"
-        />
-        <span matSuffix>USD</span>
-      </mat-form-field>
-    </div>
+    <p class="estimate">{{ estimate }}</p>
 
-    <!-- Estimated Total -->
-    <div class="estimated-section">
-      <div class="estimated-label">Estimated Total</div>
-      <div class="estimated-value">
-        {{ estimatedTotal | currency }}
-      </div>
-      <p class="estimated-note">
-        Based on {{ orderType === 'market' ? 'current' : 'limit' }} price of {{ (orderType === 'market' ? data.price : tradeForm.get('limitPrice')?.value) | currency }}
-      </p>
-    </div>
-
-    <!-- Action Button -->
     <button
-      type="button"
-      mat-raised-button
-      class="action-btn"
-      [class.buy]="transactionType === 'buy'"
+      type="submit"
+      class="submit"
       [class.sell]="transactionType === 'sell'"
-      (click)="onSubmit()"
-      [disabled]="!tradeForm.valid"
+      [disabled]="!canSubmit"
     >
-      Place {{ transactionType === 'buy' ? 'Buy' : 'Sell' }} Order
+      <span *ngIf="!isSubmitting">{{ transactionType === 'buy' ? 'Buy' : 'Sell' }} {{ data.symbol }}</span>
+      <span *ngIf="isSubmitting" class="spinner" aria-label="Placing order"></span>
     </button>
+
+    <div *ngIf="orderOutcome as outcome" class="outcome" [ngClass]="outcome.tone" role="status" aria-live="polite">
+      <mat-icon>{{
+        outcome.tone === 'success' ? 'check_circle' : outcome.tone === 'pending' ? 'schedule' : outcome.tone === 'error' ? 'error_outline' : 'info_outline'
+      }}</mat-icon>
+      <div>
+        <strong>{{ outcome.title }}</strong>
+        <span>{{ outcome.detail }}</span>
+      </div>
+    </div>
   </form>
 </div>

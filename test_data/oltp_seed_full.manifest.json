@@ -1,0 +1,508 @@
+{
+  "generator_version": 1,
+  "seed": 20261015,
+  "as_of": "2026-10-15",
+  "namespace": "",
+  "demo_password": "DemoPass123!",
+  "securities": 569,
+  "rows": {
+    "users": 32,
+    "accounts": 60,
+    "account_cash_balances": 60,
+    "orders": 789,
+    "order_reservations": 684,
+    "executions": 681,
+    "trades": 582,
+    "account_positions": 243,
+    "transactions": 318,
+    "cash_ledger": 846,
+    "disputes": 20,
+    "audit_logs": 96
+  },
+  "order_statuses": {
+    "FILLED": 582,
+    "CANCELLED": 51,
+    "REJECTED": 156
+  },
+  "user_statuses": {
+    "ACTIVE": 29,
+    "SUSPENDED": 3
+  },
+  "traded_asset_types": {
+    "EQUITY": 304,
+    "ETF": 92,
+    "FOREX": 95,
+    "CRYPTO": 91
+  },
+  "optional_features": {
+    "pending": false,
+    "ledger": true,
+    "audit": true,
+    "disputes": true
+  },
+  "accounts": [
+    {
+      "fixture_account_id": 1,
+      "email": "client01@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 2,
+      "email": "client02@paysprint.test",
+      "scenario": "EMPTY"
+    },
+    {
+      "fixture_account_id": 3,
+      "email": "client02@paysprint.test",
+      "scenario": "CASH_ONLY"
+    },
+    {
+      "fixture_account_id": 4,
+      "email": "client03@paysprint.test",
+      "scenario": "FULLY_SOLD"
+    },
+    {
+      "fixture_account_id": 5,
+      "email": "client03@paysprint.test",
+      "scenario": "LOW_CASH"
+    },
+    {
+      "fixture_account_id": 6,
+      "email": "client03@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 7,
+      "email": "client04@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 8,
+      "email": "client05@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 9,
+      "email": "client05@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 10,
+      "email": "client06@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 11,
+      "email": "client06@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 12,
+      "email": "client06@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 13,
+      "email": "client07@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 14,
+      "email": "client08@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 15,
+      "email": "client08@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 16,
+      "email": "client09@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 17,
+      "email": "client09@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 18,
+      "email": "client09@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 19,
+      "email": "client10@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 20,
+      "email": "client11@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 21,
+      "email": "client11@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 22,
+      "email": "client12@paysprint.test",
+      "scenario": "EMPTY"
+    },
+    {
+      "fixture_account_id": 23,
+      "email": "client12@paysprint.test",
+      "scenario": "CASH_ONLY"
+    },
+    {
+      "fixture_account_id": 24,
+      "email": "client12@paysprint.test",
+      "scenario": "FULLY_SOLD"
+    },
+    {
+      "fixture_account_id": 25,
+      "email": "client13@paysprint.test",
+      "scenario": "LOW_CASH"
+    },
+    {
+      "fixture_account_id": 26,
+      "email": "client14@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 27,
+      "email": "client14@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 28,
+      "email": "client15@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 29,
+      "email": "client15@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 30,
+      "email": "client15@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 31,
+      "email": "client16@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 32,
+      "email": "client17@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 33,
+      "email": "client17@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 34,
+      "email": "client18@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 35,
+      "email": "client18@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 36,
+      "email": "client18@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 37,
+      "email": "client19@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 38,
+      "email": "client20@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 39,
+      "email": "client20@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 40,
+      "email": "client21@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 41,
+      "email": "client21@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 42,
+      "email": "client21@paysprint.test",
+      "scenario": "EMPTY"
+    },
+    {
+      "fixture_account_id": 43,
+      "email": "client22@paysprint.test",
+      "scenario": "CASH_ONLY"
+    },
+    {
+      "fixture_account_id": 44,
+      "email": "client23@paysprint.test",
+      "scenario": "FULLY_SOLD"
+    },
+    {
+      "fixture_account_id": 45,
+      "email": "client23@paysprint.test",
+      "scenario": "LOW_CASH"
+    },
+    {
+      "fixture_account_id": 46,
+      "email": "client24@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 47,
+      "email": "client24@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 48,
+      "email": "client24@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 49,
+      "email": "client25@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 50,
+      "email": "client26@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 51,
+      "email": "client26@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 52,
+      "email": "client27@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 53,
+      "email": "client27@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 54,
+      "email": "client27@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 55,
+      "email": "client28@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 56,
+      "email": "client29@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 57,
+      "email": "client29@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 58,
+      "email": "client30@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 59,
+      "email": "client30@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    },
+    {
+      "fixture_account_id": 60,
+      "email": "client30@paysprint.test",
+      "scenario": "DIVERSIFIED"
+    }
+  ],
+  "users": [
+    {
+      "email": "admin01@paysprint.test",
+      "role_name": "ADMIN",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "admin02@paysprint.test",
+      "role_name": "ADMIN",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client01@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client02@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client03@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client04@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client05@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client06@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client07@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client08@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client09@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client10@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client11@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client12@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client13@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client14@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client15@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client16@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client17@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client18@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client19@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client20@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client21@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client22@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client23@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client24@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client25@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client26@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client27@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "ACTIVE"
+    },
+    {
+      "email": "client28@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "SUSPENDED"
+    },
+    {
+      "email": "client29@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "SUSPENDED"
+    },
+    {
+      "email": "client30@paysprint.test",
+      "role_name": "CLIENT",
+      "status": "SUSPENDED"
+    }
+  ],
+  "sql_sha256": "34c4c4a5159749d40222bbc818c484f7292004aa4dda0de1d600e20849c2b2f1"
+}

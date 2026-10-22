@@ -2,6 +2,7 @@ package com.neueda.leap.team.controller;
 
 import com.neueda.leap.team.dto.*;
 import com.neueda.leap.team.service.AccountService;
+import com.neueda.leap.team.service.ValueHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,7 +17,10 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Accounts")
 public class AccountController {
     private final AccountService service;
-    public AccountController(AccountService service) { this.service = service; }
+    private final ValueHistoryService valueHistory;
+    public AccountController(AccountService service, ValueHistoryService valueHistory) {
+        this.service = service; this.valueHistory = valueHistory;
+    }
 
     @PostMapping
     @Operation(summary = "Open a USD account for the signed-in CLIENT",
@@ -42,6 +46,13 @@ public class AccountController {
     public PageResponse<PositionDto> positions(@PathVariable long accountId,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         return service.positions(accountId, page, size);
+    }
+    @GetMapping("/{accountId}/value-history")
+    @Operation(summary = "Read end-of-day account value",
+            description = "range is 1D, 1W, 1M or 1Y. One USD point per day up to yesterday: cash plus holdings at that day's close. "
+                    + "complete=false when a holding had no price history and was valued at its last execution price.")
+    public ValueHistoryDto valueHistory(@PathVariable long accountId, @RequestParam(defaultValue = "1M") String range) {
+        return valueHistory.history(accountId, range);
     }
     @GetMapping("/{accountId}/orders")
     @Operation(summary = "Read order history", description = "Newest first, including rejected and cancelled orders. This endpoint does not place orders.")

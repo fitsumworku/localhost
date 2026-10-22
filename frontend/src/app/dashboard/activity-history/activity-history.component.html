@@ -1,0 +1,143 @@
+<div class="activity-history">
+  <header class="page-header">
+    <h1>Activity History</h1>
+    <p>View all your trades and transactions</p>
+  </header>
+
+  <!-- Stat Cards -->
+  <div class="stats">
+    <section class="card stat">
+      <div class="stat-header">
+        <p class="label">Portfolio value</p>
+        <mat-icon>trending_up</mat-icon>
+      </div>
+      <p class="stat-value" *ngIf="portfolioMetrics as metrics; else portfolioLoading">{{ metrics.portfolioValue | currency }}</p>
+      <ng-template #portfolioLoading><p class="stat-value muted">{{ isLoadingPortfolio ? 'Loading…' : '—' }}</p></ng-template>
+    </section>
+
+    <section class="card stat">
+      <div class="stat-header">
+        <p class="label">Cash balance</p>
+        <mat-icon>account_balance_wallet</mat-icon>
+      </div>
+      <p class="stat-value" *ngIf="portfolioMetrics as metrics; else cashLoading">{{ metrics.cashBalance | currency }}</p>
+      <ng-template #cashLoading><p class="stat-value muted">{{ isLoadingPortfolio ? 'Loading…' : '—' }}</p></ng-template>
+    </section>
+
+    <section class="card stat">
+      <div class="stat-header">
+        <p class="label">Buying power</p>
+        <mat-icon>shopping_cart</mat-icon>
+      </div>
+      <p class="stat-value" *ngIf="portfolioMetrics as metrics; else buyingPowerLoading">{{ metrics.buyingPower | currency }}</p>
+      <ng-template #buyingPowerLoading><p class="stat-value muted">{{ isLoadingPortfolio ? 'Loading…' : '—' }}</p></ng-template>
+    </section>
+
+    <section class="card stat">
+      <div class="stat-header">
+        <p class="label">Total return</p>
+        <mat-icon>show_chart</mat-icon>
+      </div>
+      <p
+        class="stat-value"
+        *ngIf="portfolioMetrics as metrics; else returnLoading"
+        [class.up]="metrics.totalReturn > 0"
+        [class.down]="metrics.totalReturn < 0"
+      >{{ metrics.totalReturn | currency }}</p>
+      <ng-template #returnLoading><p class="stat-value muted">{{ isLoadingPortfolio ? 'Loading…' : '—' }}</p></ng-template>
+    </section>
+  </div>
+
+  <!-- Activity History Table -->
+  <section class="card">
+    <h3 class="card-title">All trades, deposits and withdrawals</h3>
+
+    <div class="table-wrap">
+      <table *ngIf="!isLoading && !errorMessage && transactionData.length > 0">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Asset</th>
+            <th>Type</th>
+            <th class="num">Amount</th>
+            <th class="num">Price</th>
+            <th class="num">P&amp;L</th>
+            <th class="action" aria-label="Actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let activity of transactionData" class="row">
+            <td class="date">
+              <span class="day">{{ activity.date | date: 'MMM d, y' }}</span>
+              <span class="time">{{ activity.date | date: 'h:mm a' }}</span>
+            </td>
+            <td class="ticker">{{ activity.asset }}</td>
+            <td>
+              <span class="badge" [ngClass]="getTypeTone(activity.type)">{{ activity.type | titlecase }}</span>
+            </td>
+            <td class="num">{{ activity.amount }}</td>
+            <td class="num">
+              <span *ngIf="activity.price !== undefined">{{ activity.price | currency }}</span>
+              <span *ngIf="activity.price === undefined" class="muted">—</span>
+            </td>
+            <td class="num">
+              <span *ngIf="activity.pnl !== undefined" [class.up]="activity.pnl >= 0" [class.down]="activity.pnl < 0">
+                {{ activity.pnl > 0 ? '+' : '' }}{{ activity.pnl | currency }}
+              </span>
+              <span *ngIf="activity.pnl === undefined" class="muted">—</span>
+            </td>
+            <td class="action">
+              <button
+                *ngIf="activity.transactionId !== undefined || activity.tradeId !== undefined"
+                type="button"
+                class="icon-button flag"
+                (click)="openDisputeDialog(activity)"
+                title="Dispute transaction"
+                aria-label="Dispute transaction"
+              >
+                <mat-icon>flag</mat-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p *ngIf="isLoading" class="empty">Loading transaction history…</p>
+    <p *ngIf="!isLoading && errorMessage" class="empty">{{ errorMessage }}</p>
+    <p *ngIf="!isLoading && !errorMessage && transactionData.length === 0" class="empty">No activity yet</p>
+  </section>
+
+  <!-- Disputes History Table -->
+  <section class="card">
+    <h3 class="card-title">Disputes submitted for this account</h3>
+
+    <div class="table-wrap">
+      <table *ngIf="!isLoading && disputeData.length > 0" class="disputes-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Reason</th>
+            <th>Type</th>
+            <th>Assigned admin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let dispute of disputeData" class="row">
+            <td class="date">
+              <span class="day">{{ dispute.dateCreated | date: 'MMM d, y' }}</span>
+              <span class="time">{{ dispute.dateCreated | date: 'h:mm a' }}</span>
+            </td>
+            <td class="reason">{{ dispute.description }}</td>
+            <td><span class="badge">{{ dispute.disputeType | titlecase }}</span></td>
+            <td [class.muted]="dispute.adminId === null">
+              {{ dispute.adminId !== null ? ('Admin #' + dispute.adminId) : 'Unassigned' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p *ngIf="!isLoading && !errorMessage && disputeData.length === 0" class="empty">No disputes yet</p>
+  </section>
+</div>

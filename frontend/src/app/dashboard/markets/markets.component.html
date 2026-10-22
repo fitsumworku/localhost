@@ -1,117 +1,88 @@
-<div class="markets-container">
-  <div class="header">
-    <h1>Markets Overview</h1>
-    <p class="subtitle">Explore trending assets and market data</p>
-  </div>
+<div class="markets">
+  <header class="page-header">
+    <h1>Markets</h1>
+    <p>Search stocks, ETFs, crypto and FX, then select one to trade</p>
+  </header>
 
-  <!-- Search Bar -->
-  <div class="search-section">
-    <mat-form-field class="search-field">
-      <mat-label>Search assets...</mat-label>
+  <!-- Filters: one row above the table -->
+  <div class="toolbar">
+    <label class="search">
+      <mat-icon>search</mat-icon>
       <input
-        matInput
-        placeholder="Enter ticker symbol"
+        type="search"
+        placeholder="Search by ticker or name"
         [(ngModel)]="searchQuery"
         (input)="onSearchChange()"
+        aria-label="Search assets"
       />
-      <mat-icon matSuffix>search</mat-icon>
-    </mat-form-field>
-  </div>
+    </label>
 
-  <!-- Trending Assets Section -->
-  <div class="trending-section">
-    <h2>Trending Assets</h2>
-    <div class="trending-grid">
-      <div class="trending-card" *ngFor="let asset of trendingAssets">
-        <div class="trending-header">
-          <span class="symbol">{{ asset.symbol }}</span>
-          <span class="change" [style.color]="getChangeColor(asset.change)">
-            {{ asset.changePercent }}
-          </span>
-        </div>
-        <div class="trending-price">${{ asset.price }}</div>
-        <div class="trending-chart">
-          <svg viewBox="0 0 100 50" preserveAspectRatio="none">
-            <polyline
-              points="0,40 10,35 20,38 30,30 40,25 50,28 60,20 70,22 80,15 90,18 100,10"
-              fill="none"
-              stroke="#06402B"
-              stroke-width="2"
-            />
-          </svg>
-        </div>
-      </div>
+    <div class="pills" role="group" aria-label="Asset type">
+      <button
+        *ngFor="let filter of filters"
+        type="button"
+        [class.active]="selectedFilter === filter.value"
+        [attr.aria-pressed]="selectedFilter === filter.value"
+        (click)="selectFilter(filter.value)"
+      >
+        {{ filter.label }}
+      </button>
     </div>
   </div>
 
-  <!-- Market Assets Section -->
-  <div class="market-section">
-    <div class="section-header">
-      <h2>Market Assets</h2>
-      <div class="filter-buttons">
-        <button
-          mat-stroked-button
-          [class.active]="isFilterActive('all')"
-          (click)="selectFilter('all')"
-        >
-          All
-        </button>
-        <button
-          mat-stroked-button
-          [class.active]="isFilterActive('equity')"
-          (click)="selectFilter('equity')"
-        >
-          Equities
-        </button>
-        <button
-          mat-stroked-button
-          [class.active]="isFilterActive('crypto')"
-          (click)="selectFilter('crypto')"
-        >
-          Crypto
-        </button>
-        <button
-          mat-stroked-button
-          [class.active]="isFilterActive('etf')"
-          (click)="selectFilter('etf')"
-        >
-          ETFs
-        </button>
-      </div>
-    </div>
+  <div class="notice" *ngIf="errorMessage" role="alert">
+    <mat-icon>info_outline</mat-icon>
+    <span>{{ errorMessage }}</span>
+  </div>
 
-    <!-- Scrollable Market Assets Table -->
-    <div class="table-container">
-      <table class="assets-table">
+  <section class="card">
+    <div class="table-wrap">
+      <table *ngIf="marketAssets.length > 0">
         <thead>
           <tr>
-            <th class="col-symbol">Ticker</th>
-            <th class="col-price">Price</th>
-            <th class="col-change">24h Change</th>
-            <th class="col-volume">Volume</th>
-            <th class="col-marketcap">Market Cap</th>
+            <th>Asset</th>
+            <th>Type</th>
+            <th class="num">Price</th>
+            <th>Market</th>
+            <th aria-label="Actions"></th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            *ngFor="let asset of marketAssets"
-            class="asset-row"
-            (click)="openTradingDialog(asset)"
-          >
-            <td class="col-symbol">{{ asset.symbol }}</td>
-            <td class="col-price">${{ asset.price }}</td>
-            <td class="col-change" [style.color]="getChangeColor(asset.change24h)">
-              {{ asset.changePercent }}
+          <tr *ngFor="let asset of marketAssets" class="row" (click)="openTradingDialog(asset)">
+            <td>
+              <span class="ticker">{{ asset.symbol }}</span>
+              <span class="name">{{ asset.name }}</span>
             </td>
-            <td class="col-volume">{{ asset.volume }}</td>
-            <td class="col-marketcap">{{ asset.marketCap }}</td>
+            <td><span class="type">{{ typeLabel(asset.type) }}</span></td>
+            <td class="num">
+              <ng-container [ngSwitch]="asset.quoteStatus">
+                <span *ngSwitchCase="'loading'" class="muted">…</span>
+                <span *ngSwitchCase="'unavailable'" class="muted">Unavailable</span>
+                <span *ngSwitchDefault>{{ asset.price | currency: asset.currency }}</span>
+              </ng-container>
+            </td>
+            <td>
+              <span *ngIf="asset.quoteStatus === 'ready'" class="state" [class.open]="isOpen(asset)">
+                <span class="dot"></span>{{ isOpen(asset) ? 'Open' : 'Closed' }}
+              </span>
+            </td>
+            <td class="action">
+              <button
+                type="button"
+                class="trade-button"
+                [disabled]="asset.price === null"
+                (click)="openTradingDialog(asset); $event.stopPropagation()"
+              >
+                Trade
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div *ngIf="marketAssets.length === 0" class="no-results">
-      <p>No assets found matching your search.</p>
-    </div>
-  </div>
+    <p class="empty" *ngIf="marketAssets.length === 0">
+      {{ isLoading ? 'Loading markets…' : errorMessage ? '' : 'No assets match your search.' }}
+    </p>
+  </section>
 </div>

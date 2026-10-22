@@ -1,0 +1,6 @@
+@use '../dialog' as *;
+
+.cash-dialog {
+  @include dialog;
+  min-width: 300px;
+}

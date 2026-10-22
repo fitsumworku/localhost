@@ -63,16 +63,18 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/users/*").authenticated()
                         .requestMatchers(HttpMethod.POST, "/accounts", "/accounts/*/deposits", "/accounts/*/withdrawals").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.GET, "/accounts", "/accounts/*", "/accounts/*/balance",
-                                "/accounts/*/positions", "/accounts/*/orders", "/accounts/*/trades",
+                                "/accounts/*/positions", "/accounts/*/value-history", "/accounts/*/orders", "/accounts/*/trades",
                                 "/accounts/*/transactions", "/accounts/*/transactions/*")
                                 .hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/accounts/*/orders", "/accounts/*/orders/*/cancel").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.GET, "/accounts/*/orders/*", "/accounts/*/orders/*/executions",
-                                "/securities", "/securities/*", "/securities/*/quote").hasAnyRole("CLIENT", "ADMIN")
+                                "/securities", "/securities/*", "/securities/*/quote", "/securities/*/closes").hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/accounts/*/disputes/transaction/*", "/accounts/*/disputes/trade/*").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.GET, "/accounts/*/disputes", "/accounts/*/disputes/*").hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/accounts/*/disputes/*/assign-to-me").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/accounts/*/disputes/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/reports/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/reports/etl/refresh").hasRole("ADMIN")
                         // Enable additional business routes only alongside their ownership/role checks.
                         .anyRequest().denyAll())
                 .authenticationProvider(provider)
