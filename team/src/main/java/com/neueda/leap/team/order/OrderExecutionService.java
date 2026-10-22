@@ -1,5 +1,6 @@
 package com.neueda.leap.team.order;
 
+import com.neueda.leap.team.audit.AuditLogService;
 import com.neueda.leap.team.config.OrderProperties;
 import com.neueda.leap.team.market.QuoteResult;
 import java.math.*;
@@ -18,8 +19,9 @@ public class OrderExecutionService {
     private final OrderProperties properties;
     private final ExecutionPricing pricing;
     private final Clock clock;
-    public OrderExecutionService(OrderRepository repo,OrderProperties properties,ExecutionPricing pricing,Clock clock) {
-        this.repo=repo;this.properties=properties;this.pricing=pricing;this.clock=clock;
+    private final AuditLogService audit;
+    public OrderExecutionService(OrderRepository repo,OrderProperties properties,ExecutionPricing pricing,Clock clock,AuditLogService audit) {
+        this.repo=repo;this.properties=properties;this.pricing=pricing;this.clock=clock;this.audit=audit;
     }
     public record Claim(long orderId,UUID token,SecurityDto security) {}
 
@@ -31,15 +33,24 @@ public class OrderExecutionService {
         // Accepted commitments continue after logout/blacklisting; those block new client actions.
         repo.lockOwner(before.ownerId());repo.lockBalance(before.accountId());
         OrderRow o=repo.locked(id);Instant now=now(o);
+        Long expiredExecutionId=null;
         if(o.status().equals("IN_EXECUTION")) {
             if(o.leaseUntil()!=null&&o.leaseUntil().isAfter(now))return Optional.empty();
-            failedAttempt(o,"FAILED","WORKER_LEASE_EXPIRED",now);
+            expiredExecutionId=failedAttempt(o,"FAILED","WORKER_LEASE_EXPIRED",now);
         } else if(!o.status().equals("ACCEPTED")||o.nextAttemptAt()==null||o.nextAttemptAt().isAfter(now))return Optional.empty();
         UUID token=UUID.randomUUID();
         repo.update("""
                 UPDATE orders SET order_status='IN_EXECUTION',updated_date=?,execution_token=?,execution_lease_until=?,
                     next_attempt_at=NULL,execution_attempts=execution_attempts+1,last_execution_message=NULL WHERE order_id=?
                 """,ts(now),token,ts(now.plusSeconds(properties.leaseSeconds())),id);
+        Map<String,Object> after=OrderAuditValues.snapshot(repo.find(id).orElseThrow(),"ACTIVE");
+        if(expiredExecutionId!=null) {
+            after.put("expiredExecutionId",expiredExecutionId);
+            after.put("recoveryReason","WORKER_LEASE_EXPIRED");
+        }
+        audit.record(null,o.ownerId(),"orders",Map.of("order_id",id),
+                expiredExecutionId==null?"ORDER_EXECUTION_STARTED":"ORDER_LEASE_RECOVERED",
+                OrderAuditValues.snapshot(o,"ACTIVE"),after);
         return Optional.of(new Claim(id,token,o.security()));
     }
 
@@ -125,16 +136,45 @@ public class OrderExecutionService {
         repo.update("UPDATE account_cash_balances SET cash_balance=?,updated_date=? WHERE account_id=?",newBalance,ts(now),o.accountId());
         resolveHold(o,"CONSUMED",now);
         terminal(o,"FILLED",null,now);
+        Map<String,Object> before=OrderAuditValues.snapshot(o,"ACTIVE");
+        before.put("cashBalance",balance);
+        before.put("positionQuantity",position.quantity());
+        before.put("averagePrice",position.average());
+        Map<String,Object> after=OrderAuditValues.snapshot(repo.find(o.id()).orElseThrow(),"CONSUMED");
+        after.put("cashBalance",newBalance);
+        after.put("positionQuantity",newQuantity);
+        after.put("averagePrice",average);
+        after.put("executionId",execution);
+        after.put("tradeId",tradeId);
+        after.put("quantityFilled",quantity);
+        after.put("priceOfExecution",p.usdPrice());
+        after.put("cashAmount",cash);
+        after.put("currency","USD");
+        after.put("quoteCurrency",p.quote().currency());
+        after.put("quotePrice",p.quotePrice());
+        after.put("fxRateToUsd",p.fxRate());
+        // One business event describes the atomic fill, including cash and position effects.
+        audit.record(null,o.ownerId(),"orders",Map.of("order_id",o.id()),"ORDER_FILLED",before,after);
     }
     private void requeue(OrderRow o,String reason,long delay,Instant now,boolean failed) {
-        if(failed)failedAttempt(o,"FAILED",reason,now);
+        Long failedExecutionId=failed?failedAttempt(o,"FAILED",reason,now):null;
         repo.update("""
                 UPDATE orders SET order_status='ACCEPTED',updated_date=?,execution_token=NULL,execution_lease_until=NULL,
                     next_attempt_at=?,last_execution_message=? WHERE order_id=?
                 """,ts(now),ts(now.plusSeconds(delay)),reason,o.id());
+        Map<String,Object> after=OrderAuditValues.snapshot(repo.find(o.id()).orElseThrow(),"ACTIVE");
+        if(failedExecutionId!=null)after.put("executionId",failedExecutionId);
+        // A newly claimed attempt changed state; polling an order that is not due records nothing.
+        audit.record(null,o.ownerId(),"orders",Map.of("order_id",o.id()),
+                failed?"ORDER_RETRY_SCHEDULED":"ORDER_WAITING",OrderAuditValues.snapshot(o,"ACTIVE"),after);
     }
     private void reject(OrderRow o,String reason,Instant now) {
-        failedAttempt(o,"REJECTED",reason,now);resolveHold(o,"RELEASED",now);terminal(o,"REJECTED",reason,now);
+        long executionId=failedAttempt(o,"REJECTED",reason,now);
+        resolveHold(o,"RELEASED",now);terminal(o,"REJECTED",reason,now);
+        Map<String,Object> after=OrderAuditValues.snapshot(repo.find(o.id()).orElseThrow(),"RELEASED");
+        after.put("executionId",executionId);
+        audit.record(null,o.ownerId(),"orders",Map.of("order_id",o.id()),"ORDER_REJECTED",
+                OrderAuditValues.snapshot(o,"ACTIVE"),after);
     }
     private void terminal(OrderRow o,String state,String reason,Instant now) {
         repo.update("""
@@ -146,11 +186,24 @@ public class OrderExecutionService {
         int changed=repo.update("UPDATE order_reservations SET status=?,resolved_at=? WHERE order_id=? AND status='ACTIVE'",state,ts(now),o.id());
         if(changed!=1)throw new IllegalStateException("Order reservation is missing");
     }
-    private void failedAttempt(OrderRow o,String state,String reason,Instant now) {
-        repo.update("""
+    private long failedAttempt(OrderRow o,String state,String reason,Instant now) {
+        long id=repo.insert("""
                 INSERT INTO executions(order_id,account_id,security_id,side,status_of_execution,started_at,finished_at,failure_reason)
-                VALUES (?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?) RETURNING execution_id
                 """,o.id(),o.accountId(),o.securityId(),o.side(),state,ts(o.updatedAt()),ts(now),reason);
+        Map<String,Object> values=new LinkedHashMap<>();
+        values.put("orderId",o.id());
+        values.put("accountId",o.accountId());
+        values.put("securityId",o.securityId());
+        values.put("side",o.side());
+        values.put("statusOfExecution",state);
+        values.put("failureReason",reason);
+        values.put("startedAt",o.updatedAt());
+        values.put("finishedAt",now);
+        values.put("executionAttempt",o.attempts());
+        audit.record(null,o.ownerId(),"executions",Map.of("execution_id",id),
+                state.equals("REJECTED")?"EXECUTION_REJECTED":"EXECUTION_FAILED",null,values);
+        return id;
     }
     private Instant now(OrderRow o) { Instant value=clock.instant();return value.isBefore(o.updatedAt())?o.updatedAt():value; }
 }

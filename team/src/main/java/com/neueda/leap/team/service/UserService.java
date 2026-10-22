@@ -1,5 +1,6 @@
 package com.neueda.leap.team.service;
 
+import com.neueda.leap.team.audit.AuditLogService;
 import com.neueda.leap.team.dto.*;
 import com.neueda.leap.team.entity.User;
 import com.neueda.leap.team.entity.enums.*;
@@ -28,13 +29,15 @@ public class UserService {
     private final JwtService jwtService;
     private final Clock clock;
     private final EntityManager entityManager;
+    private final AuditLogService audit;
 
     public UserService(UserRepository users, RoleRepository roles, PasswordEncoder passwordEncoder,
                        AuthenticationManager authenticationManager, JwtService jwtService,
-                       Clock clock, EntityManager entityManager) {
+                       Clock clock, EntityManager entityManager, AuditLogService audit) {
         this.users = users; this.roles = roles; this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager; this.jwtService = jwtService;
         this.clock = clock; this.entityManager = entityManager;
+        this.audit = audit;
     }
 
     @Transactional
@@ -43,6 +46,8 @@ public class UserService {
         var clientRole = roles.findByName(RoleName.CLIENT)
                 .orElseThrow(() -> new IllegalStateException("Seed CLIENT and ADMIN roles before registration."));
         User user = users.saveAndFlush(new User(req.name(), req.email(), passwordEncoder.encode(req.password()), clientRole, clock.instant()));
+        audit.record(user.getId(), user.getId(), "users", Map.of("user_id", user.getId()),
+                "USER_REGISTERED", null, userSnapshot(user));
         return UserDto.from(user);
     }
 
@@ -58,6 +63,8 @@ public class UserService {
         if (user.getStatus() != UserStatus.ACTIVE) throw new BadCredentialsException("User unavailable");
         IssuedJwt issued = jwtService.generateToken(user);
         long remaining = Math.max(0, Duration.between(clock.instant(), issued.expiresAt()).toMillis());
+        audit.record(user.getId(), user.getId(), "users", Map.of("user_id", user.getId()),
+                "LOGIN_SUCCEEDED", null, userSnapshot(user));
         return new AuthResponse(issued.token(), "Bearer", remaining, UserDto.from(user));
     }
 
@@ -68,6 +75,8 @@ public class UserService {
         User user = lockedUser(principal.getUserId());
         if (user.getTokenVersion() != principal.getTokenVersion()) return;
         user.revokeTokens(clock.instant());
+        audit.record(principal.getUserId(), user.getId(), "users", Map.of("user_id", user.getId()),
+                "LOGOUT", null, Map.of("all_sessions_revoked", true));
     }
 
     @Transactional(readOnly = true)
@@ -109,7 +118,10 @@ public class UserService {
         User user = lockedUser(userId);
         requireActivePrincipal(user);
         if (!user.getName().equals(request.name())) {
+            var before = userSnapshot(user);
             user.updateName(request.name(), clock.instant());
+            audit.record(principal().getUserId(), user.getId(), "users", Map.of("user_id", user.getId()),
+                    "USER_PROFILE_UPDATED", before, userSnapshot(user));
         }
         return UserDto.from(user);
     }
@@ -120,7 +132,10 @@ public class UserService {
         User user = lockedClient(userId);
         UserStatus previous = user.getStatus();
         if (previous != request.status()) {
+            var before = userSnapshot(user);
             user.changeStatus(request.status(), clock.instant());
+            audit.record(principal().getUserId(), user.getId(), "users", Map.of("user_id", user.getId()),
+                    "USER_STATUS_CHANGED", before, userSnapshot(user));
         }
         return UserDto.from(user);
     }
@@ -130,6 +145,14 @@ public class UserService {
     public void revokeSessions(Long userId) {
         User user = lockedClient(userId);
         user.revokeTokens(clock.instant());
+        audit.record(principal().getUserId(), user.getId(), "users", Map.of("user_id", user.getId()),
+                "USER_SESSIONS_REVOKED", null, Map.of("all_sessions_revoked", true));
+    }
+
+    // Never serialize the entity or authentication request into an audit event.
+    private static Map<String, Object> userSnapshot(User user) {
+        return Map.of("user_id", user.getId(), "name", user.getName(),
+                "role", user.getRole().getName().name(), "status", user.getStatus().name());
     }
 
     private User lockedUser(long id) { return users.findByIdForUpdate(id).orElseThrow(this::notFound); }

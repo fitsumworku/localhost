@@ -1,10 +1,12 @@
 package com.neueda.leap.team.order;
 
+import com.neueda.leap.team.audit.AuditLogService;
 import com.neueda.leap.team.dto.PageResponse;
 import com.neueda.leap.team.exception.ApiException;
 import com.neueda.leap.team.service.*;
 import java.math.BigDecimal;
 import java.time.*;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -18,8 +20,9 @@ public class OrderService {
     private final OrderRepository repo;
     private final AccountAccessService access;
     private final Clock clock;
-    public OrderService(OrderRepository repo, AccountAccessService access, Clock clock) {
-        this.repo=repo;this.access=access;this.clock=clock;
+    private final AuditLogService audit;
+    public OrderService(OrderRepository repo, AccountAccessService access, Clock clock, AuditLogService audit) {
+        this.repo=repo;this.access=access;this.clock=clock;this.audit=audit;
     }
 
     @Transactional
@@ -60,8 +63,12 @@ public class OrderService {
                     VALUES (?,?,?,?,?,?,?)
                     """,id,account,security.securityId(),request.side().name(),request.requestedAmount(),request.quantityOrdered(),ts(now));
         }
-        // Return normally even for business rejection, so the order commits before HTTP 409.
-        return new OrderOperationResponse(repo.details(repo.find(id).orElseThrow()),false);
+        OrderRow saved=repo.find(id).orElseThrow();
+        audit.record(user.getId(),user.getId(),"orders",Map.of("order_id",id),
+                reason==null?"ORDER_ACCEPTED":"ORDER_REJECTED",null,
+                OrderAuditValues.snapshot(saved,reason==null?"ACTIVE":null));
+        // Return normally even for business rejection, so the order and audit commit before HTTP 409.
+        return new OrderOperationResponse(repo.details(saved),false);
     }
 
     public OrderDetailsDto get(long account,long id) { return repo.details(readable(account,id)); }
@@ -80,7 +87,10 @@ public class OrderService {
         int released=repo.update("UPDATE order_reservations SET status='RELEASED',resolved_at=? WHERE order_id=? AND status='ACTIVE'",ts(now),id);
         if(released!=1)throw new IllegalStateException("Accepted order is missing its reservation");
         repo.update("UPDATE orders SET order_status='CANCELLED',terminal_at=?,updated_date=?,next_attempt_at=NULL,last_execution_message=NULL WHERE order_id=?",ts(now),ts(now),id);
-        return repo.details(repo.find(id).orElseThrow());
+        OrderRow cancelled=repo.find(id).orElseThrow();
+        audit.record(user.getId(),o.ownerId(),"orders",Map.of("order_id",id),"ORDER_CANCELLED",
+                OrderAuditValues.snapshot(o,"ACTIVE"),OrderAuditValues.snapshot(cancelled,"RELEASED"));
+        return repo.details(cancelled);
     }
     private OrderRow readable(long account,long id) {
         access.readable(account);OrderRow o=repo.find(id).orElseThrow(OrderRepository::notFound);

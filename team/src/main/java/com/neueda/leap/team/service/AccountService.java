@@ -1,9 +1,11 @@
 package com.neueda.leap.team.service;
 
+import com.neueda.leap.team.audit.AuditLogService;
 import com.neueda.leap.team.dto.*;
 import com.neueda.leap.team.entity.*;
 import com.neueda.leap.team.repository.*;
 import java.time.Clock;
+import java.util.Map;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -17,11 +19,13 @@ public class AccountService {
     private final AccountCashBalanceRepository balances;
     private final AccountQueryRepository queries;
     private final AccountAccessService access;
+    private final AuditLogService auditLogs;
     private final Clock clock;
     public AccountService(AccountRepository accounts, AccountCashBalanceRepository balances,
-            AccountQueryRepository queries, AccountAccessService access, Clock clock) {
+            AccountQueryRepository queries, AccountAccessService access, Clock clock, AuditLogService auditLogs) {
         this.accounts = accounts; this.balances = balances; this.queries = queries;
         this.access = access; this.clock = clock;
+        this.auditLogs = auditLogs;
     }
 
     @Transactional
@@ -31,6 +35,12 @@ public class AccountService {
         var now = clock.instant();
         Account account = accounts.saveAndFlush(new Account(owner, now));
         balances.saveAndFlush(new AccountCashBalance(account, now));
+        auditLogs.record(owner.getId(), owner.getId(), "accounts", Map.of("account_id", account.getId()),
+                "ACCOUNT_CREATED", null, Map.of(
+                        "account_id", account.getId(),
+                        "user_id", owner.getId(),
+                        "currency", account.getCurrency(),
+                        "created_date", account.getCreatedDate().toString()));
         return queries.account(account.getId()).orElseThrow();
     }
 
