@@ -1,5 +1,6 @@
 package com.neueda.leap.team.controller;
 
+import com.neueda.leap.team.audit.AuditLogService;
 import com.neueda.leap.team.dto.*;
 import com.neueda.leap.team.security.AppUserDetails;
 import com.neueda.leap.team.service.UserService;
@@ -7,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.http.*;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,7 +16,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/auth")
 public class AuthController {
     private final UserService service;
-    public AuthController(UserService service) { this.service = service; }
+    private final AuditLogService audit;
+    public AuthController(UserService service, AuditLogService audit) {
+        this.service = service;
+        this.audit = audit;
+    }
 
     @PostMapping("/register")
     @Operation(summary = "Register a new CLIENT login")
@@ -25,7 +31,14 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(summary = "Authenticate a CLIENT or ADMIN")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.login(req));
+        try {
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.login(req));
+        } catch (AuthenticationException ex) {
+            // The service transaction has already rolled back. Record the failed attempt
+            // separately so that rollback cannot erase it or retain the login's locks.
+            audit.recordFailedLogin(req.email());
+            throw ex;
+        }
     }
 
     @PostMapping("/logout")

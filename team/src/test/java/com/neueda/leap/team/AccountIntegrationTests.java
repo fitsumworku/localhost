@@ -92,14 +92,16 @@ class AccountIntegrationTests extends AccountTestSupport {
         } finally { jdbc.execute("ALTER TABLE account_cash_balances DROP CONSTRAINT test_reject_zero"); }
     }
 
-    @Test void removedLedgerAndAuditRoutesAreUnavailable() throws Exception {
+    @Test void ledgerRouteRemainsUnavailableAndAuditHistoryIsAdminOnly() throws Exception {
         long id = account(token);
         for (String bearer : new String[]{token, adminToken}) {
             mvc.perform(get("/accounts/" + id + "/ledger").header("Authorization", "Bearer " + bearer))
                     .andExpect(status().isForbidden());
-            mvc.perform(get("/users/" + owner + "/audit-logs").header("Authorization", "Bearer " + bearer))
-                    .andExpect(status().isForbidden());
         }
+        mvc.perform(get("/users/" + owner + "/audit-logs").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/users/" + owner + "/audit-logs").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
         var spec = body(mvc.perform(get("/v3/api-docs")).andExpect(status().isOk()).andReturn());
         assertThat(spec.path("paths").has("/accounts/{accountId}/ledger")).isFalse();
     }

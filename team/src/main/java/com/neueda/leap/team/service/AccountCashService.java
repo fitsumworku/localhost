@@ -1,5 +1,6 @@
 package com.neueda.leap.team.service;
 
+import com.neueda.leap.team.audit.AuditLogService;
 import com.neueda.leap.team.dto.*;
 import com.neueda.leap.team.entity.*;
 import com.neueda.leap.team.entity.enums.*;
@@ -7,6 +8,8 @@ import com.neueda.leap.team.exception.ApiException;
 import com.neueda.leap.team.repository.*;
 import java.math.*;
 import java.time.Clock;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -22,15 +25,17 @@ public class AccountCashService {
     private final CashLedgerEntryRepository ledgerEntries;
     private final CashTransactionRepository transactions;
     private final AccountQueryRepository queries;
+    private final AuditLogService auditLogs;
     private final Clock clock;
 
     public AccountCashService(AccountAccessService access, AccountCashBalanceRepository balances,
             CashLedgerEntryRepository ledgerEntries,
             CashTransactionRepository transactions,
-            AccountQueryRepository queries, Clock clock) {
+            AccountQueryRepository queries, Clock clock, AuditLogService auditLogs) {
         this.access = access; this.balances = balances; this.transactions = transactions;
         this.ledgerEntries = ledgerEntries;
         this.queries = queries; this.clock = clock;
+        this.auditLogs = auditLogs;
     }
 
     @Transactional
@@ -83,6 +88,9 @@ public class AccountCashService {
         if (failure != null) {
             transaction.fail(failure, now);
             transactions.saveAndFlush(transaction);
+            auditLogs.record(user.getId(), user.getId(), "transactions",
+                    Map.of("transaction_id", transaction.getId()), "CASH_OPERATION_FAILED", null,
+                    cashSnapshot(transaction, before, before));
             // Return normally so FAILED commits. The controller returns HTTP 409.
             return new CashOperationResponse(queries.transaction(accountId, transaction.getId()).orElseThrow(), false);
         }
@@ -92,7 +100,25 @@ public class AccountCashService {
         balance.changeBalance(after, now);
         ledgerEntries.save(new CashLedgerEntry(transaction, after, now));
         balances.flush();
+        auditLogs.record(user.getId(), user.getId(), "transactions",
+                Map.of("transaction_id", transaction.getId()),
+                type == CashTransactionType.DEPOSIT ? "CASH_DEPOSITED" : "CASH_WITHDRAWN", null,
+                cashSnapshot(transaction, before, after));
         return new CashOperationResponse(queries.transaction(accountId, transaction.getId()).orElseThrow(), false);
+    }
+
+    // This is an explicit audit projection, not serialization of a JPA entity or request.
+    private static Map<String, Object> cashSnapshot(CashTransaction transaction, BigDecimal before, BigDecimal after) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("transaction_id", transaction.getId());
+        snapshot.put("account_id", transaction.getAccountId());
+        snapshot.put("transaction_type", transaction.getType().name());
+        snapshot.put("transaction_amount", transaction.getAmount());
+        snapshot.put("transaction_status", transaction.getStatus().name());
+        snapshot.put("failure_reason", transaction.getFailureReason());
+        snapshot.put("cash_balance_before", before);
+        snapshot.put("cash_balance_after", after);
+        return snapshot;
     }
 
     public PageResponse<CashTransactionDto> transactions(long accountId, int page, int size) {

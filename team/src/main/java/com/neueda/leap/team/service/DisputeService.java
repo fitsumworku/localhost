@@ -1,5 +1,6 @@
 package com.neueda.leap.team.service;
 
+import com.neueda.leap.team.audit.AuditLogService;
 import com.neueda.leap.team.dto.CreateDisputeRequest;
 import com.neueda.leap.team.dto.DisputeDto;
 import com.neueda.leap.team.dto.PageResponse;
@@ -9,7 +10,9 @@ import com.neueda.leap.team.entity.enums.DisputeStatus;
 import com.neueda.leap.team.exception.ApiException;
 import com.neueda.leap.team.repository.DisputeRepository;
 import java.time.Clock;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -27,11 +30,14 @@ public class DisputeService {
     private final DisputeRepository disputeRepository;
     private final AccountAccessService access;
     private final Clock clock;
+    private final AuditLogService auditLogs;
 
-    public DisputeService(DisputeRepository disputeRepository, AccountAccessService access, Clock clock) {
+    public DisputeService(DisputeRepository disputeRepository, AccountAccessService access, Clock clock,
+            AuditLogService auditLogs) {
         this.disputeRepository = disputeRepository;
         this.access = access;
         this.clock = clock;
+        this.auditLogs = auditLogs;
     }
 
     @Transactional
@@ -50,6 +56,8 @@ public class DisputeService {
             normalizeDescription(request.description()),
             clock.instant()));
 
+        auditLogs.record(user.getId(), user.getId(), "disputes", Map.of("dispute_id", dispute.getId()),
+                "DISPUTE_FILED", null, auditSnapshot(dispute));
         return toDto(dispute);
     }
 
@@ -69,6 +77,8 @@ public class DisputeService {
             normalizeDescription(request.description()),
             clock.instant()));
 
+        auditLogs.record(user.getId(), user.getId(), "disputes", Map.of("dispute_id", dispute.getId()),
+                "DISPUTE_FILED", null, auditSnapshot(dispute));
         return toDto(dispute);
     }
 
@@ -97,8 +107,16 @@ public class DisputeService {
             throw new AccessDeniedException("Admin role required");
         }
         long adminId = access.principal().getUserId();
-        Dispute dispute = disputeRepository.findById(disputeId).orElseThrow(this::notFound);
+        Dispute dispute = disputeRepository.findByIdForUpdate(disputeId).orElseThrow(this::notFound);
+        var before = auditSnapshot(dispute);
         dispute.assignToAdmin(adminId);
+        var after = auditSnapshot(dispute);
+        if (!before.equals(after)) {
+            disputeRepository.flush();
+            long ownerId = access.readable(dispute.getAccountId()).getOwner().getId();
+            auditLogs.record(adminId, ownerId, "disputes", Map.of("dispute_id", dispute.getId()),
+                    "DISPUTE_ASSIGNED", before, after);
+        }
         return toDto(dispute);
     }
 
@@ -108,9 +126,32 @@ public class DisputeService {
         if (!access.isAdmin()) {
             throw new AccessDeniedException("Admin role required");
         }
-        Dispute dispute = disputeRepository.findById(disputeId).orElseThrow(this::notFound);
+        Dispute dispute = disputeRepository.findByIdForUpdate(disputeId).orElseThrow(this::notFound);
+        if (dispute.getStatus() == request.disputeStatus()) {
+            return toDto(dispute);
+        }
+        var before = auditSnapshot(dispute);
         dispute.changeStatus(request.disputeStatus(), clock.instant());
+        disputeRepository.flush();
+        long ownerId = access.readable(dispute.getAccountId()).getOwner().getId();
+        auditLogs.record(access.principal().getUserId(), ownerId, "disputes",
+                Map.of("dispute_id", dispute.getId()), "DISPUTE_STATUS_CHANGED", before, auditSnapshot(dispute));
         return toDto(dispute);
+    }
+
+    private static Map<String, Object> auditSnapshot(Dispute dispute) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("dispute_id", dispute.getId());
+        snapshot.put("account_id", dispute.getAccountId());
+        snapshot.put("admin_id", dispute.getAdminId());
+        snapshot.put("transaction_id", dispute.getTransactionId());
+        snapshot.put("trade_id", dispute.getTradeId());
+        snapshot.put("dispute_type", dispute.getDisputeType());
+        snapshot.put("status", dispute.getStatus().name());
+        snapshot.put("date_created", dispute.getDateCreated().toString());
+        snapshot.put("date_resolved", dispute.getDateResolved() == null ? null : dispute.getDateResolved().toString());
+        // The user's free-text description belongs only in the dispute record.
+        return snapshot;
     }
 
     private DisputeStatus parseStatus(String rawStatus) {
