@@ -265,3 +265,36 @@
 @keyframes pulse {
   50% { opacity: 0.4; }
 }
+
+// Sell from a holding: what can be sold, and a shortcut to sell it all
+.holding-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -4px 0 0;
+  color: $muted;
+  font-size: 13px;
+
+  .over {
+    color: $error;
+  }
+}
+
+.max-button {
+  padding: 4px 10px;
+  border: 1px solid $border;
+  border-radius: 8px;
+  background: transparent;
+  color: $accent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    border-color: $accent;
+    background: rgb(var(--accent-rgb) / 0.08);
+  }
+}

@@ -7,7 +7,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { v4 as uuidv4 } from 'uuid';
 import { OrderDetails, OrderOperationResponse, OrderService, PlaceOrderRequest } from '../services/order.service';
 
-interface TradeData {
+export interface TradeData {
   accountId: number;
   securityId: number;
   symbol: string;
@@ -15,6 +15,9 @@ interface TradeData {
   price: number;
   currency: string;
   isOpen: boolean;
+  // Opened from a holding: start on this side and cap sells at the shares that are free to sell
+  initialSide?: 'buy' | 'sell';
+  availableQuantity?: number;
 }
 
 interface OrderOutcome {
@@ -35,10 +38,12 @@ const POLL_LIMIT = 15; // ~30 seconds; the order worker runs every 5s
   styleUrl: './trading-dialog.component.scss',
 })
 export class TradingDialogComponent {
-  transactionType: 'buy' | 'sell' = 'buy';
+  transactionType: 'buy' | 'sell';
   tradeForm: FormGroup;
   isSubmitting = false;
   orderOutcome: OrderOutcome | null = null;
+  // Read by whoever opened the dialog, to refresh balances and holdings after it closes
+  orderPlaced = false;
 
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -49,10 +54,14 @@ export class TradingDialogComponent {
     private orderService: OrderService,
     private changeDetector: ChangeDetectorRef,
   ) {
+    this.transactionType = data.initialSide ?? 'buy';
     // The backend takes BUY orders as a USD amount (2 decimals) and SELL orders as a quantity
+    const available = data.availableQuantity;
+    const quantityValidators = [Validators.required, Validators.min(0.000000000001)];
+    if (available !== undefined) quantityValidators.push(Validators.max(available));
     this.tradeForm = this.fb.group({
       amount: [100, [Validators.required, Validators.min(0.01)]],
-      quantity: [1, [Validators.required, Validators.min(0.000000000001)]],
+      quantity: [available !== undefined ? Math.min(1, available) : 1, quantityValidators],
     });
     inject(DestroyRef).onDestroy(() => this.stopPolling());
   }
@@ -78,6 +87,19 @@ export class TradingDialogComponent {
     return `≈ ${proceeds.toLocaleString('en-US', { style: 'currency', currency: this.data.currency || 'USD' })}`;
   }
 
+  get exceedsAvailable(): boolean {
+    return this.transactionType === 'sell' && !!this.tradeForm.get('quantity')?.hasError('max');
+  }
+
+  sellAll(): void {
+    if (this.data.availableQuantity === undefined) return;
+    this.tradeForm.get('quantity')?.setValue(this.data.availableQuantity);
+  }
+
+  formatShares(quantity: number): string {
+    return this.formatQuantity(quantity);
+  }
+
   selectTransactionType(type: 'buy' | 'sell'): void {
     this.transactionType = type;
     this.orderOutcome = null;
@@ -100,6 +122,7 @@ export class TradingDialogComponent {
     this.orderService.placeOrder(this.data.accountId, request).subscribe({
       next: (response: OrderOperationResponse) => {
         this.isSubmitting = false;
+        this.orderPlaced = true;
         const order = response.details?.order;
         if (!order) {
           this.orderOutcome = {

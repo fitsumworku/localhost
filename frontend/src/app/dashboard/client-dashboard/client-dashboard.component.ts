@@ -1,5 +1,6 @@
 import { ChangeDetectorRef, Component, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { AccountPosition, AccountService, ValueHistory, ValueRange } from '../services/account.service';
@@ -12,6 +13,7 @@ import {
   TransactionHistoryService,
 } from '../activity-history/services/transaction-history.service';
 import { ValueChartComponent } from './value-chart/value-chart.component';
+import { TradeData, TradingDialogComponent } from '../markets/trading-dialog/trading-dialog.component';
 import { PortfolioTrackerService, ValuePoint } from './portfolio-tracker.service';
 
 interface Activity {
@@ -37,9 +39,14 @@ function closeTime(date: string): number {
 }
 
 interface Holding {
+  securityId: number;
   ticker: string;
   name: string;
+  currency: string;
   shares: number;
+  // Shares not already reserved by pending sell orders
+  availableShares: number;
+  tradingOpen: boolean;
   avgCost: number;
   currentPrice: number;
   totalValue: number;
@@ -52,7 +59,7 @@ interface Holding {
   templateUrl: './client-dashboard.component.html',
   styleUrl: './client-dashboard.component.scss',
   standalone: true,
-  imports: [CommonModule, ValueChartComponent],
+  imports: [CommonModule, MatDialogModule, ValueChartComponent],
 })
 export class ClientDashboardComponent {
   portfolioMetrics: PortfolioMetrics | null = null;
@@ -87,6 +94,7 @@ export class ClientDashboardComponent {
     private marketData: MarketDataService,
     private tracker: PortfolioTrackerService,
     private changeDetector: ChangeDetectorRef,
+    private dialog: MatDialog,
   ) {
     effect(() => {
       const account = this.accountService.selectedAccount();
@@ -107,6 +115,37 @@ export class ClientDashboardComponent {
         this.historyNote = '';
         this.updateChart();
         this.historyError = 'Select an account to view activity.';
+      }
+    });
+  }
+
+  /** Buy or sell more of a holding without going back to Markets. */
+  openTrade(holding: Holding, side: 'buy' | 'sell'): void {
+    const account = this.accountService.selectedAccount();
+    if (!account) return;
+    const data: TradeData = {
+      accountId: account.accountId,
+      securityId: holding.securityId,
+      symbol: holding.ticker,
+      name: holding.name,
+      // Without a live quote this is the average cost; it only feeds the estimate, the order fills at the live price
+      price: holding.currentPrice,
+      currency: holding.currency,
+      isOpen: holding.tradingOpen,
+      initialSide: side,
+      availableQuantity: holding.availableShares,
+    };
+    const dialogRef = this.dialog.open(TradingDialogComponent, {
+      width: '440px',
+      maxWidth: '92vw',
+      data,
+      panelClass: ['dark-ui', 'app-dialog'],
+    });
+    dialogRef.afterClosed().subscribe(() => {
+      // Orders reserve cash/shares as soon as they are placed, so refresh even if still pending
+      if (dialogRef.componentInstance?.orderPlaced && this.accountService.selectedAccount()?.accountId === account.accountId) {
+        this.loadPortfolio(account.accountId);
+        this.loadHistory(account.accountId);
       }
     });
   }
@@ -211,9 +250,13 @@ export class ClientDashboardComponent {
       const cost = position.quantity * position.averagePrice;
       marketValue += totalValue;
       return {
+        securityId: position.securityId,
         ticker: position.ticker,
         name: position.name,
+        currency: quote?.currency || position.quoteCurrency,
         shares: position.quantity,
+        availableShares: position.availableQuantity,
+        tradingOpen: quote?.tradingOpen ?? false,
         avgCost: position.averagePrice,
         currentPrice,
         totalValue,

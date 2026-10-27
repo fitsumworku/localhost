@@ -69,10 +69,18 @@
             <th class="num">Price</th>
             <th class="num">Value</th>
             <th class="num">Return</th>
+            <th class="action" aria-label="Trade"></th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let holding of holdingsData">
+          <tr
+            *ngFor="let holding of holdingsData"
+            class="holding-row"
+            tabindex="0"
+            [attr.aria-label]="'Trade ' + holding.ticker"
+            (click)="openTrade(holding, 'buy')"
+            (keydown.enter)="openTrade(holding, 'buy')"
+          >
             <td>
               <span class="ticker">{{ holding.ticker }}</span>
               <span class="name">{{ holding.name }}</span>
@@ -91,6 +99,22 @@
             <td class="num">{{ holding.totalValue | currency }}</td>
             <td class="num" [class.up]="holding.return > 0" [class.down]="holding.return < 0">
               {{ holding.return > 0 ? '+' : '' }}{{ holding.return | currency }}
+            </td>
+            <td class="action">
+              <div class="trade-buttons">
+                <button type="button" class="trade-button buy" (click)="openTrade(holding, 'buy'); $event.stopPropagation()">
+                  Buy
+                </button>
+                <button
+                  type="button"
+                  class="trade-button sell"
+                  [disabled]="holding.availableShares <= 0"
+                  [title]="holding.availableShares <= 0 ? 'All shares are reserved by pending sell orders' : ''"
+                  (click)="openTrade(holding, 'sell'); $event.stopPropagation()"
+                >
+                  Sell
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>

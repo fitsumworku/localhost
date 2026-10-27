@@ -35,6 +35,12 @@
         <span class="suffix">{{ data.symbol }}</span>
       </span>
     </label>
+    <p class="holding-hint" *ngIf="transactionType === 'sell' && data.availableQuantity !== undefined">
+      <span [class.over]="exceedsAvailable">
+        {{ exceedsAvailable ? 'More than you can sell: ' : 'Available to sell: ' }}{{ formatShares(data.availableQuantity) }} {{ data.symbol }}
+      </span>
+      <button type="button" class="max-button" (click)="sellAll()">Max</button>
+    </p>
 
     <p class="estimate">{{ estimate }}</p>
 
