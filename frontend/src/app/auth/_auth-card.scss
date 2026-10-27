@@ -22,9 +22,9 @@
   border-radius: 20px;
   backdrop-filter: blur(18px) saturate(140%);
   box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 30px 80px rgb(0 0 0 / calc(0.55 * var(--shadow-strength))),
     0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-    0 0 60px rgba(46, 229, 157, 0.08);
+    0 0 60px rgb(var(--accent-rgb) / 0.08);
   animation: rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
@@ -46,10 +46,10 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(135deg, $accent, #0f8f5c);
-  box-shadow: 0 0 20px rgba(46, 229, 157, 0.45);
+  background: linear-gradient(135deg, $accent, var(--accent-deep));
+  box-shadow: 0 0 20px rgb(var(--accent-rgb) / 0.45);
 
-  mat-icon { color: $bg; font-size: 22px; width: 22px; height: 22px; }
+  mat-icon { color: $on-accent; font-size: 22px; width: 22px; height: 22px; }
 }
 
 .brand-name {
@@ -87,13 +87,13 @@
   align-items: center;
   height: 56px;
   border-radius: 12px;
-  background: rgba(2, 15, 10, 0.55);
-  border: 1px solid rgba(232, 255, 245, 0.1);
+  background: rgb(var(--well-rgb) / 0.55);
+  border: 1px solid rgb(var(--ink-rgb) / 0.1);
   transition: border-color 0.2s, box-shadow 0.2s;
 
   &:focus-within {
     border-color: $accent;
-    box-shadow: 0 0 0 4px rgba(46, 229, 157, 0.12);
+    box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.12);
   }
 
   &.invalid { border-color: $error; }
@@ -159,7 +159,7 @@
   color: $muted;
   cursor: pointer;
 
-  &:hover { color: $text; background: rgba(232, 255, 245, 0.06); }
+  &:hover { color: $text; background: rgb(var(--ink-rgb) / 0.06); }
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
 
@@ -177,18 +177,18 @@
   border: none;
   border-radius: 12px;
   background: linear-gradient(135deg, $accent, $accent-strong);
-  color: $bg;
+  color: $on-accent;
   font: inherit;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 10px 30px rgba(46, 229, 157, 0.28);
+  box-shadow: 0 10px 30px rgb(var(--accent-rgb) / 0.28);
   transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
     filter: brightness(1.06);
-    box-shadow: 0 14px 36px rgba(46, 229, 157, 0.4);
+    box-shadow: 0 14px 36px rgb(var(--accent-rgb) / 0.4);
   }
 
   &:active:not(:disabled) { transform: translateY(0); }
@@ -198,8 +198,8 @@
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(2, 15, 10, 0.3);
-  border-top-color: $bg;
+  border: 2px solid rgb(var(--well-rgb) / 0.3);
+  border-top-color: $on-accent;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -213,8 +213,8 @@
   margin-bottom: 18px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(255, 122, 122, 0.1);
-  border: 1px solid rgba(255, 122, 122, 0.3);
+  background: rgb(var(--down-rgb) / 0.1);
+  border: 1px solid rgb(var(--down-rgb) / 0.3);
   color: $error;
   font-size: 13px;
 
@@ -223,8 +223,8 @@
 
 .success-message {
   @extend .error-message;
-  background: rgba(46, 229, 157, 0.1);
-  border-color: rgba(46, 229, 157, 0.3);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.3);
   color: $accent;
 }
 

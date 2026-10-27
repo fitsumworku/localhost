@@ -51,7 +51,7 @@ table {
   transition: background 0.15s;
 
   &:hover {
-    background: rgba(46, 229, 157, 0.05);
+    background: rgb(var(--accent-rgb) / 0.05);
   }
 }
 
@@ -124,7 +124,7 @@ table {
   }
 
   &.confirming {
-    background: rgba(255, 122, 122, 0.12);
+    background: rgb(var(--down-rgb) / 0.12);
   }
 
   &:disabled {

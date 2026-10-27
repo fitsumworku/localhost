@@ -3,12 +3,12 @@
 @forward '../auth/auth-tokens';
 @use '../auth/auth-tokens' as *;
 
-$card-bg: rgba(6, 28, 20, 0.55);
-$hairline: rgba(232, 255, 245, 0.08);
-$up: #2ee59d;
-$down: #ff7a7a;
-$warn: #ffc46b;
-$info: #6bc8ff;
+$card-bg: rgb(var(--surface-rgb) / 0.55);
+$hairline: var(--hairline);
+$up: var(--up);
+$down: var(--down);
+$warn: var(--warn);
+$info: var(--info);
 
 @mixin page {
   display: flex;
@@ -39,7 +39,7 @@ $info: #6bc8ff;
   border: 1px solid $border;
   border-radius: 16px;
   backdrop-filter: blur(14px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 20px 50px rgb(0 0 0 / calc(0.35 * var(--shadow-strength)));
 }
 
 @mixin card-title {
@@ -61,7 +61,7 @@ $info: #6bc8ff;
   gap: 4px;
   padding: 4px;
   border-radius: 10px;
-  background: rgba(2, 15, 10, 0.55);
+  background: rgb(var(--well-rgb) / 0.55);
   border: 1px solid $hairline;
 
   button {
@@ -81,7 +81,7 @@ $info: #6bc8ff;
     }
 
     &.active {
-      background: rgba(46, 229, 157, 0.14);
+      background: rgb(var(--accent-rgb) / 0.14);
       color: $accent;
     }
   }
@@ -136,13 +136,13 @@ $info: #6bc8ff;
   height: 46px;
   padding: 0 14px;
   border-radius: 12px;
-  background: rgba(2, 15, 10, 0.55);
-  border: 1px solid rgba(232, 255, 245, 0.1);
+  background: rgb(var(--well-rgb) / 0.55);
+  border: 1px solid rgb(var(--ink-rgb) / 0.1);
   transition: border-color 0.2s, box-shadow 0.2s;
 
   &:focus-within {
     border-color: $accent;
-    box-shadow: 0 0 0 4px rgba(46, 229, 157, 0.12);
+    box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.12);
 
     mat-icon {
       color: $accent;
@@ -179,7 +179,7 @@ $info: #6bc8ff;
   gap: 6px;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(232, 255, 245, 0.06);
+  background: rgb(var(--ink-rgb) / 0.06);
   color: $muted;
   font-size: 12px;
   font-weight: 600;
@@ -192,22 +192,22 @@ $info: #6bc8ff;
   }
 
   &.positive {
-    background: rgba(46, 229, 157, 0.14);
+    background: rgb(var(--accent-rgb) / 0.14);
     color: $up;
   }
 
   &.negative {
-    background: rgba(255, 122, 122, 0.14);
+    background: rgb(var(--down-rgb) / 0.14);
     color: $down;
   }
 
   &.warning {
-    background: rgba(255, 196, 107, 0.14);
+    background: rgb(var(--warn-rgb) / 0.14);
     color: $warn;
   }
 
   &.info {
-    background: rgba(107, 200, 255, 0.14);
+    background: rgb(var(--info-rgb) / 0.14);
     color: $info;
   }
 }
@@ -232,7 +232,7 @@ $info: #6bc8ff;
 
   &:hover {
     color: $text;
-    background: rgba(232, 255, 245, 0.06);
+    background: rgb(var(--ink-rgb) / 0.06);
   }
 }
 
@@ -245,7 +245,7 @@ $info: #6bc8ff;
   border: none;
   border-radius: 10px;
   background: linear-gradient(135deg, $accent, $accent-strong);
-  color: $bg;
+  color: $on-accent;
   font: inherit;
   font-size: 13px;
   font-weight: 700;

@@ -60,10 +60,11 @@ export class AuthService {
     return this.getToken() ? this.readSession()!.user : null;
   }
 
-  // Log out locally: forget the token and user
+  // Log out locally: forget the token, the user and any per-session page state
+  // (e.g. the Compare Stocks selection), so the next login starts fresh
   clearSession(): void {
     try {
-      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.clear();
     } catch {
       // Storage blocked (e.g. some private windows); nothing to clear
     }
@@ -82,6 +83,8 @@ export class AuthService {
       user: response.user,
     };
     try {
+      // A new login never inherits page state left in this tab by an earlier session
+      sessionStorage.clear();
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
     } catch {
       // Storage blocked; the user will need to log in again after a refresh

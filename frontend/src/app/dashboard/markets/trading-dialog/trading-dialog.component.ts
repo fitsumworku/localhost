@@ -234,6 +234,14 @@ export class TradingDialogComponent {
       case 'QUOTE_TOO_OLD':
       case 'INVALID_QUOTE_TIME':
         return 'No fresh price is available right now (check the server clock).';
+      case 'MARKET_DATA_UNAVAILABLE':
+      case 'MARKET_DATA_INTERRUPTED':
+      case 'FX_QUOTE_UNAVAILABLE':
+      case 'INVALID_QUOTE_RESPONSE':
+      case 'BACKFILL_IN_PROGRESS':
+        return 'Live prices are briefly unavailable. It will retry automatically in a few seconds.';
+      case 'RATE_LIMITED':
+        return 'The price provider is busy. It will retry automatically shortly.';
       default:
         return reason || 'The order did not meet the execution requirements.';
     }

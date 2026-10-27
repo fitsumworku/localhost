@@ -1,6 +1,84 @@
 @use '@angular/material' as mat;
 @use 'app/auth/auth-tokens' as *;
 
+// ---------- Theme tokens ----------
+// Every colour in the app reads these custom properties, so switching
+// data-theme on <html> re-themes pages, dialogs and menus at runtime.
+// *-rgb tokens are space-separated channels for translucent tints:
+// rgb(var(--accent-rgb) / 0.12). ThemeService sets data-theme; index.html
+// applies the saved choice before Angular starts so there is no flash.
+:root {
+  --scheme: dark;
+  --bg: #020f0a;
+  --bg-glow: #06301f;
+  --text: #e8fff5;
+  --ink-rgb: 232 255 245; // text-coloured tints (hover fills, hairlines)
+  --muted: rgb(232 255 245 / 0.6);
+  --accent: #2ee59d;
+  --accent-rgb: 46 229 157;
+  --accent-strong: #19c27f;
+  --accent-deep: #0f8f5c;
+  --accent-bright: #5dffc0;
+  --on-accent: #020f0a; // text and icons on accent-filled buttons
+  --surface-rgb: 6 28 20; // translucent cards, sidebar, tooltips
+  --surface-solid: #08201a; // opaque surfaces: dialogs, sticky table headers
+  --surface-raised: #0b281f;
+  --surface-high: #0e3025;
+  --well-rgb: 2 15 10; // inset fields and wells
+  --border: rgb(46 229 157 / 0.18);
+  --hairline: rgb(232 255 245 / 0.08);
+  --up: #2ee59d;
+  --down: #ff7a7a;
+  --down-rgb: 255 122 122;
+  --down-strong: #e86161;
+  --down-bright: #ff8f8f;
+  --warn: #ffc46b;
+  --warn-rgb: 255 196 107;
+  --info: #6bc8ff;
+  --info-rgb: 107 200 255;
+  --backdrop-rgb: 1 8 5;
+  --shadow-strength: 1;
+  --fog-1: #0d7a4f;
+  --fog-2: #12a065;
+  --fog-3: #0a5c3b;
+}
+
+:root[data-theme='light'] {
+  --scheme: light;
+  --bg: #f2f7f4;
+  --bg-glow: #d6f1e3;
+  --text: #0f2a20;
+  --ink-rgb: 15 42 32;
+  --muted: rgb(15 42 32 / 0.62);
+  --accent: #0b9460;
+  --accent-rgb: 11 148 96;
+  --accent-strong: #087d50;
+  --accent-deep: #06663f;
+  --accent-bright: #13b574;
+  --on-accent: #ffffff;
+  --surface-rgb: 255 255 255;
+  --surface-solid: #ffffff;
+  --surface-raised: #f5faf7;
+  --surface-high: #eaf4ef;
+  --well-rgb: 232 241 236;
+  --border: rgb(11 148 96 / 0.22);
+  --hairline: rgb(15 42 32 / 0.1);
+  --up: #0b9460;
+  --down: #c83a3a;
+  --down-rgb: 200 58 58;
+  --down-strong: #b02e2e;
+  --down-bright: #d64848;
+  --warn: #9a6200;
+  --warn-rgb: 176 112 0;
+  --info: #1a6fb0;
+  --info-rgb: 26 111 176;
+  --backdrop-rgb: 15 42 32;
+  --shadow-strength: 0.3;
+  --fog-1: #9ee3c2;
+  --fog-2: #bdeed6;
+  --fog-3: #cff4e2;
+}
+
 html,
 body {
   height: 100%;
@@ -8,47 +86,53 @@ body {
 
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  color-scheme: var(--scheme);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-// Dark Material tokens for the pages inside the sidebar layout and their dialogs,
+// Material tokens for the pages inside the sidebar layout and their dialogs,
 // matching the login/signup look. Overlays (dialogs, select panels) render
-// outside the layout, so they opt in with panelClass: 'dark-ui'.
+// outside the layout, so they opt in with panelClass: 'dark-ui'. The class
+// name predates light mode: it now follows whichever theme is active.
 .dark-ui {
-  color-scheme: dark;
+  color-scheme: var(--scheme);
   @include mat.theme((
     color: (
-      theme-type: dark,
+      theme-type: color-scheme,
       primary: mat.$spring-green-palette,
     ),
     typography: Inter,
     density: 0,
   ));
 
-  --mat-sys-surface: #08201a;
-  --mat-sys-surface-container: #0b281f;
-  --mat-sys-surface-container-high: #0e3025;
+  --mat-sys-surface: var(--surface-solid);
+  --mat-sys-surface-container: var(--surface-raised);
+  --mat-sys-surface-container-high: var(--surface-high);
   --mat-sys-on-surface: #{$text};
   --mat-sys-on-surface-variant: #{$muted};
   --mat-sys-outline: #{$border};
-  --mat-sys-outline-variant: rgba(232, 255, 245, 0.08);
+  --mat-sys-outline-variant: var(--hairline);
 }
 
 // Dialogs opened from the sidebar layout: glass card like the login card
 .app-dialog {
   @include mat.dialog-overrides((
-    container-color: #08201a,
+    container-color: var(--surface-solid),
     container-shape: 20px,
   ));
 
   .mat-mdc-dialog-surface {
     border: 1px solid $border;
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 60px rgba(46, 229, 157, 0.08);
+    box-shadow:
+      0 30px 80px rgb(0 0 0 / calc(0.55 * var(--shadow-strength))),
+      0 0 60px rgb(var(--accent-rgb) / 0.08);
   }
 }
 
 .cdk-overlay-dark-backdrop {
-  background: rgba(1, 8, 5, 0.7);
+  background: rgb(var(--backdrop-rgb) / 0.7);
   backdrop-filter: blur(4px);
 }

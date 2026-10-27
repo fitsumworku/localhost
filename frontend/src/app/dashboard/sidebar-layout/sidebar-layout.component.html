@@ -30,6 +30,8 @@
 
   <!-- Main Content -->
   <main class="main-content">
+    <!-- Admins have no top header, so the theme toggle sits in the corner of the page -->
+    <app-theme-toggle *ngIf="isAdmin" class="corner-toggle" />
     <!-- Top Header with Account Selector -->
     <div class="top-header" *ngIf="!isAdmin">
       <div class="header-content">
@@ -60,6 +62,7 @@
               Withdraw
             </button>
           </ng-container>
+          <app-theme-toggle />
         </div>
       </div>
     </div>

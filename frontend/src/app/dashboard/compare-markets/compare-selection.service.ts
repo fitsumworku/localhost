@@ -11,7 +11,8 @@ export interface CompareSelection {
 const RANGES: ValueRange[] = ['1D', '1W', '1M', '1Y'];
 
 // Remembers the two markets being compared, so leaving the page (or reloading) doesn't lose them.
-// Kept in sessionStorage like the login session, per user, so it clears when the tab closes.
+// Kept in sessionStorage per user; AuthService clears it on login and logout, so each
+// session starts with an empty comparison and it is gone when the tab closes.
 @Injectable({ providedIn: 'root' })
 export class CompareSelectionService {
   constructor(private authService: AuthService) {}

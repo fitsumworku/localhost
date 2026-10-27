@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Observable, Subject, Subscription, catchError, debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
+import { Observable, Subject, Subscription, catchError, debounceTime, distinctUntilChanged, interval, map, of, switchMap } from 'rxjs';
 import { MarketDataService, MarketQuote, Security, SecurityCloses } from '../markets/services/market-data.service';
 import { AccountService, ValueRange } from '../services/account.service';
 import { ValueChartComponent } from '../client-dashboard/value-chart/value-chart.component';
@@ -45,6 +45,9 @@ function closeTime(date: string): number {
   return new Date(year, month - 1, day, 16).getTime();
 }
 
+// How often the live quote (and its Open/Closed state) is refreshed
+const QUOTE_REFRESH_MS = 60_000;
+
 @Component({
   selector: 'app-compare-markets',
   standalone: true,
@@ -81,6 +84,10 @@ export class CompareMarketsComponent {
         this.load(this.slots[i]);
       }
     });
+    // Re-quote so Open/Closed and the live price stay current without a reload
+    interval(QUOTE_REFRESH_MS)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.slots.forEach((slot) => this.refreshQuote(slot)));
   }
 
   get rangeCaption(): string {
@@ -189,8 +196,9 @@ export class CompareMarketsComponent {
     return Math.abs(value) < 10 ? '1.2-4' : '1.2-2';
   }
 
+  // The backend's trading calendar decides, so this matches when orders actually fill
   isOpen(slot: Slot): boolean {
-    return slot.security?.assetType === 'CRYPTO' || slot.quote?.marketState === 'open';
+    return slot.quote?.tradingOpen ?? slot.security?.assetType === 'CRYPTO';
   }
 
   private createSlot(): Slot {
@@ -266,6 +274,21 @@ export class CompareMarketsComponent {
   }
 
   // Chart: the closes, then the live price. Change is measured from the first close (the baseline).
+  // Background refresh: keeps the last quote on failure instead of blanking the panel
+  private refreshQuote(slot: Slot): void {
+    const security = slot.security;
+    if (!security || !slot.requests) return;
+    slot.requests.add(this.marketData.quote(security.securityId).subscribe({
+      next: (quote: MarketQuote) => {
+        if (slot.security?.securityId !== security.securityId) return;
+        slot.quote = quote;
+        slot.quoteFailed = false;
+        this.update(slot);
+      },
+      error: (error: unknown) => console.error('[CompareMarkets] Failed to refresh quote', { securityId: security.securityId, error }),
+    }));
+  }
+
   private update(slot: Slot): void {
     let closes = slot.closes?.closes ?? [];
     // The live price belongs to its own trading day (UTC date of asOf), so it replaces that day's close and any later

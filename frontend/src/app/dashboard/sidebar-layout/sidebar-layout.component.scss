@@ -6,7 +6,7 @@ $sidebar-width: 220px;
   display: flex;
   height: 100vh;
   // Same dark green backdrop as the login page, for client and admin pages
-  background: radial-gradient(ellipse at 80% -10%, #06301f 0%, $bg 55%);
+  background: radial-gradient(ellipse at 80% -10%, var(--bg-glow) 0%, $bg 55%);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -20,7 +20,7 @@ $sidebar-width: 220px;
   height: 100vh;
   box-sizing: border-box;
   padding: 24px 14px;
-  background: rgba(3, 20, 14, 0.92);
+  background: rgb(var(--surface-rgb) / 0.92);
   border-right: 1px solid $border;
   color: $text;
   overflow-y: auto;
@@ -39,8 +39,8 @@ $sidebar-width: 220px;
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  background: linear-gradient(135deg, $accent, #0f8f5c);
-  box-shadow: 0 0 18px rgba(46, 229, 157, 0.4);
+  background: linear-gradient(135deg, $accent, var(--accent-deep));
+  box-shadow: 0 0 18px rgb(var(--accent-rgb) / 0.4);
 
   img {
     display: block;
@@ -94,12 +94,12 @@ $sidebar-width: 220px;
   }
 
   &:hover {
-    background: rgba(232, 255, 245, 0.05);
+    background: rgb(var(--ink-rgb) / 0.05);
     color: $text;
   }
 
   &.active {
-    background: rgba(46, 229, 157, 0.12);
+    background: rgb(var(--accent-rgb) / 0.12);
     color: $accent;
   }
 }
@@ -134,14 +134,15 @@ $sidebar-width: 220px;
 
   &:hover {
     color: $error;
-    border-color: rgba(255, 122, 122, 0.35);
-    background: rgba(255, 122, 122, 0.08);
+    border-color: rgb(var(--down-rgb) / 0.35);
+    background: rgb(var(--down-rgb) / 0.08);
   }
 }
 
 // ---------- Main area ----------
 
 .main-content {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -149,11 +150,18 @@ $sidebar-width: 220px;
   overflow-y: auto;
 }
 
+.corner-toggle {
+  position: absolute;
+  top: 28px;
+  right: 40px;
+  z-index: 2;
+}
+
 .top-header {
   flex-shrink: 0;
   padding: 18px 40px;
   border-bottom: 1px solid $hairline;
-  background: rgba(2, 15, 10, 0.45);
+  background: rgb(var(--well-rgb) / 0.45);
   backdrop-filter: blur(12px);
 }
 
@@ -192,7 +200,7 @@ $sidebar-width: 220px;
   height: 40px;
   border: 1px solid $border;
   border-radius: 10px;
-  background: rgba(2, 15, 10, 0.55);
+  background: rgb(var(--well-rgb) / 0.55);
   color: $text;
   font: inherit;
   font-size: 13px;
@@ -209,7 +217,7 @@ $sidebar-width: 220px;
   &:hover {
     border-color: $accent;
     color: $accent;
-    background: rgba(46, 229, 157, 0.08);
+    background: rgb(var(--accent-rgb) / 0.08);
   }
 }
 
@@ -275,5 +283,10 @@ $sidebar-width: 220px;
   .top-header,
   .page-content {
     padding: 16px;
+  }
+
+  .corner-toggle {
+    top: 12px;
+    right: 16px;
   }
 }

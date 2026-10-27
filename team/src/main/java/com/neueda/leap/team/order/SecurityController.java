@@ -6,6 +6,7 @@ import com.neueda.leap.team.market.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Clock;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,8 +21,11 @@ public class SecurityController {
     private final OrderRepository repo;
     private final MarketDataClient market;
     private final DailyCloseCache closes;
-    public SecurityController(OrderRepository repo,MarketDataClient market,DailyCloseCache closes){
-        this.repo=repo;this.market=market;this.closes=closes;
+    private final TradingCalendar calendar;
+    private final Clock clock;
+    public SecurityController(OrderRepository repo,MarketDataClient market,DailyCloseCache closes,
+            TradingCalendar calendar,Clock clock){
+        this.repo=repo;this.market=market;this.closes=closes;this.calendar=calendar;this.clock=clock;
     }
     @GetMapping
     public PageResponse<SecurityDto> list(@RequestParam(required=false)String q,@RequestParam(defaultValue="ACTIVE")String status,
@@ -29,13 +33,16 @@ public class SecurityController {
     @GetMapping("/{securityId}")
     public SecurityDto get(@PathVariable long securityId){return repo.security(securityId,false);}
     @GetMapping("/{securityId}/quote")
-    public MarketQuote quote(@PathVariable long securityId){
+    @Operation(summary="Read an indicative quote",
+            description="tradingOpen is whether orders can fill now, from the same trading calendar execution uses (US equities: weekdays 9:30-16:00 ET). marketState is the provider's raw state.")
+    public SecurityQuoteDto quote(@PathVariable long securityId){
         var security=repo.security(securityId,false);
         var result=market.quotes(Set.of(security.ticker())).get(security.ticker());
         if(result==null||result.quote()==null)throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
                 result==null?"MARKET_DATA_UNAVAILABLE":result.errorCode(),"An indicative quote is currently unavailable.");
         // Indicative only: may be stale/closed. Execution separately checks price, currency, time and market state.
-        return result.quote();
+        var quote=result.quote();
+        return SecurityQuoteDto.of(quote,calendar.isOpen(security,quote.marketState(),clock.instant()));
     }
     @GetMapping("/{securityId}/closes")
     @Operation(summary="Read daily closes for a chart range",

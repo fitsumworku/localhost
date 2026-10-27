@@ -104,18 +104,18 @@
   input {
     height: 36px;
     padding: 0 10px;
-    border: 1px solid rgba(232, 255, 245, 0.1);
+    border: 1px solid rgb(var(--ink-rgb) / 0.1);
     border-radius: 10px;
-    background: rgba(2, 15, 10, 0.55);
+    background: rgb(var(--well-rgb) / 0.55);
     color: $text;
-    color-scheme: dark;
+    color-scheme: var(--scheme);
     font: inherit;
     font-size: 13px;
 
     &:focus {
       outline: none;
       border-color: $accent;
-      box-shadow: 0 0 0 3px rgba(46, 229, 157, 0.12);
+      box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.12);
     }
   }
 }
@@ -168,7 +168,7 @@
 .bar-track {
   height: 10px;
   border-radius: 999px;
-  background: rgba(232, 255, 245, 0.06);
+  background: rgb(var(--ink-rgb) / 0.06);
   overflow: hidden;
 }
 
@@ -180,7 +180,7 @@
   transition: width 0.4s ease;
 
   &.sell {
-    background: linear-gradient(90deg, #e05a5a, $down);
+    background: linear-gradient(90deg, var(--down-strong), $down);
   }
 }
 

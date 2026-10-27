@@ -27,9 +27,12 @@ export interface MarketQuote {
   price: number;
   currency: string;
   asOf: string;
+  // Raw provider state; often 'unknown' (stocks) or 'closed' (FX) whatever the session
   marketState: 'open' | 'closed' | 'pre' | 'post' | 'unknown';
   source: string;
   stale: boolean;
+  // Whether orders can fill now: the backend trading calendar (US stocks: weekdays 9:30-4:00 ET)
+  tradingOpen: boolean;
 }
 
 // Raw daily closes, oldest first; the first is the last close before the range (for 1D, the previous close)

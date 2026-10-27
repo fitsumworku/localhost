@@ -18,13 +18,16 @@ class FauxnanceClientTests {
     volatile String body="";
     volatile String retry="60";
     volatile String observedKey;
+    volatile int failFirst=0;
     AtomicInteger requests=new AtomicInteger();
     @BeforeEach void start()throws Exception {
         server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
         server.createContext("/v1/quotes",exchange->{
-            requests.incrementAndGet();observedKey=exchange.getRequestHeaders().getFirst("X-Api-Key");
-            exchange.getResponseHeaders().set("Content-Type","application/json");exchange.getResponseHeaders().set("Retry-After",retry);
-            byte[] data=body.getBytes(StandardCharsets.UTF_8);exchange.sendResponseHeaders(status,data.length);exchange.getResponseBody().write(data);exchange.close();
+            boolean fail=requests.incrementAndGet()<=failFirst;observedKey=exchange.getRequestHeaders().getFirst("X-Api-Key");
+            exchange.getResponseHeaders().set("Content-Type","application/json");
+            if(retry!=null)exchange.getResponseHeaders().set("Retry-After",retry);
+            byte[] data=(fail?"{\"message\":\"Internal Server Error\"}":body).getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(fail?500:status,data.length);exchange.getResponseBody().write(data);exchange.close();
         });server.start();
         client=new FauxnanceClient(new FauxnanceProperties("http://127.0.0.1:"+server.getAddress().getPort()+"/v1","test-provider-key",2,true,1800,345600),JsonMapper.builder().build(),Clock.systemUTC());
     }
@@ -44,6 +47,23 @@ class FauxnanceClientTests {
         status=429;retry="7200";body="too many requests";
         assertThat(client.quotes(Set.of("AAPL")).get("AAPL").retryAfterSeconds()).isEqualTo(7200);
         status=403;body="Forbidden";assertThat(client.quotes(Set.of("AAPL")).get("AAPL").errorCode()).isEqualTo("MARKET_DATA_AUTH_FAILED");
+    }
+    @Test void retriesMomentaryProviderErrorsWithinTheCall(){
+        failFirst=1;body="""
+                {"data":{"quotes":[{"symbol":"AAPL","source":"cache","stale":false,
+                "quote":{"price":100,"currency":"USD","asOf":"2026-10-07T15:00:00Z","marketState":"unknown"}}]}}
+                """;
+        assertThat(client.quotes(Set.of("AAPL")).get("AAPL").quote().price()).isEqualByComparingTo("100");
+        assertThat(requests.get()).isEqualTo(2);
+    }
+    @Test void persistentProviderErrorsAskForAShortRetry(){
+        failFirst=Integer.MAX_VALUE;retry=null;
+        var result=client.quotes(Set.of("AAPL")).get("AAPL");
+        assertThat(result.errorCode()).isEqualTo("MARKET_DATA_UNAVAILABLE");
+        assertThat(result.retryAfterSeconds()).isEqualTo(FauxnanceClient.TRANSIENT_RETRY_SECONDS);
+        assertThat(requests.get()).isEqualTo(3);
+        // A provider-supplied Retry-After still wins.
+        retry="120";assertThat(client.quotes(Set.of("AAPL")).get("AAPL").retryAfterSeconds()).isEqualTo(120);
     }
     @Test void malformedQuotesNeverBecomeExecutablePrices(){
         body="""

@@ -22,6 +22,14 @@ class ExecutionPricingTests {
         assertThat(calendar.isOpen(s,"open",Instant.parse("2026-01-05T14:30:00Z"))).isTrue();
         assertThat(calendar.isOpen(s,"open",Instant.parse("2026-07-05T15:00:00Z"))).isFalse();
     }
+    @Test void usSessionFollowsEasternStandardTimeInWinter(){
+        var s=security("EQUITY","NASDAQ","TEST","USD");
+        // Monday 2026-12-07 is in EST (UTC-5): 9:30 ET = 14:30Z and 16:00 ET = 21:00Z.
+        assertThat(calendar.isOpen(s,"unknown",Instant.parse("2026-12-07T14:29:59Z"))).isFalse();
+        assertThat(calendar.isOpen(s,"unknown",Instant.parse("2026-12-07T14:30:00Z"))).isTrue();
+        assertThat(calendar.isOpen(s,"unknown",Instant.parse("2026-12-07T20:59:59Z"))).isTrue();
+        assertThat(calendar.isOpen(s,"unknown",Instant.parse("2026-12-07T21:00:00Z"))).isFalse();
+    }
     @Test void indiaSessionsAndExplicitClosures(){
         var s=security("ETF","NSE","TEST.NS","INR");
         assertThat(calendar.isOpen(s,"unknown",Instant.parse("2026-10-07T03:45:00Z"))).isTrue();

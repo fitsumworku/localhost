@@ -16,6 +16,7 @@ import { AddAccountDialogComponent } from './add-account-dialog/add-account-dial
 import { Account, AccountPage, AccountService } from '../services/account.service';
 import { CashMovementDialogComponent } from './cash-movement-dialog/cash-movement-dialog.component';
 import { AuthService } from '../../auth/services/auth.service';
+import { ThemeToggleComponent } from '../../theme/theme-toggle.component';
 
 // How often a signed-in page confirms its session is still valid, so a
 // blacklisted user is signed out within seconds even while idle.
@@ -38,6 +39,7 @@ const SESSION_CHECK_MS = 5_000;
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
+    ThemeToggleComponent,
   ],
 })
 export class SidebarLayoutComponent {

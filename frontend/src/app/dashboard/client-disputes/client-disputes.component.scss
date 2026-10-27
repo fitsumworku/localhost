@@ -42,7 +42,7 @@ table {
   transition: background 0.15s;
 
   &:hover {
-    background: rgba(46, 229, 157, 0.05);
+    background: rgb(var(--accent-rgb) / 0.05);
   }
 }
 

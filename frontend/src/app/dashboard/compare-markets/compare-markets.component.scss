@@ -97,8 +97,8 @@
   padding: 6px;
   border-radius: 12px;
   border: 1px solid $border;
-  background: #08201a;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  background: var(--surface-solid);
+  box-shadow: 0 20px 50px rgb(0 0 0 / calc(0.45 * var(--shadow-strength)));
 }
 
 .result-item {
@@ -118,7 +118,7 @@
 
   &:hover,
   &:focus-visible {
-    background: rgba(46, 229, 157, 0.08);
+    background: rgb(var(--accent-rgb) / 0.08);
     outline: none;
   }
 
@@ -287,7 +287,7 @@
 
     .dot {
       background: $accent;
-      box-shadow: 0 0 8px rgba(46, 229, 157, 0.8);
+      box-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.8);
     }
   }
 }

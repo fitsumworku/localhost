@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { Event as RouterEvent, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { ThemeToggleComponent } from '../../theme/theme-toggle.component';
 
 type AuthVariant = 'login' | 'signup';
 
@@ -98,7 +99,7 @@ const MORPH_MS = 1400;
   templateUrl: './auth-layout.component.html',
   styleUrl: './auth-layout.component.scss',
   standalone: true,
-  imports: [CommonModule, RouterOutlet],
+  imports: [CommonModule, RouterOutlet, ThemeToggleComponent],
 })
 export class AuthLayoutComponent implements AfterViewInit {
   @ViewChild('chartLine') chartLine!: ElementRef<SVGPathElement>;

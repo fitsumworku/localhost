@@ -5,12 +5,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, interval } from 'rxjs';
 import { TradingDialogComponent } from './trading-dialog/trading-dialog.component';
 import { MarketDataService, MarketQuote, Security, SecurityPage } from './services/market-data.service';
 import { AccountService } from '../services/account.service';
 
 type AssetFilter = 'all' | 'equity' | 'etf' | 'crypto' | 'forex';
+
+// Re-quote the rows on screen so Open/Closed flips at the bell without a reload
+const QUOTE_REFRESH_MS = 60_000;
 
 interface MarketAsset {
   securityId: number;
@@ -20,6 +23,7 @@ interface MarketAsset {
   price: number | null;
   currency: string;
   marketState: MarketQuote['marketState'] | null;
+  tradingOpen: boolean;
   stale: boolean;
   quoteStatus: 'loading' | 'ready' | 'unavailable';
 }
@@ -55,9 +59,13 @@ export class MarketsComponent implements OnInit {
     private accountService: AccountService,
     private changeDetector: ChangeDetectorRef,
   ) {
+    const destroyRef = inject(DestroyRef);
     this.search$
-      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(inject(DestroyRef)))
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(destroyRef))
       .subscribe(() => this.loadSecurities());
+    interval(QUOTE_REFRESH_MS)
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe(() => this.loadQuotes(true));
   }
 
   ngOnInit(): void {
@@ -102,20 +110,22 @@ export class MarketsComponent implements OnInit {
     });
   }
 
-  // Only the rows on screen are quoted
-  private loadQuotes(): void {
+  // Only the rows on screen are quoted. A background refresh keeps the last quote if it fails.
+  private loadQuotes(background = false): void {
     this.marketAssets.forEach((asset) => {
       this.marketData.quote(asset.securityId).subscribe({
         next: (quote: MarketQuote) => {
           asset.price = quote.price;
           asset.currency = quote.currency || asset.currency;
           asset.marketState = quote.marketState;
+          asset.tradingOpen = quote.tradingOpen;
           asset.stale = quote.stale;
           asset.quoteStatus = 'ready';
           this.changeDetector.markForCheck();
         },
         error: (error: HttpErrorResponse) => {
           console.error('[Markets] Failed to load quote', { securityId: asset.securityId, symbol: asset.symbol, error });
+          if (background && asset.quoteStatus === 'ready') return;
           asset.quoteStatus = 'unavailable';
           this.changeDetector.markForCheck();
         },
@@ -132,14 +142,15 @@ export class MarketsComponent implements OnInit {
       price: null,
       currency: security.quoteCurrency,
       marketState: null,
+      tradingOpen: false,
       stale: false,
       quoteStatus: 'loading',
     };
   }
 
-  // Crypto trades around the clock; the backend treats it as always open
+  // The backend's trading calendar decides, so this matches when orders actually fill
   isOpen(asset: MarketAsset): boolean {
-    return asset.type === 'crypto' || asset.marketState === 'open';
+    return asset.tradingOpen;
   }
 
   typeLabel(type: string): string {

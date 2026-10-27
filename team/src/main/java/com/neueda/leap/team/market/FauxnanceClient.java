@@ -1,12 +1,15 @@
 package com.neueda.leap.team.market;
 
 import com.neueda.leap.team.config.FauxnanceProperties;
+import java.io.IOException;
 import java.net.*;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.DeserializationFeature;
@@ -15,6 +18,12 @@ import tools.jackson.databind.json.JsonMapper;
 /** Market data only: Fauxnance does not place trades. Never log its key or raw error bodies. */
 @Component
 public class FauxnanceClient implements MarketDataClient {
+    private static final Logger log = LoggerFactory.getLogger(FauxnanceClient.class);
+    // Provider 5xx and network errors are usually momentary: retry within the call, then
+    // ask callers to come back soon rather than after the default one-minute backoff.
+    private static final int MAX_ATTEMPTS = 3;
+    private static final long[] BACKOFF_MS = {300, 1000};
+    static final long TRANSIENT_RETRY_SECONDS = 15;
     private final FauxnanceProperties properties;
     private final JsonMapper json;
     private final Clock clock;
@@ -40,7 +49,7 @@ public class FauxnanceClient implements MarketDataClient {
                 URI uri = URI.create(properties.baseUrl().replaceAll("/+$", "") + "/quotes?symbols=" + joined);
                 var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(properties.timeoutSeconds()))
                         .header("X-Api-Key", properties.apiKey()).header("Accept", "application/json").GET().build();
-                var response = http.send(request, HttpResponse.BodyHandlers.ofString());
+                var response = send(request, "quotes");
                 if (response.statusCode() != 200) {
                     String code = switch (response.statusCode()) {
                         case 202 -> "BACKFILL_IN_PROGRESS";
@@ -49,7 +58,9 @@ public class FauxnanceClient implements MarketDataClient {
                         // Request-level errors do not prove an individual symbol is untradeable.
                         default -> "MARKET_DATA_UNAVAILABLE";
                     };
-                    long retry = retryAfter(response.headers().firstValue("Retry-After").orElse(null));
+                    String retryHeader = response.headers().firstValue("Retry-After").orElse(null);
+                    long retry = response.statusCode() >= 500 && retryHeader == null
+                            ? TRANSIENT_RETRY_SECONDS : retryAfter(retryHeader);
                     if (response.statusCode() == 401 || response.statusCode() == 403) retry = Math.max(300, retry);
                     long delay = retry;
                     batch.forEach(s -> result.put(s, QuoteResult.error(code, delay)));
@@ -79,7 +90,7 @@ public class FauxnanceClient implements MarketDataClient {
                 batch.forEach(s -> result.put(s, QuoteResult.error("MARKET_DATA_INTERRUPTED", 60)));
                 break;
             } catch (Exception e) {
-                batch.forEach(s -> result.put(s, QuoteResult.error("MARKET_DATA_UNAVAILABLE", 60)));
+                batch.forEach(s -> result.put(s, QuoteResult.error("MARKET_DATA_UNAVAILABLE", TRANSIENT_RETRY_SECONDS)));
             }
         }
         all.forEach(s -> result.putIfAbsent(s, QuoteResult.error("MARKET_DATA_UNAVAILABLE", 60)));
@@ -94,7 +105,7 @@ public class FauxnanceClient implements MarketDataClient {
                     + URLEncoder.encode(symbol, StandardCharsets.UTF_8) + "?from=" + from + "&to=" + to);
             var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(properties.timeoutSeconds()))
                     .header("X-Api-Key", properties.apiKey()).header("Accept", "application/json").GET().build();
-            var response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            var response = send(request, "candles");
             if (response.statusCode() != 200) return Optional.empty();
             JsonNode candles = json.readTree(response.body()).path("data").path("candles");
             if (!candles.isArray()) return Optional.empty();
@@ -111,6 +122,34 @@ public class FauxnanceClient implements MarketDataClient {
             return Optional.empty();
         } catch (Exception e) {
             return Optional.empty();
+        }
+    }
+
+    /**
+     * Sends with a short in-call retry on provider 5xx and network errors, within one timeout's
+     * worth of time so a provider outage cannot stall the order worker. Logs status codes and
+     * exception types only: never the key, URL query or response body.
+     */
+    private HttpResponse<String> send(HttpRequest request, String operation) throws IOException, InterruptedException {
+        long deadline = System.nanoTime() + Duration.ofSeconds(properties.timeoutSeconds()).toNanos();
+        for (int attempt = 1; ; attempt++) {
+            boolean last = attempt >= MAX_ATTEMPTS || System.nanoTime() >= deadline;
+            try {
+                var response = http.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() < 500) return response;
+                if (last) {
+                    log.warn("Fauxnance {} failed with HTTP {} after {} attempt(s)", operation, response.statusCode(), attempt);
+                    return response;
+                }
+                log.debug("Fauxnance {} returned HTTP {} (attempt {}), retrying", operation, response.statusCode(), attempt);
+            } catch (IOException e) {
+                if (last) {
+                    log.warn("Fauxnance {} failed with {} after {} attempt(s)", operation, e.getClass().getSimpleName(), attempt);
+                    throw e;
+                }
+                log.debug("Fauxnance {} failed with {} (attempt {}), retrying", operation, e.getClass().getSimpleName(), attempt);
+            }
+            Thread.sleep(BACKOFF_MS[Math.min(attempt - 1, BACKOFF_MS.length - 1)]);
         }
     }
 

@@ -1,9 +1,11 @@
-// Shared colours for the auth pages (layout background + cards)
-$bg: #020f0a;
-$surface: rgba(6, 28, 20, 0.62);
-$border: rgba(46, 229, 157, 0.18);
-$accent: #2ee59d;
-$accent-strong: #19c27f;
-$text: #e8fff5;
-$muted: rgba(232, 255, 245, 0.6);
-$error: #ff7a7a;
+// Shared colours for the auth pages (layout background + cards). Each points at a
+// theme token in styles.scss, so light/dark mode switches them at runtime.
+$bg: var(--bg);
+$surface: rgb(var(--surface-rgb) / 0.62);
+$border: var(--border);
+$accent: var(--accent);
+$accent-strong: var(--accent-strong);
+$text: var(--text);
+$muted: var(--muted);
+$error: var(--down);
+$on-accent: var(--on-accent);

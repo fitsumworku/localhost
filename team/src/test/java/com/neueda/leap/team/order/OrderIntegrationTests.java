@@ -219,6 +219,15 @@ class OrderIntegrationTests extends AccountTestSupport {
         assertThat(getJson("/securities/"+security+"/quote",token).path("symbol").asText()).isEqualTo("TEST");
         mvc.perform(get("/securities")).andExpect(status().isUnauthorized());
     }
+    @Test void quoteReportsTheSameTradingSessionExecutionUses() throws Exception {
+        // TEST trades on an unlisted venue, so the calendar defers to the provider's explicit session.
+        quotes.overrides.put("TEST",quote("TEST","100","USD","open",false));
+        assertThat(getJson("/securities/"+security+"/quote",token).path("tradingOpen").asBoolean()).isTrue();
+        quotes.overrides.put("TEST",quote("TEST","100","USD","closed",false));
+        var closed=getJson("/securities/"+security+"/quote",token);
+        assertThat(closed.path("tradingOpen").asBoolean()).isFalse();
+        assertThat(closed.path("marketState").asText()).isEqualTo("closed");
+    }
     @Test void nativePostgresSerializesCompetingBuyReservations() throws Exception {
         Assumptions.assumeTrue(nativePostgres(),"Requires independently isolated PostgreSQL sessions");
         var pool=Executors.newFixedThreadPool(2);var barrier=new CyclicBarrier(2);
