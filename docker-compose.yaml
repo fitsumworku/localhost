@@ -28,48 +28,48 @@ services:
 
     restart: unless-stopped
 
-  postgres-db:
-    build:
-      context: .
-      dockerfile: Dockerfile.postgres
-    container_name: postgres_container
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sampleoltpdata}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-    ports:
-      - "${OLTP_HOST_PORT:-5432}:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test:
-        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+  # postgres-db:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.postgres
+  #   container_name: postgres_container
+  #   environment:
+  #     POSTGRES_DB: ${POSTGRES_DB:-sampleoltpdata}
+  #     POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+  #   ports:
+  #     - "${OLTP_HOST_PORT:-5432}:5432"
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test:
+  #       ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
 
-  postgres-olap:
-    build:
-      context: .
-      dockerfile: Dockerfile.postgres.olap
-    container_name: postgres_olap_container
-    environment:
-      POSTGRES_DB: ${OLAP_POSTGRES_DB:-sampleolapdata}
-      POSTGRES_USER: ${OLAP_POSTGRES_USER:-postgres}
-      # Existing .env files still work. Set a separate password when desired.
-      POSTGRES_PASSWORD: ${OLAP_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}}
-    ports:
-      - "${OLAP_HOST_PORT:-5433}:5432"
-    volumes:
-      - olap_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test:
-        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+  # postgres-olap:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.postgres.olap
+  #   container_name: postgres_olap_container
+  #   environment:
+  #     POSTGRES_DB: ${OLAP_POSTGRES_DB:-sampleolapdata}
+  #     POSTGRES_USER: ${OLAP_POSTGRES_USER:-postgres}
+  #     # Existing .env files still work. Set a separate password when desired.
+  #     POSTGRES_PASSWORD: ${OLAP_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}}
+  #   ports:
+  #     - "${OLAP_HOST_PORT:-5433}:5432"
+  #   volumes:
+  #     - olap_pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test:
+  #       ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
 
   pgadmin:
     image: dpage/pgadmin4:9.17
