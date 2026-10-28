@@ -8,11 +8,11 @@ services:
       - .env
     environment:
       # Business operations continue to use OLTP; reporting has its own pool.
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB:-sampleoltpdata}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-${SPRING_DATASOURCE_OLTP_URL:-jdbc:postgresql://${POSTGRES_HOST:-postgres-db}:5432/${POSTGRES_DB:-sampleoltpdata}}}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-${POSTGRES_USER:-postgres}}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}}
       REPORTING_ENABLED: ${REPORTING_ENABLED:-true}
-      OLAP_DB_URL: jdbc:postgresql://postgres-olap:5432/${OLAP_POSTGRES_DB:-sampleolapdata}
+      OLAP_DB_URL: ${OLAP_DB_URL:-${SPRING_DATASOURCE_OLAP_URL:-jdbc:postgresql://${OLAP_HOST:-postgres-olap}:5432/${OLAP_POSTGRES_DB:-sampleolapdata}}}
       OLAP_DB_USERNAME: ${OLAP_POSTGRES_USER:-postgres}
       OLAP_DB_PASSWORD: ${OLAP_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}}
       ETL_ENABLED: ${ETL_ENABLED:-true}
