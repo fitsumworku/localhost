@@ -20,11 +20,11 @@ services:
       ETL_DELAY_MS: ${ETL_DELAY_MS:-60000}
     ports:
       - "8081:8081"
-    depends_on:
-      postgres-db:
-        condition: service_healthy
-      postgres-olap:
-        condition: service_healthy
+    # depends_on:
+    #   postgres-db:
+    #     condition: service_healthy
+    #   postgres-olap:
+    #     condition: service_healthy
 
     restart: unless-stopped
 
