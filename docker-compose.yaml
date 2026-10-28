@@ -71,20 +71,20 @@ services:
   #     retries: 5
   #   restart: unless-stopped
 
-  pgadmin:
-    image: dpage/pgadmin4:9.17
-    container_name: pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-    ports:
-      - "8082:80"
-    depends_on:
-      postgres-db:
-        condition: service_healthy
-      postgres-olap:
-        condition: service_healthy
-    restart: unless-stopped
+  # pgadmin:
+  #   image: dpage/pgadmin4:9.17
+  #   container_name: pgadmin
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+  #   ports:
+  #     - "8082:80"
+  #   depends_on:
+  #     postgres-db:
+  #       condition: service_healthy
+  #     postgres-olap:
+  #       condition: service_healthy
+  #   restart: unless-stopped
   frontend:
     build:
       context: ./frontend
